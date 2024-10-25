@@ -80,6 +80,8 @@ class ProcessManagerDriver(GRPCDriver):
         pwd = os.getcwd()
 
         session_log_path = session_dal.log_path
+        if session_log_path == './':
+            session_log_path = pwd
 
         for app in apps:
             host = app['restriction']
