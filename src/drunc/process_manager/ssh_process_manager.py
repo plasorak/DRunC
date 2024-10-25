@@ -128,7 +128,7 @@ class SSHProcessManager(ProcessManager):
         return pil
 
 
-    def _terminate_impl(self, query:ProcessQuery) -> ProcessInstanceList:
+    def _terminate_impl(self) -> ProcessInstanceList:
         self._log.info('Terminating')
         if self.process_store:
             self._log.warning('Killing all the known processes before exiting')

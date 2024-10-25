@@ -192,7 +192,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
 
     @abc.abstractmethod
-    def _terminate_impl(self, q:ProcessQuery) -> ProcessInstanceList:
+    def _terminate_impl(self) -> ProcessInstanceList:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -201,10 +201,10 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         action=ActionType.DELETE,
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
-    @unpack_request_data_to(ProcessQuery) # 3rd step
-    def terminate(self, q:ProcessQuery) -> Response:
+    @unpack_request_data_to(None) # 3rd step
+    def terminate(self) -> Response:
         try:
-            resp = self._terminate_impl(q)
+            resp = self._terminate_impl()
             return Response(
                 name = self.name,
                 token = None,
