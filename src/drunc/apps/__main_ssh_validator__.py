@@ -18,13 +18,8 @@ def validate_ssh_connection(confiuguration_filename:str, session_name:str, verbo
     disabled_applications = [app.id for app in session_dal.disabled]
     hosts = set()
 
-    # Add the controller host
-    hosts.add(session_dal.segment.controller.runs_on.runs_on.id)
-
-    # Add the segment application hosts
-    for segment in session_dal.segment.segments:
-        for app in collect_apps(db, session_dal, segment, {}):
-            hosts.add(app["host"])
+    for app in collect_apps(db, session_dal, session_dal.segment, {}):
+        hosts.add(app["host"])
 
     ssh = Command('/usr/bin/ssh')
     for host in hosts:
