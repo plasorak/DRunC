@@ -86,7 +86,7 @@ async def terminate(obj:ProcessManagerContext) -> None:
     obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
 
 @click.command('kill')
-@add_query_options(at_least_one=False)
+@add_query_options(at_least_one=True)
 @click.pass_obj
 @run_coroutine
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
