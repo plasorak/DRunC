@@ -115,12 +115,14 @@ class ProcessManagerDriver(GRPCDriver):
                 args=args))
 
             from drunc.utils.utils import now_str
+            if app_log_path == './':
+                app_log_path = pwd
 
-            if app_log_path:
+            if app_log_path: # if the user wants to write to a specific path, we never override
                 log_path = f'{app_log_path}/log_{user}_{session}_{name}_{now_str(True)}.txt'
-            elif session_log_path:
+            elif session_log_path: # if the user wants the session to write to a specific path, we never override
                 log_path = f'{session_log_path}/log_{user}_{session}_{name}_{now_str(True)}.txt'
-            elif override_logs:
+            elif override_logs: # else we check for the override flag
                 log_path = f'{pwd}/log_{user}_{session}_{name}.txt'
             else:
                 log_path = f'{pwd}/log_{user}_{session}_{name}_{now_str(True)}.txt'
