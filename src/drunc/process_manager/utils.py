@@ -7,7 +7,7 @@ def generate_process_query(f, at_least_one:bool, all_processes_by_default:bool=F
         is_trivial_query = bool((len(uuid) == 0) and (session is None) and (len(name) == 0) and (user is None))
 
         if is_trivial_query and at_least_one:
-            raise click.BadParameter('You need to provide at least a \'--uuid\', \'--session\', \'--user\' or \'--name\'!\nAll these values are presented with \'ps\'.\nIf you want to kill everything, use \'terminate\'.')
+            raise click.BadParameter('You need to provide at least a \'--uuid\', \'--session\', \'--user\' or \'--name\'!\nAll these values are presented with \'ps\'.\nIf you want to kill everything, use \'ps\' and \'kill\'.')
 
         if all_processes_by_default and is_trivial_query:
             name = ['.*']
