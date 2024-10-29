@@ -281,11 +281,10 @@ To find the controller address, you can look up \'{top_controller_name}_control\
                 outformat = ProcessInstance,
             )
 
-    async def terminate(self, query:ProcessQuery) -> ProcessInstanceList:
+    async def terminate(self, ) -> ProcessInstanceList:
         return await self.send_command_aio(
             'terminate',
-            data = query,
-            outformat = ProcessInstanceList,
+            outformat = ProcessInstanceList
         )
 
     async def kill(self, query:ProcessQuery) -> ProcessInstance:

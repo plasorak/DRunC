@@ -76,20 +76,17 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
 
 
 @click.command('terminate')
-@add_query_options(at_least_one=False)
 @click.pass_obj
 @run_coroutine
-async def terminate(obj:ProcessManagerContext, query:ProcessQuery) -> None:
-    result = await obj.get_driver('process_manager').terminate(
-        query = query,
-    )
+async def terminate(obj:ProcessManagerContext) -> None:
+    result = await obj.get_driver('process_manager').terminate()
     if not result: return
 
     from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
 
 @click.command('kill')
-@add_query_options(at_least_one=False)
+@add_query_options(at_least_one=True)
 @click.pass_obj
 @run_coroutine
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
