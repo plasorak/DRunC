@@ -129,7 +129,7 @@ class GRPCDriver:
             if response.flag in [
                 ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
             ]:
-                self._log.info(text())
+                self._log.debug(text())
             elif response.flag in [
                 ResponseFlag.NOT_EXECUTED_NOT_IN_CONTROL,
             ]:

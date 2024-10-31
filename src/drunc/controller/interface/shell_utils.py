@@ -61,7 +61,7 @@ def controller_setup(ctx, controller_address):
         console=ctx._console,
     ) as progress:
 
-        waiting = progress.add_task("[yellow]timeout", total=timeout)
+        waiting = progress.add_task("[yellow]Trying to talk to the top controller...", total=timeout)
 
         stored_exception = None
         import time
@@ -177,7 +177,7 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
             raise MissingArgument(aname, atype)
 
         value = arguments.get(aname)
-        if not value:
+        if value is None:
             out_dict[aname] = adefa
             continue
 
@@ -231,7 +231,7 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
     return out_dict
 
 
-def format_bool(b, format=['dark_green', 'bold white on red'], false_is_good = False):
+def format_bool(b, format=['dark_green', 'red'], false_is_good = False):
     index_true = 0 if not false_is_good else 1
     index_false = 1 if not false_is_good else 0
 
@@ -299,13 +299,13 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
             flag = True
         if not FSM and flag_message == ResponseFlag.EXECUTED_SUCCESSFULLY:
             flag = True
-        return "success" if flag else "failed"
+        return "[dark_green]success[/]" if flag else "[red]failed[/]"
 
     def add_to_table(table, response, prefix=''):
         table.add_row(
             prefix+response.name,
             bool_to_success(response.flag, FSM=False),
-            bool_to_success(response.data.flag, FSM=True) if response.flag == FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY else "failed",
+            bool_to_success(response.data.flag, FSM=True) if response.flag == FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY else "[red]failed[/]",
         )
         for child_response in response.children:
             add_to_table(table, child_response, "  "+prefix)
