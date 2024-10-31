@@ -5,7 +5,7 @@ class an_enum(Enum):
     ONE=1
     TWO=2
 
-class TestAction(FSMAction):
+class SomeTestAction(FSMAction):
     def __init__(self, configuration):
         super().__init__(
             name = "test-action"
