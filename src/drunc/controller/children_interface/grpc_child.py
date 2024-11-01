@@ -90,12 +90,20 @@ class gRPCChildNode(ChildNode):
         )
 
     def get_status(self, token) -> Response:
-        return send_command(
-            controller = self.controller,
-            token = token,
-            command = 'status',
-            data = None
+        from druncschema.controller_pb2 import Status
+        from drunc.utils.grpc_utils import unpack_any
+
+        status = unpack_any(
+            send_command(
+                controller = self.controller,
+                token = token,
+                command = 'get_status',
+                data = None
+            ).data,
+            Status
         )
+
+        return status
 
     def terminate(self):
         if self.channel:

@@ -27,8 +27,14 @@ class ControllerDriver(GRPCDriver):
         input = PlainText(text = key)
         return self.send_command('describe_fsm', data = input, outformat = FSMCommandsDescription)
 
-    def status(self) -> Description:
-        return self.send_command('status', outformat = Status)
+    def ls(self) -> Description:
+        return self.send_command('ls', outformat = PlainTextVector)
+
+    def get_status(self) -> Description:
+        return self.send_command('get_status', outformat = Status)
+
+    def get_children_status(self) -> Description:
+        return self.send_command('get_children_status', outformat = ChildrenStatus)
 
     def take_control(self) -> Description:
         return self.send_command('take_control', outformat = PlainText)
