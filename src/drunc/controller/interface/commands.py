@@ -37,7 +37,7 @@ def wait(obj:ControllerContext, sleep_time:int) -> None:
 @click.command('status')
 @click.pass_obj
 def status(obj:ControllerContext) -> None:
-    from druncschema.controller_pb2 import Status, ChildrenStatus
+    from druncschema.controller_pb2 import Status
     statuses = obj.get_driver('controller').status()
 
     if not status: return

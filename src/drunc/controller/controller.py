@@ -3,7 +3,7 @@ from druncschema.token_pb2 import Token
 from druncschema.generic_pb2 import PlainText, PlainTextVector
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.controller_pb2 import Status, ChildrenStatus
+from druncschema.controller_pb2 import Status
 from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag
 
 from drunc.controller.children_interface.child_node import ChildNode
