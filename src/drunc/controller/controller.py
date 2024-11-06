@@ -436,8 +436,8 @@ if nothing (None) is provided, return the transitions accessible from the curren
 
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def status(self, token:Token) -> Response:
+        from drunc.controller.utils import get_status_message
         status = get_status_message(self.stateful_node)
-
         return Response (
             name = self.name,
             token = token,
