@@ -273,7 +273,7 @@ class ShellContext:
                 raise DruncShellException(f'More than one driver in this context')
             return list(self._drivers.values())[0]
         except KeyError:
-            self._log.error(f'FSM Commands cannot be sent until the Session is booted')
+            self._log.error(f'Controller-specific commands cannot be sent until the session is booted')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
 
     def get_token(self) -> Token:
@@ -302,13 +302,12 @@ class ShellContext:
 
 
     def print_status_summary(self) -> None:
-        status = self.get_driver('controller').get_status().data.state
-        available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
-        if status.find('(') == -1:
-            self.print(f"Current FSM status is [green]{status}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
-        else:
+        status = self.get_driver('controller').status().data
+        if status.in_error:
             self.print(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
-        return
+        else:
+            available_actions = [command.name for command in self.get_driver('controller').describe_fsm().data.commands]
+            self.print(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
 
 
 def create_dummy_token_from_uname() -> Token:
