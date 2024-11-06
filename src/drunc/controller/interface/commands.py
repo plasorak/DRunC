@@ -40,7 +40,12 @@ def status(obj:ControllerContext) -> None:
     from druncschema.controller_pb2 import Status
     statuses = obj.get_driver('controller').status()
 
-    if not status: return
+    if not statuses: return
+    if type(statuses.data) != Status:
+        from google.protobuf.any_pb2 import Any
+        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
+        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
+        return
 
     from drunc.controller.interface.shell_utils import format_bool, tree_prefix
 
