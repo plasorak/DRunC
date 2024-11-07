@@ -34,43 +34,15 @@ def wait(obj:ControllerContext, sleep_time:int) -> None:
     obj.print(f"Command [green]wait[/green] ran for {sleep_time} seconds.")
 
 
+
+
 @click.command('status')
 @click.pass_obj
 def status(obj:ControllerContext) -> None:
-    from druncschema.controller_pb2 import Status
     statuses = obj.get_driver('controller').status()
 
-    if not statuses: return
-    if type(statuses.data) != Status:
-        from google.protobuf.any_pb2 import Any
-        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
-        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
-        return
-
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
-
-    from rich.table import Table
-    t = Table(title=f'{status.name} status')
-    t.add_column('Name')
-    t.add_column('State')
-    t.add_column('Substate')
-    t.add_column('In error', justify='center')
-    t.add_column('Included', justify='center')
-
-    def add_status_to_table(status, table, prefix):
-        table.add_row(
-            prefix+status.name,
-            status.data.state,
-            status.data.sub_state,
-            format_bool(status.data.in_error, false_is_good = True),
-            format_bool(status.data.included),
-        )
-        for child in status.children:
-            add_status_to_table(child, table, prefix=prefix+'  ')
-    add_status_to_table(statuses, t, prefix='')
-    obj.print(t)
-    obj.print_status_summary()
-    return
+    from drunc.controller.interface.shell_utils import print_status_table
+    print_status_table(obj,statuses)
 
 @click.command('connect')
 @click.argument('controller_address', type=str)

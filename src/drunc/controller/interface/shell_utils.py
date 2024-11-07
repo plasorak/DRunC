@@ -4,6 +4,41 @@ from druncschema.controller_pb2 import FSMCommandsDescription
 import logging
 log = logging.getLogger('controller_shell_utils')
 
+
+def print_status_table(obj, statuses):
+    from druncschema.controller_pb2 import Status
+    if not statuses: return
+
+    if type(statuses.data) != Status:
+        from google.protobuf.any_pb2 import Any
+        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
+        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
+        return
+
+    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
+    from rich.table import Table
+
+    t = Table(title=f'Status')
+    t.add_column('Name')
+    t.add_column('State')
+    t.add_column('Substate')
+    t.add_column('In error', justify='center')
+    t.add_column('Included', justify='center')
+
+    def add_status_to_table(status, table, prefix):
+        table.add_row(
+            prefix+status.name,
+            status.data.state,
+            status.data.sub_state,
+            format_bool(status.data.in_error, false_is_good = True),
+            format_bool(status.data.included),
+        )
+        for child in status.children:
+            add_status_to_table(child, table, prefix=prefix+'  ')
+    add_status_to_table(statuses, t, prefix='')
+    obj.print(t)
+    obj.print_status_summary()
+
 def controller_cleanup_wrapper(ctx):
     def controller_cleanup():
         # remove the shell from the controller broadcast list
@@ -312,6 +347,11 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     add_to_table(t, result)
     obj.print(t)
+
+    statuses = obj.get_driver('controller').status()
+
+    from drunc.controller.interface.shell_utils import print_status_table
+    print_status_table(obj, statuses)
 
 
 from druncschema.controller_pb2 import FSMCommandDescription
