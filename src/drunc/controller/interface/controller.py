@@ -1,6 +1,8 @@
 import click
 import signal
 from drunc.utils.utils import log_levels,  update_log_level, validate_command_facility
+import os
+import logging
 
 @click.command()
 @click.argument('configuration', type=str)
@@ -61,20 +63,24 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         console.print('Requested termination')
         ctrlr.terminate()
 
+    def kill_me(sig, frame):
+        l = logging.getLogger("kill_me")
+        l.info('Sending SIGKILL')
+        pgrp = os.getpgid(os.getpid())
+        os.killpg(pgrp, signal.SIGKILL)
+
     def shutdown(sig, frame):
-        console.print(f'Received {sig}')
+        l = logging.getLogger("shutdown")
+        l.info('Shutting down gracefully')
         try:
             controller_shutdown()
         except:
             from drunc.utils.utils import print_traceback
             print_traceback()
+            kill_me(sig, frame)
 
-        import os
-        os.kill(os.getpid(), signal.SIGKILL)
-
-    terminate_signals = [signal.SIGHUP] # Only SIGHUP - killing the tunnels
-    for sig in terminate_signals:
-        signal.signal(sig, shutdown)
+    signal.signal(signal.SIGHUP, kill_me)
+    signal.signal(signal.SIGINT, shutdown)
 
     try:
         from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip
