@@ -89,7 +89,7 @@ The set of commands that you can send to the `root-controller` are
 Let's take the DAQ for a spin:
 ```bash
 drunc-unified-shell > conf
-drunc-unified-shell > start 12345 # start the run 12345
+drunc-unified-shell > start --run-number 12345 # start the run 12345
 drunc-unified-shell > enable-triggers
 [...we wait for a bit of time, to get a file...]
 drunc-unified-shell > disable-triggers

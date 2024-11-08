@@ -12,7 +12,7 @@ Before and after certain transitions, there are actions that are associated with
 Three configurations are currently available, they are defined in [in this file](https://github.com/DUNE-DAQ/daqsystemtest/blob/develop/config/daqsystemtest/fsm.data.xml):
 - `fsmConf-test`
     - This configuration is for test setup _anywhere_. With this configuration, you get:
-        - Asked by the run control for a run number (user-provided-run-number action) when you start, you can also specify to `--disable-data-storage`, the `--trigger-rate` and whether the run is "PROD" or "TEST" with `--run-type`.
+        - Asked by the run control for a run number (user-provided-run-number action) when you start: you need to provide `--run-number 1234`. You can also specify to `--disable-data-storage`, the `--trigger-rate` and whether the run is "PROD" or "TEST" with `--run-type`.
         - A simple thread pinning example running before and after conf, and after start.
         - A "consolidated" configuration saved in PWD with the run number in its filename.
         - A logbook.txt that doesn't say much beyond who started the run, the run number and time, and any message you leave at start.
@@ -87,6 +87,7 @@ The listings provide the actions in the order of execution. Any actions presente
  - `post`- (`file-logbook`)
 
 ## Sequences
+Are not supported yet. You can ignore the rest of this document.
 These define a sequence of transitions pregrouped. These are executed in the order that they are presented in. They are currently only defined on the client side. They are executed as normal FSM transitions. The existing sequences are in yellow in the diagram at the top of the screen. The sequences are
  - `start_run` - executes `conf`, `start`, and `enable_triggers`
  - `stop_run` - executes `disable_triggers`, `drain_dataflow`, `stop_trigger_sources`, and `stop`
