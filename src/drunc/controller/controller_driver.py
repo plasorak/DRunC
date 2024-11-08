@@ -1,6 +1,6 @@
 from druncschema.request_response_pb2 import Request, Response, Description
 from druncschema.generic_pb2 import PlainText, PlainTextVector
-from druncschema.controller_pb2 import Status, ChildrenStatus
+from druncschema.controller_pb2 import Status
 
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
@@ -27,14 +27,8 @@ class ControllerDriver(GRPCDriver):
         input = PlainText(text = key)
         return self.send_command('describe_fsm', data = input, outformat = FSMCommandsDescription)
 
-    def ls(self) -> Description:
-        return self.send_command('ls', outformat = PlainTextVector)
-
-    def get_status(self) -> Description:
-        return self.send_command('get_status', outformat = Status)
-
-    def get_children_status(self) -> Description:
-        return self.send_command('get_children_status', outformat = ChildrenStatus)
+    def status(self) -> Description:
+        return self.send_command('status', outformat = Status)
 
     def take_control(self) -> Description:
         return self.send_command('take_control', outformat = PlainText)
