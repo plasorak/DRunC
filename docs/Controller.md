@@ -15,17 +15,19 @@ These commands are generated automatically from the controller, which in turns c
 ```bash
 conf
 start --help
-Usage: drunc-unified-shell PROCESS_MANAGER_CONFIGURATION BOOT_CONFIGURATION SESSION_NAME start
-           [OPTIONS] RUN_NUMBER
+Usage: PROCESS_MANAGER BOOT_CONFIGURATION SESSION_NAME start
+           [OPTIONS]
 
   Execute the transition start on the controller root-controller
 
 Options:
   --file-logbook-post TEXT
+  --run-type TEXT
   --trigger-rate FLOAT
   --disable-data-storage BOOLEAN
+  --run-number INTEGER            [required]
   --help                          Show this message and exit.
-start 123456
+start --run-number 1234
 enable-triggers
 [etc...]
 ```
