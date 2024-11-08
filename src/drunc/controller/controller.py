@@ -3,7 +3,7 @@ from druncschema.token_pb2 import Token
 from druncschema.generic_pb2 import PlainText, PlainTextVector
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.controller_pb2 import Status, ChildrenStatus
+from druncschema.controller_pb2 import Status
 from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag
 
 from drunc.controller.children_interface.child_node import ChildNode
@@ -158,24 +158,10 @@ class Controller(ControllerServicer):
             ),
 
             CommandDescription(
-                name = 'get_children_status',
-                data_type = ['generic_pb2.PlainText','None'],
-                help = 'Get the status of all the children. Only get the status from the child if provided in the request.',
-                return_type = 'controller_pb2.ChildrenStatus'
-            ),
-
-            CommandDescription(
-                name = 'get_status',
+                name = 'status',
                 data_type = ['None'],
                 help = 'Get the status of self',
                 return_type = 'controller_pb2.Status'
-            ),
-
-            CommandDescription(
-                name = 'ls',
-                data_type = ['None'],
-                help = 'List the children',
-                return_type = 'generic_pb2.PlainTextVector'
             ),
 
             CommandDescription(
@@ -447,75 +433,17 @@ if nothing (None) is provided, return the transitions accessible from the curren
         action=ActionType.READ,
         system=SystemType.CONTROLLER
     ) # 2nd step
-    @unpack_request_data_to(pass_token=True) # 3rd step
-    def get_children_status(self, token:Token) -> Response:
-        #from drunc.controller.utils import get_status_message
-        cs = []
-        for n in self.children_nodes:
-            try:
-                cs += [n.get_status(token)]
-            except Exception as e: # TEMPORARY hack
-                from druncschema.controller_pb2 import Status
-                cs += [
-                    Status(
-                        name = n.name,
-                        state = 'unknown',
-                        sub_state = 'unknown',
-                        in_error = True,
-                    )
-                ]
 
-        response =  ChildrenStatus(
-            children_status = cs
-        )
-        return Response(
-            name = self.name,
-            token = None,
-            data = pack_to_any(response),
-            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = [],
-        )
-
-    # ORDER MATTERS!
-    @broadcasted # outer most wrapper 1st step
-    @authentified_and_authorised(
-        action=ActionType.READ,
-        system=SystemType.CONTROLLER
-    ) # 2nd step
-    @unpack_request_data_to(None) # 3rd step
-    def get_status(self) -> Response:
+    @unpack_request_data_to(None, pass_token=True) # 3rd step
+    def status(self, token:Token) -> Response:
         from drunc.controller.utils import get_status_message
         status = get_status_message(self.stateful_node)
-        status.name = self.name
-
         return Response (
             name = self.name,
-            token = None,
+            token = token,
             data = pack_to_any(status),
             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = [],
-        )
-
-
-    # ORDER MATTERS!
-    @broadcasted # outer most wrapper 1st step
-    @authentified_and_authorised(
-        action=ActionType.READ,
-        system=SystemType.CONTROLLER
-    ) # 2nd step
-    @unpack_request_data_to(None) # 3rd step
-    def ls(self) -> PlainTextVector:
-        nodes = [node.name for node in self.children_nodes]
-        response = PlainTextVector(
-            text = nodes
-        )
-
-        return Response (
-            name = self.name,
-            token = None,
-            data = pack_to_any(response),
-            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = [],
+            children = [n.get_status(token) for n in self.children_nodes]
         )
 
 
