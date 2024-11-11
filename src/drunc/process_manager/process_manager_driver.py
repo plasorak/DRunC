@@ -121,7 +121,8 @@ class ProcessManagerDriver(GRPCDriver):
                         session = session_name,
                         name = name,
                         hostname = "",
-                        tree_id = tree_id
+                        tree_id = tree_id,
+                        detector_name = app["detector_name"] if "detector_name" in app else None
                     ),
                     executable_and_arguments = executable_and_arguments,
                     env = env,
@@ -161,9 +162,9 @@ class ProcessManagerDriver(GRPCDriver):
             except Exception as e:
                 log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration). To debug it, close drunc and run the following command:
 
-[yellow]oks_dump --files-only {oks_conf}[/]
+                [yellow]oks_dump --files-only {oks_conf}[/]
 
-''', extra={'markup': True})
+                ''', extra={'markup': True})
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")

@@ -1,4 +1,4 @@
-
+from druncschema.process_manager_pb2 import ProcessInstanceList, ProcessInstance
 def generate_process_query(f, at_least_one:bool, all_processes_by_default:bool=False):
     import click
 
@@ -44,18 +44,19 @@ def make_tree(values):
             lines.append("    " + m.name)
     return lines
 
-def tabulate_process_instance_list(pil, title, long=False):
+def tabulate_process_instance_list(pil:ProcessInstanceList, title:str, long:bool=False):
     from rich.table import Table
     t = Table(title=title)
-    t.add_column('session')
-    t.add_column('friendly name')
-    t.add_column('user')
-    t.add_column('host')
-    t.add_column('uuid')
-    t.add_column('alive')
-    t.add_column('exit-code')
+    t.add_column('Session')
+    t.add_column('Friendly name')
+    t.add_column('Detector')
+    t.add_column('User')
+    t.add_column('Host')
+    t.add_column('UUID')
+    t.add_column('Alive')
+    t.add_column('Exit-code')
     if long:
-        t.add_column('executable')
+        t.add_column('Executable')
 
     from operator import attrgetter
     sorted_pil = sorted(pil.values, key=attrgetter('process_description.metadata.tree_id'))
@@ -63,9 +64,8 @@ def tabulate_process_instance_list(pil, title, long=False):
     try:
         for process, line in zip(sorted_pil, tree_str):
             m = process.process_description.metadata
-            from druncschema.process_manager_pb2 import ProcessInstance
             alive = 'True' if process.status_code == ProcessInstance.StatusCode.RUNNING else '[danger]False[/danger]'
-            row = [m.session, line, m.user, m.hostname, process.uuid.uuid]
+            row = [m.session, line, m.detector_name, m.user, m.hostname, process.uuid.uuid]
             if long:
                 executables = [e.exec for e in process.process_description.executable_and_arguments]
                 row += ['; '.join(executables)]

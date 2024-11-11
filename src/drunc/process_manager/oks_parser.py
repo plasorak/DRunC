@@ -121,7 +121,16 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
         "log_path": app.log_path,
       }
     )
-
+    if hasattr(app, "contains"):
+      for i in app.contains:
+        fullname_split = i.__fullname__.split("@")
+        detector_name = fullname_split[0]  
+        contains_class = fullname_split[1]
+        if contains_class == "DetectorToDaqConnection":
+          # REQUIRES REVIEW!!!!
+          # Note for local-1x1-session this is conn_apa1, but in ehn1-daqconfigs/segments this is e.g. apa1-connections/crp4-connections. This is not consistent between the schema
+          detector_name = [_ for _ in detector_name.replace("-", "_").split("_") if "conn" not in _][0].upper()
+          apps[-1]["detector_name"] = detector_name
   return apps
 
 
