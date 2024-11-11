@@ -12,7 +12,6 @@ from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolv
 
 from drunc.exceptions import DruncSetupException, DruncShellException
 
-from daqconf.consolidate import consolidate_db
 class ProcessManagerDriver(GRPCDriver):
     controller_address = ''
 
@@ -157,9 +156,12 @@ class ProcessManagerDriver(GRPCDriver):
             f.seek(0)
             fname = f.name
             try:
+                from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration). To debug it, close drunc and run the following command:
+                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+{e}
+To debug it, close drunc and run the following command:
 
 [yellow]oks_dump --files-only {oks_conf}[/]
 
