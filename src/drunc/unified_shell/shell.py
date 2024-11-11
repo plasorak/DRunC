@@ -102,7 +102,9 @@ def unified_shell(
             exit()
 
     from drunc.utils.configuration import find_configuration
-    ctx.obj.boot_configuration = find_configuration(boot_configuration)
+    conf_file, system_name = boot_configuration.split(":")
+    ctx.obj.boot_configuration = find_configuration(conf_file)
+    ctx.obj.system_name = system_name
     ctx.obj.session_name = session_name
 
 
@@ -133,16 +135,16 @@ def unified_shell(
     ctx.command.add_command(dummy_boot, 'dummy_boot')
 
     # Not particularly proud of this...
-    # We instantiate a stateful node which has the same configuration as the one from this session
+    # We instantiate a stateful node which has the same configuration as the one from this system
     # Let's do this
     import conffwk
 
     db = conffwk.Configuration(f"oksconflibs:{ctx.obj.boot_configuration}")
-    session_dal = db.get_dal(class_name="Session", uid=session_name)
+    system_dal = db.get_dal(class_name="System", uid=system_name)
 
     from drunc.utils.configuration import parse_conf_url, OKSKey
     conf_path, conf_type = parse_conf_url(f"oksconflibs:{ctx.obj.boot_configuration}")
-    controller_name = session_dal.segment.controller.id
+    controller_name = system_dal.segment.controller.id
     from drunc.controller.configuration import ControllerConfHandler
     controller_configuration = ControllerConfHandler(
         type = conf_type,
@@ -151,7 +153,7 @@ def unified_shell(
             schema_file='schema/confmodel/dunedaq.schema.xml',
             class_name="RCApplication",
             obj_uid=controller_name,
-            session=session_name, # some of the function for enable/disable require the full dal of the session
+            system=system_name, # some of the function for enable/disable require the full dal of the system
         ),
     )
 

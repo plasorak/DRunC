@@ -34,8 +34,9 @@ class ProcessManagerDriver(GRPCDriver):
         self,
         oks_conf:str,
         user:str,
-        session_dal,
+        system_dal,
         db,
+        system_name:str,
         session_name:str,
         override_logs:bool
         ) -> BootRequest:
@@ -47,8 +48,14 @@ class ProcessManagerDriver(GRPCDriver):
             'DUNEDAQ_SESSION': session_name,
         }
 
-        apps = collect_apps(db, session_dal, session_dal.segment, env)
-        infra_apps = collect_infra_apps(session_dal, env)
+        apps = collect_apps(
+            db = db,
+            system = system_dal,
+            segment = system_dal.segment,
+            session = session_name,
+            env = env
+        )
+        infra_apps = collect_infra_apps(system_dal, env)
 
         apps = infra_apps+apps
 
@@ -58,9 +65,9 @@ class ProcessManagerDriver(GRPCDriver):
         import os
         pwd = os.getcwd()
 
-        session_log_path = session_dal.log_path
-        if session_log_path == './':
-            session_log_path = pwd
+        system_log_path = system_dal.log_path
+        if system_log_path == './':
+            system_log_path = pwd
 
         for app in apps:
             host = app['restriction']
@@ -76,10 +83,10 @@ class ProcessManagerDriver(GRPCDriver):
             self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
-            if session_dal.rte_script:
+            if system_dal.rte_script:
                 executable_and_arguments.append(ProcessDescription.ExecAndArgs(
                     exec='source',
-                    args=[session_dal.rte_script]))
+                    args=[system_dal.rte_script]))
 
             else:
                 from drunc.process_manager.utils import get_rte_script
@@ -100,13 +107,13 @@ class ProcessManagerDriver(GRPCDriver):
                 app_log_path = pwd
 
             if app_log_path: # if the user wants to write to a specific path, we never override
-                log_path = f'{app_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
-            elif session_log_path: # if the user wants the session to write to a specific path, we never override
-                log_path = f'{session_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
+                log_path = f'{app_log_path}/log_{user}_{system_name}_{name}_{now_str(True)}.txt'
+            elif system_log_path: # if the user wants the system to write to a specific path, we never override
+                log_path = f'{system_log_path}/log_{user}_{system_name}_{name}_{now_str(True)}.txt'
             elif override_logs: # else we check for the override flag
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}.txt'
+                log_path = f'{pwd}/log_{user}_{system_name}_{name}.txt'
             else:
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
+                log_path = f'{pwd}/log_{user}_{system_name}_{name}_{now_str(True)}.txt'
 
             import os, socket
             from drunc.utils.utils import host_is_local
@@ -139,6 +146,7 @@ class ProcessManagerDriver(GRPCDriver):
         self,
         conf:str,
         user:str,
+        system_name:str,
         session_name:str,
         log_level:str,
         override_logs:bool=True,
@@ -167,13 +175,14 @@ class ProcessManagerDriver(GRPCDriver):
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
-        session_dal = db.get_dal(class_name="Session", uid=session_name)
+        system_dal = db.get_dal(class_name="System", uid=system_name)
 
 
         async for br in self._convert_oks_to_boot_request(
             oks_conf = conf,
             user = user,
-            session_dal = session_dal,
+            system_dal = system_dal,
+            system_name = system_name,
             session_name = session_name,
             db = db,
             override_logs = override_logs,
@@ -185,18 +194,18 @@ class ProcessManagerDriver(GRPCDriver):
                 outformat = ProcessInstance,
             )
 
-        top_controller_name = session_dal.segment.controller.id
+        top_controller_name = system_dal.segment.controller.id
 
-        def get_controller_address(session_dal, session_name):
+        def get_controller_address(system_dal, system_name):
             from drunc.process_manager.oks_parser import collect_variables
             env = {}
-            collect_variables(session_dal.environment, env)
-            if session_dal.connectivity_service:
-                connection_server = session_dal.connectivity_service.host
-                connection_port = session_dal.connectivity_service.service.port
+            collect_variables(system_dal.environment, env)
+            if system_dal.connectivity_service:
+                connection_server = system_dal.connectivity_service.host
+                connection_port = system_dal.connectivity_service.service.port
 
                 from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
-                csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
+                csc = ConnectivityServiceClient(system_name, f'{connection_server}:{connection_port}')
 
                 from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
@@ -216,7 +225,7 @@ Could not find \'{top_controller_name}\' on the connectivity service.
 Two possibilities:
 
 1. The most likely, the controller died. You can check that by looking for error like:
-[yellow]Process \'{top_controller_name}\' (session: \'{session_name}\', user: \'{getpass.getuser()}\') process exited with exit code 1).[/]
+[yellow]Process \'{top_controller_name}\' (system: \'{system_name}\', user: \'{getpass.getuser()}\') process exited with exit code 1).[/]
 Try running [yellow]ps[/] to see if the {top_controller_name} is still running.
 You may also want to check the logs of the controller, try typing:
 [yellow]logs --name {top_controller_name} --how-far 1000[/]
@@ -238,7 +247,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             port_number = None
             protocol = None
 
-            for service in session_dal.segment.controller.exposes_service:
+            for service in system_dal.segment.controller.exposes_service:
                 if service.id == service_id:
                     port_number = service.port
                     protocol = service.protocol
@@ -246,7 +255,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             if port_number is None or protocol is None:
                 return None
 
-            ip = resolve_localhost_and_127_ip_to_network_ip(session_dal.segment.controller.runs_on.runs_on.id)
+            ip = resolve_localhost_and_127_ip_to_network_ip(system_dal.segment.controller.runs_on.runs_on.id)
             return f'{ip}:{port_number}'
 
         import signal
@@ -258,11 +267,11 @@ To find the controller address, you can look up \'{top_controller_name}_control\
         original_sigint_handler = signal.getsignal(signal.SIGINT)
         signal.signal(signal.SIGINT, keyboard_interrupt_on_sigint)
         try:
-            self.controller_address = get_controller_address(session_dal, session_name)
+            self.controller_address = get_controller_address(system_dal, system_name)
         except KeyboardInterrupt:
-            if session_dal.connectivity_service:
-                connection_server = session_dal.connectivity_service.host
-                connection_port = session_dal.connectivity_service.service.port
+            if system_dal.connectivity_service:
+                connection_server = system_dal.connectivity_service.host
+                connection_port = system_dal.connectivity_service.service.port
                 log.warning(f"""This shell didn't connect to the {top_controller_name}.
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
@@ -275,7 +284,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
-    async def dummy_boot(self, user:str, session_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:
+    async def dummy_boot(self, user:str, system_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:
         import os
         pwd = os.getcwd()
 
@@ -290,14 +299,14 @@ To find the controller address, you can look up \'{top_controller_name}_control\
                 process_description = ProcessDescription(
                     metadata = ProcessMetadata(
                         user = user,
-                        session = session_name,
+                        system = system_name,
                         name = "dummy_boot_"+str(process),
                         hostname = ""
                     ),
                     executable_and_arguments = executable_and_arguments,
                     env = {},
                     process_execution_directory = pwd,
-                    process_logs_path = f'{pwd}/log_{user}_{session_name}_dummy-boot_'+str(process)+'.log',
+                    process_logs_path = f'{pwd}/log_{user}_{system_name}_dummy-boot_'+str(process)+'.log',
                 ),
                 process_restriction = ProcessRestriction(
                     allowed_hosts = ["localhost"]

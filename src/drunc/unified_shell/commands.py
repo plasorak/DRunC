@@ -38,6 +38,7 @@ async def boot(
             conf = obj.boot_configuration,
             user = user,
             session_name = obj.session_name,
+            system_name = obj.system_name,
             log_level = log_level,
             override_logs = override_logs,
         )

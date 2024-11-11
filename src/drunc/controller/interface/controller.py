@@ -27,8 +27,12 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         token = '',
     )
 
+    config_tokens = configuration.split(":")
+    system = config_tokens[-1]
+    config_file = ":".join(config_tokens[:-1])
+
     from drunc.utils.configuration import parse_conf_url, OKSKey
-    conf_path, conf_type = parse_conf_url(configuration)
+    conf_path, conf_type = parse_conf_url(config_file)
     controller_configuration = ControllerConfHandler(
         type = conf_type,
         data = conf_path,
@@ -36,12 +40,13 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
             schema_file='schema/confmodel/dunedaq.schema.xml',
             class_name="RCApplication",
             obj_uid=name,
-            session=session, # some of the function for enable/disable require the full dal of the session
+            system=system, # some of the function for enable/disable require the full dal of the session
         ),
     )
 
     ctrlr = Controller(
         name = name,
+        system = system,
         session = session,
         configuration = controller_configuration,
         token = token,

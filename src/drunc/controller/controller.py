@@ -74,10 +74,11 @@ class Controller(ControllerServicer):
 
     children_nodes = [] # type: List[ChildNode]
 
-    def __init__(self, configuration, name:str, session:str, token:Token):
+    def __init__(self, configuration, name:str, session:str, system:str,token:Token):
         super().__init__()
         self.name = name
         self.session = session
+        self.system = system
         self.broadcast_service = None
 
         from logging import getLogger
@@ -124,10 +125,10 @@ class Controller(ControllerServicer):
         self.connectivity_service = None
         self.connectivity_service_thread = None
         self.uri = ''
-        if self.configuration.session.connectivity_service:
+        if self.configuration.system.connectivity_service:
             import os
-            connection_server = self.configuration.session.connectivity_service.host
-            connection_port   = self.configuration.session.connectivity_service.service.port
+            connection_server = self.configuration.system.connectivity_service.host
+            connection_port   = self.configuration.system.connectivity_service.service.port
             self.logger.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
 
             from drunc.connectivity_service.client import ConnectivityServiceClient
@@ -138,7 +139,8 @@ class Controller(ControllerServicer):
 
         self.children_nodes = self.configuration.get_children(
             init_token = self.actor.get_token(),
-            connectivity_service = self.connectivity_service
+            connectivity_service = self.connectivity_service,
+            session_uid = self.session,
         )
 
         for child in self.children_nodes:

@@ -76,11 +76,11 @@ class ConfTypeNotSupported(DruncSetupException):
         super().__init__(message)
 
 class OKSKey:
-    def __init__(self, schema_file:str, class_name:str, obj_uid:str, session:str):
+    def __init__(self, schema_file:str, class_name:str, obj_uid:str, system:str):
         self.schema_file = schema_file
         self.class_name = class_name
         self.obj_uid = obj_uid
-        self.session = session
+        self.system = system
 
 class ConfHandler:
     def __init__(self, data=None, type=ConfTypes.PyObject, oks_key:OKSKey=None, *args, **kwargs):

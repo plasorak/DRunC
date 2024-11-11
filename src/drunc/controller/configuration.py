@@ -28,8 +28,8 @@ class ControllerConfHandler(ConfHandler):
         return None
 
     def _grab_segment_conf_from_controller(self, configuration):
-        self.session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
-        this_segment = ControllerConfHandler.find_segment(self.session.segment, self.oks_key.obj_uid)
+        self.system = self.db.get_dal(class_name="System", uid=self.oks_key.system)
+        this_segment = ControllerConfHandler.find_segment(self.system.segment, self.oks_key.obj_uid)
         if this_segment is None:
             CouldNotFindSegment(self.oks_key.obj_uid)
         return this_segment
@@ -45,18 +45,18 @@ class ControllerConfHandler(ConfHandler):
             self.this_host = socket.gethostname()
 
 
-    def get_children(self, init_token, without_excluded=False, connectivity_service=None):
+    def get_children(self, init_token, session_uid:str, without_excluded=False, connectivity_service=None):
 
         enabled_only = not without_excluded
 
         if self.children != []:
             return self.get_children
 
-        session = None
+        system = None
 
         try:
             import confmodel
-            session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
+            system = self.db.get_dal(class_name="System", uid=self.oks_key.system)
 
         except ImportError as e:
             if enabled_only:
@@ -70,12 +70,13 @@ class ControllerConfHandler(ConfHandler):
             self.log.debug(segment)
 
             if enabled_only:
-                if confmodel.component_disabled(self.db._obj, session.id, segment.id):
+                if confmodel.component_disabled(self.db._obj, system.id, segment.id):
                     continue
 
             from drunc.process_manager.configuration import get_cla
             new_node = ChildNode.get_child(
-                cli = get_cla(self.db._obj, session.id, segment.controller),
+                #get_cla(db, system_uid, session_uid, obj):
+                cli = get_cla(self.db._obj, system.id, session_uid, segment.controller),
                 init_token = init_token,
                 name = segment.controller.id,
                 configuration = segment,
@@ -87,13 +88,13 @@ class ControllerConfHandler(ConfHandler):
             self.log.debug(app)
 
             if enabled_only:
-                if confmodel.component_disabled(self.db._obj, session.id, app.id):
+                if confmodel.component_disabled(self.db._obj, system.id, app.id):
                     continue
 
             from drunc.process_manager.configuration import get_cla
 
             new_node = ChildNode.get_child(
-                cli = get_cla(self.db._obj, session.id, app),
+                cli = get_cla(self.db._obj, system.id,session_uid, app),
                 name = app.id,
                 configuration = app,
                 fsm_configuration = self.data.controller.fsm,

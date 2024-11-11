@@ -1,5 +1,5 @@
 from drunc.utils.configuration import ConfHandler
-
+from drunc.exceptions import DruncException
 from enum import Enum
 
 class ProcessManagerTypes(Enum):
@@ -62,20 +62,40 @@ class ProcessManagerConfHandler(ConfHandler):
                 id = f"{self.root_id}.0.{self.process_id_infra}"
                 return id
 
-def get_cla(db, session_uid, obj):
+def get_cla(db, system_uid, session_uid, obj):
+
+    def search_control_service(obj):
+        command_facility = None
+
+        for service in obj.exposes_service:
+            if service.id == f'{obj.id}_control':
+                command_facility = f'{service.protocol}://{obj.runs_on.runs_on.id}:{service.port}'
+
+        if command_facility is None:
+            raise DruncException(f"Could not find the control_service for '{obj.id}'")
+
+        return command_facility
 
     if hasattr(obj, "oksTypes"):
+        command_facility = search_control_service(obj)
+
         if 'RCApplication' in obj.oksTypes():
-            from confmodel import rc_application_construct_commandline_parameters
-            return rc_application_construct_commandline_parameters(db, session_uid, obj.id)
+            #CONFIGURATION COMMAND_FACILITY NAME SESSION
+            return [
+                f"{db.get_impl_spec()}:{system_uid}",
+                command_facility,
+                obj.id,
+                session_uid,
+            ]
 
-        elif 'SmartDaqApplication' in obj.oksTypes():
-            from appmodel import smart_daq_application_construct_commandline_parameters
-            return smart_daq_application_construct_commandline_parameters(db, session_uid, obj.id)
+        elif 'SmartDaqApplication' in obj.oksTypes() or 'DaqApplication' in obj.oksTypes():
 
-        elif 'DaqApplication' in obj.oksTypes():
-            from confmodel import daq_application_construct_commandline_parameters
-            return daq_application_construct_commandline_parameters(db, session_uid, obj.id)
+            return [
+                '--name', obj.id,
+                '--session', session_uid,
+                '--commandFacility', command_facility,
+                '--configurationService', f"{db.get_impl_spec()}:{system_uid}"
+            ]
 
     return obj.commandline_parameters
 

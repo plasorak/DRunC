@@ -32,11 +32,11 @@ class EnvironmentVariableCannotBeSet(DruncException):
 
 
 # Recursively process all Segments in given Segment extracting Applications
-def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
+def collect_apps(db, system, segment, session, env:Dict[str,str]) -> List[Dict]:
   """
   ! Recustively collect (daq) application belonging to segment and its subsegments
 
-  @param session  The session the segment belongs to
+  @param system  The system the segment belongs to
   @param segment  Segment to collect applications from
 
   @return The list of dictionaries holding application attributs
@@ -45,7 +45,7 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
 
   import logging
   log = logging.getLogger('collect_apps')
-  # Get default environment from Session
+  # Get default environment from System
   defenv = env
 
   import os
@@ -55,7 +55,7 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
   else:
     defenv["DUNEDAQ_DB_PATH"] = DB_PATH
 
-  collect_variables(session.environment, defenv)
+  collect_variables(system.environment, defenv)
 
   apps = []
 
@@ -71,7 +71,7 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
     {
       "name": controller.id,
       "type": controller.application_name,
-      "args": get_cla(db._obj, session.id, controller),
+      "args": get_cla(db._obj, system.id, session, controller),
       "restriction": host,
       "host": host,
       "env": rc_env,
@@ -82,17 +82,23 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
 
   # Recurse over nested segments
   for seg in segment.segments:
-    if confmodel.component_disabled(db._obj, session.id, seg.id):
+    if confmodel.component_disabled(db._obj, system.id, seg.id):
       log.info(f'Ignoring segment \'{seg.id}\' as it is disabled')
       continue
 
-    for app in collect_apps(db, session, seg, env):
+    for app in collect_apps(
+      db = db,
+      system = system,
+      segment = seg,
+      session = session,
+      env = env
+      ):
       apps.append(app)
 
   # Get all the enabled applications of this segment
   for app in segment.applications:
     if 'Component' in app.oksTypes():
-      enabled = not confmodel.component_disabled(db._obj, session.id, app.id)
+      enabled = not confmodel.component_disabled(db._obj, system.id, app.id)
       log.debug(f"{app.id} {enabled=}")
     else:
       enabled = True
@@ -113,7 +119,7 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
       {
         "name": app.id,
         "type": app.application_name,
-        "args": get_cla(db._obj, session.id, app),
+        "args": get_cla(db._obj, system.id, session, app),
         "restriction": host,
         "host": host,
         "env": app_env,
@@ -125,10 +131,10 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
   return apps
 
 
-def collect_infra_apps(session, env:Dict[str, str]) -> List[Dict]:
+def collect_infra_apps(system, env:Dict[str, str]) -> List[Dict]:
   """! Collect infrastructure applications
 
-  @param session  The session
+  @param system  The system
 
   @return The list of dictionaries holding application attributs
 
@@ -145,11 +151,11 @@ def collect_infra_apps(session, env:Dict[str, str]) -> List[Dict]:
   else:
     defenv["DUNEDAQ_DB_PATH"] = DB_PATH
 
-  collect_variables(session.environment, defenv)
+  collect_variables(system.environment, defenv)
 
   apps = []
 
-  for app in session.infrastructure_applications:
+  for app in system.infrastructure_applications:
     # Skip applications that do not define an application name
     # i.e. treat them as "virtual applications"
     # FIXME: modify schema to explicitly introduce non-runnable applications
@@ -180,19 +186,19 @@ def collect_infra_apps(session, env:Dict[str, str]) -> List[Dict]:
 
 # Search segment and all contained segments for apps controlled by
 # given controller. Return separate lists of apps and sub-controllers
-def find_controlled_apps(db, session, mycontroller, segment):
+def find_controlled_apps(db, system, mycontroller, segment):
   apps = []
   controllers = []
   if segment.controller.id == mycontroller:
     for app in segment.applications:
       apps.append(app.id)
     for seg in segment.segments:
-      if not confmodel.component_disabled(db._obj, session.id, seg.id):
+      if not confmodel.component_disabled(db._obj, system.id, seg.id):
         controllers.append(seg.controller.id)
   else:
     for seg in segment.segments:
-      if not confmodel.component_disabled(db._obj, session.id, seg.id):
-        aps, controllers = find_controlled_apps(db, session, mycontroller, seg)
+      if not confmodel.component_disabled(db._obj, system.id, seg.id):
+        aps, controllers = find_controlled_apps(db, system, mycontroller, seg)
         if len(apps) > 0:
           break
   return apps, controllers

@@ -11,6 +11,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
     address_controller = ''
     boot_configuration = ''
     session_name = ''
+    system_name = ''
 
     def reset(self, address_pm:str=''):
         self.address_pm = address_pm
