@@ -159,7 +159,9 @@ class ProcessManagerDriver(GRPCDriver):
                 from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration). To debug it, close drunc and run the following command:
+                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+{e}
+To debug it, close drunc and run the following command:
 
 [yellow]oks_dump --files-only {oks_conf}[/]
 
