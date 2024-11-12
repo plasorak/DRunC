@@ -205,7 +205,7 @@ class ProcessManagerDriver(GRPCDriver):
                 connection_port = system_dal.connectivity_service.service.port
 
                 from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
-                csc = ConnectivityServiceClient(system_name, f'{connection_server}:{connection_port}')
+                csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
 
                 from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
