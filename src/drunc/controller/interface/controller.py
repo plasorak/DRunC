@@ -6,11 +6,12 @@ import logging
 
 @click.command()
 @click.argument('configuration', type=str)
+@click.argument('system', type=str)
 @click.argument('command-facility', type=str, callback=validate_command_facility)#, help=f'Command facility (protocol, host and port) grpc://{socket.gethostname()}:12345')
 @click.argument('name', type=str)
 @click.argument('session', type=str)
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
-def controller_cli(configuration:str, command_facility:str, name:str, session:str, log_level:str):
+def controller_cli(configuration:str, system:str, command_facility:str, name:str, session:str, log_level:str):
 
     from rich.console import Console
     console = Console()
@@ -27,12 +28,8 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         token = '',
     )
 
-    config_tokens = configuration.split(":")
-    system = config_tokens[-1]
-    config_file = ":".join(config_tokens[:-1])
-
     from drunc.utils.configuration import parse_conf_url, OKSKey
-    conf_path, conf_type = parse_conf_url(config_file)
+    conf_path, conf_type = parse_conf_url(configuration)
     controller_configuration = ControllerConfHandler(
         type = conf_type,
         data = conf_path,

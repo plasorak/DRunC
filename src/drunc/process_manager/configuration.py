@@ -80,9 +80,10 @@ def get_cla(db, system_uid, session_uid, obj):
         command_facility = search_control_service(obj)
 
         if 'RCApplication' in obj.oksTypes():
-            #CONFIGURATION COMMAND_FACILITY NAME SESSION
+            #CONFIGURATION SYSTEM COMMAND_FACILITY NAME SESSION
             return [
-                f"{db.get_impl_spec()}:{system_uid}",
+                db.get_impl_spec(),
+                system_uid,
                 command_facility,
                 obj.id,
                 session_uid,
@@ -94,7 +95,8 @@ def get_cla(db, system_uid, session_uid, obj):
                 '--name', obj.id,
                 '--session', session_uid,
                 '--commandFacility', command_facility,
-                '--configurationService', f"{db.get_impl_spec()}:{system_uid}"
+                '--configurationService', db.get_impl_spec(),
+                '--system', system_uid,
             ]
 
     return obj.commandline_parameters
