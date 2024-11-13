@@ -32,7 +32,7 @@ class EnvironmentVariableCannotBeSet(DruncException):
 
 
 # Recursively process all Segments in given Segment extracting Applications
-def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
+def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> List[Dict]:
   """
   ! Recustively collect (daq) application belonging to segment and its subsegments
 
@@ -46,7 +46,7 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
   import logging
   log = logging.getLogger('collect_apps')
   # Get default environment from Session
-  defenv = env
+  defenv = env.copy()
 
   import os
   DB_PATH = os.getenv("DUNEDAQ_DB_PATH")
@@ -67,6 +67,8 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
 
   from drunc.process_manager.configuration import get_cla
   host = controller.runs_on.runs_on.id
+  
+  tree_id_str = '.'.join(map(str, tree_prefix))
   apps.append(
     {
       "name": controller.id,
@@ -75,21 +77,24 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
       "restriction": host,
       "host": host,
       "env": rc_env,
-      "tree_id": pmch.create_id(controller, segment),
+      "tree_id": tree_id_str,
       "log_path": controller.log_path,
     }
   )
 
   # Recurse over nested segments
-  for seg in segment.segments:
+  for idx, seg in enumerate(segment.segments):
     if confmodel.component_disabled(db._obj, session.id, seg.id):
       log.info(f'Ignoring segment \'{seg.id}\' as it is disabled')
       continue
-
-    for app in collect_apps(db, session, seg, env):
+    
+    new_tree_prefix = tree_prefix + [idx]
+    for app in collect_apps(db, session, seg, env, new_tree_prefix):
       apps.append(app)
+     
 
   # Get all the enabled applications of this segment
+  app_index = 0
   for app in segment.applications:
     if 'Component' in app.oksTypes():
       enabled = not confmodel.component_disabled(db._obj, session.id, app.id)
@@ -108,6 +113,8 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
     collect_variables(app.application_environment, app_env)
     app_env['DUNEDAQ_APPLICATION_NAME'] = app.id
 
+    app_tree_id_str = '.'.join(map(str, tree_prefix+[app_index]))
+
     host = app.runs_on.runs_on.id
     apps.append(
       {
@@ -117,10 +124,11 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
         "restriction": host,
         "host": host,
         "env": app_env,
-        "tree_id": pmch.create_id(app),
+        "tree_id": app_tree_id_str,
         "log_path": app.log_path,
       }
     )
+    app_index += 1
 
   return apps
 
@@ -170,7 +178,7 @@ def collect_infra_apps(session, env:Dict[str, str]) -> List[Dict]:
         "restriction": host,
         "host": host,
         "env": app_env,
-        "tree_id": pmch.create_id(app),
+        "tree_id": '1',
         "log_path": app.log_path,
       }
     )

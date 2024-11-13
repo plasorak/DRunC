@@ -46,7 +46,7 @@ class ProcessManagerDriver(GRPCDriver):
             'DUNEDAQ_SESSION': session_name,
         }
 
-        apps = collect_apps(db, session_dal, session_dal.segment, env)
+        apps = collect_apps(db, session_dal, session_dal.segment, env, tree_prefix=[0,])
         infra_apps = collect_infra_apps(session_dal, env)
 
         apps = infra_apps+apps
