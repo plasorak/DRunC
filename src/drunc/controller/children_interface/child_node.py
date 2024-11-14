@@ -1,6 +1,7 @@
 import abc
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType, get_control_type_and_uri_from_connectivity_service, get_control_type_and_uri_from_cli
+import logging
 
 class ChildInterfaceTechnologyUnknown(DruncSetupException):
     def __init__(self, t, name):
@@ -42,15 +43,15 @@ class ChildNode(abc.ABC):
 
     @staticmethod
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
+        log = logging.getLogger("ChildNode.get_child")
 
         from drunc.utils.configuration import ConfTypes
+        log.info(f"Setting up child '{name}'")
 
         ctype = ControlType.Unknown
         uri = None
         if connectivity_service:
             ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=60)
-        import logging
-        log = logging.getLogger("ChildNode.get_child")
 
         if ctype == ControlType.Unknown:
             ctype, uri = get_control_type_and_uri_from_cli(cli)
