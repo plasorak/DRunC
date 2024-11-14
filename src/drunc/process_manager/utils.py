@@ -32,15 +32,10 @@ def make_tree(values):
     lines = []
     for result in values:
         m = result.process_description.metadata
-        root_id, controller_id, process_id = m.tree_id.split('.')
-        if int(root_id) and int(controller_id) == 0 and int(process_id) == 0: #root controller
-            lines.append(m.name)
-        elif int(controller_id) and int(process_id) == 0: # controller
-            lines.append("  " + m.name)
-        elif int(controller_id) == 0 and int(process_id): # infra_app
-            lines.append("  " + m.name)
-        elif int(process_id): #daq app
-            lines.append("    " + m.name)
+        tree_levels = m.tree_id.split('.')
+        indent_level = len(tree_levels) - 1
+        indentation = "  " * indent_level
+        lines.append(indentation + m.name)
     return lines
 
 def tabulate_process_instance_list(pil, title, long=False):

@@ -61,8 +61,8 @@ class FSMActionFactory:
                 from drunc.fsm.actions.usvc_provided_run_number import UsvcProvidedRunNumber
                 iface = UsvcProvidedRunNumber(configuration)
             case 'test-action':
-                from drunc.fsm.actions.test_action import TestAction
-                iface = TestAction(configuration)
+                from drunc.fsm.actions.some_test_action import SomeTestAction
+                iface = SomeTestAction(configuration)
             case "file-logbook":
                 from drunc.fsm.actions.file_logbook import FileLogbook
                 iface = FileLogbook(configuration)
