@@ -47,7 +47,10 @@ class ProcessManagerDriver(GRPCDriver):
         }
 
         apps = collect_apps(db, session_dal, session_dal.segment, env, tree_prefix=[0,])
-        infra_apps = collect_infra_apps(session_dal, env)
+        # Next line gets the max of all the first number in the tree id, and adds 1 to it.
+        next_tree_id = max([int(app['tree_id'].split('.')[0]) for app in apps])+1
+        print(f'{next_tree_id=}')
+        infra_apps = collect_infra_apps(session_dal, env, tree_prefix=[next_tree_id])
 
         apps = infra_apps+apps
 
@@ -71,7 +74,6 @@ class ProcessManagerDriver(GRPCDriver):
             env['DUNE_DAQ_BASE_RELEASE'] = os.getenv("DUNE_DAQ_BASE_RELEASE")
             env['SPACK_RELEASES_DIR'] = os.getenv("SPACK_RELEASES_DIR")
             tree_id = app['tree_id']
-
             self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
