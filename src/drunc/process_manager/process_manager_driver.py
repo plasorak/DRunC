@@ -12,7 +12,6 @@ from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolv
 
 from drunc.exceptions import DruncSetupException, DruncShellException
 
-from daqconf.consolidate import consolidate_db
 class ProcessManagerDriver(GRPCDriver):
     controller_address = ''
 
@@ -34,42 +33,24 @@ class ProcessManagerDriver(GRPCDriver):
         self,
         oks_conf:str,
         user:str,
-        session:str,
+        session_dal,
+        db,
+        session_name:str,
         override_logs:bool
         ) -> BootRequest:
 
         from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps
-        import conffwk
-        from drunc.utils.configuration import find_configuration
-        oks_conf = find_configuration(oks_conf)
-        from logging import getLogger
-        log = getLogger('_convert_oks_to_boot_request')
-        log.info(oks_conf)
-
-        with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
-            f.flush()
-            f.seek(0)
-            fname = f.name
-            try:
-                consolidate_db(oks_conf, f"{fname}")
-            except Exception as e:
-                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration). To debug it, close drunc and run the following command:
-
-[yellow]oks_dump --files-only {oks_conf}[/]
-
-''', extra={'markup': True})
-                return
-
-        db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
-        session_dal = db.get_dal(class_name="Session", uid=session)
         from drunc.process_manager.oks_parser import collect_variables
 
         env = {
-            'DUNEDAQ_SESSION': session,
+            'DUNEDAQ_SESSION': session_name,
         }
 
-        apps = collect_apps(db, session_dal, session_dal.segment, env)
-        infra_apps = collect_infra_apps(session_dal, env)
+        apps = collect_apps(db, session_dal, session_dal.segment, env, tree_prefix=[0,])
+        # Next line gets the max of all the first number in the tree id, and adds 1 to it.
+        next_tree_id = max([int(app['tree_id'].split('.')[0]) for app in apps])+1
+        print(f'{next_tree_id=}')
+        infra_apps = collect_infra_apps(session_dal, env, tree_prefix=[next_tree_id])
 
         apps = infra_apps+apps
 
@@ -93,7 +74,6 @@ class ProcessManagerDriver(GRPCDriver):
             env['DUNE_DAQ_BASE_RELEASE'] = os.getenv("DUNE_DAQ_BASE_RELEASE")
             env['SPACK_RELEASES_DIR'] = os.getenv("SPACK_RELEASES_DIR")
             tree_id = app['tree_id']
-
             self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
@@ -121,13 +101,13 @@ class ProcessManagerDriver(GRPCDriver):
                 app_log_path = pwd
 
             if app_log_path: # if the user wants to write to a specific path, we never override
-                log_path = f'{app_log_path}/log_{user}_{session}_{name}_{now_str(True)}.txt'
+                log_path = f'{app_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
             elif session_log_path: # if the user wants the session to write to a specific path, we never override
-                log_path = f'{session_log_path}/log_{user}_{session}_{name}_{now_str(True)}.txt'
+                log_path = f'{session_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
             elif override_logs: # else we check for the override flag
-                log_path = f'{pwd}/log_{user}_{session}_{name}.txt'
+                log_path = f'{pwd}/log_{user}_{session_name}_{name}.txt'
             else:
-                log_path = f'{pwd}/log_{user}_{session}_{name}_{now_str(True)}.txt'
+                log_path = f'{pwd}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
 
             import os, socket
             from drunc.utils.utils import host_is_local
@@ -139,7 +119,7 @@ class ProcessManagerDriver(GRPCDriver):
                 process_description = ProcessDescription(
                     metadata = ProcessMetadata(
                         user = user,
-                        session = session,
+                        session = session_name,
                         name = name,
                         hostname = "",
                         tree_id = tree_id
@@ -156,11 +136,65 @@ class ProcessManagerDriver(GRPCDriver):
             self._log.debug(f"{breq=}\n\n")
             yield breq
 
+    async def boot(
+        self,
+        conf:str,
+        user:str,
+        session_name:str,
+        log_level:str,
+        override_logs:bool=True,
+        **kwargs
+        ) -> ProcessInstance:
+
+        import conffwk
+        from drunc.utils.configuration import find_configuration
+        oks_conf = find_configuration(conf)
+        from logging import getLogger
+        log = getLogger('_convert_oks_to_boot_request')
+        log.info(oks_conf)
+
+        with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
+            f.flush()
+            f.seek(0)
+            fname = f.name
+            try:
+                from daqconf.consolidate import consolidate_db
+                consolidate_db(oks_conf, f"{fname}")
+            except Exception as e:
+                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+{e}
+To debug it, close drunc and run the following command:
+
+[yellow]oks_dump --files-only {oks_conf}[/]
+
+''', extra={'markup': True})
+                return
+
+        db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
+        session_dal = db.get_dal(class_name="Session", uid=session_name)
+
+
+        async for br in self._convert_oks_to_boot_request(
+            oks_conf = conf,
+            user = user,
+            session_dal = session_dal,
+            session_name = session_name,
+            db = db,
+            override_logs = override_logs,
+            **kwargs,
+            ):
+            yield await self.send_command_aio(
+                'boot',
+                data = br,
+                outformat = ProcessInstance,
+            )
+
+        top_controller_name = session_dal.segment.controller.id
+
         def get_controller_address(session_dal, session_name):
             from drunc.process_manager.oks_parser import collect_variables
             env = {}
             collect_variables(session_dal.environment, env)
-            top_controller_name = session_dal.segment.controller.id
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
@@ -198,7 +232,7 @@ You may be able to connect to the {top_controller_name} in a bit. Check the logs
 And look for messages like:
 [yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
-[yellow]connect grpc://{{controller_address}}:{{controller_port}}>[/]
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
 ''', extra={"markup": True})
                     return
 
@@ -219,30 +253,30 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             ip = resolve_localhost_and_127_ip_to_network_ip(session_dal.segment.controller.runs_on.runs_on.id)
             return f'{ip}:{port_number}'
 
-        self.controller_address = get_controller_address(session_dal, session)
+        import signal
+        def keyboard_interrupt_on_sigint(signal, frame):
+            from logging import getLogger
+            log.warning("Interrupted")
+            raise KeyboardInterrupt
 
-    async def boot(
-        self,
-        conf:str,
-        user:str,
-        session_name:str,
-        log_level:str,
-        override_logs:bool=True,
-        **kwargs
-        ) -> ProcessInstance:
-
-        async for br in self._convert_oks_to_boot_request(
-            oks_conf = conf,
-            user = user,
-            session = session_name,
-            override_logs = override_logs,
-            **kwargs,
-            ):
-            yield await self.send_command_aio(
-                'boot',
-                data = br,
-                outformat = ProcessInstance,
-            )
+        original_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, keyboard_interrupt_on_sigint)
+        try:
+            self.controller_address = get_controller_address(session_dal, session_name)
+        except KeyboardInterrupt:
+            if session_dal.connectivity_service:
+                connection_server = session_dal.connectivity_service.host
+                connection_port = session_dal.connectivity_service.service.port
+                log.warning(f"""This shell didn't connect to the {top_controller_name}.
+To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
+""",
+                    extra={"markup": True}
+                )
+            else:
+                log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+        finally:
+            signal.signal(signal.SIGINT, original_sigint_handler)
 
 
     async def dummy_boot(self, user:str, session_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:

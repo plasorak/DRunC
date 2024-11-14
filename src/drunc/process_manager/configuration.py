@@ -88,6 +88,7 @@ def get_process_manager_configuration(process_manager):
     ## If no scheme is provided, assume that it is an internal packaged configuration.
     ## First check it's not an existing external file
     if os.path.isfile(process_manager):
+        from urllib.parse import urlparse
         if urlparse(process_manager).scheme == '':
             process_manager = 'file://' + process_manager
     else:
