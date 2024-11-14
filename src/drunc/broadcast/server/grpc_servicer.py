@@ -4,9 +4,11 @@ from queue import Queue
 from druncschema.broadcast_pb2_grpc import BroadcastSenderServicer
 from druncschema.broadcast_pb2 import BroadcastRequest
 from druncschema.request_response_pb2 import Request, Response
-from druncschema.generic_pb2 import PlainText
+from druncschema.generic_pb2 import PlainText, StringStringMap
 from druncschema.broadcast_pb2 import BroadcastMessage, BroadcastType
 from druncschema.authoriser_pb2 import ActionType
+from drunc.utils.grpc_utils import unpack_any
+from google.protobuf.any_pb2 import Any
 
 class ListenerRepresentation:
 
@@ -242,7 +244,7 @@ def main():
         try:
             server_thread = Thread(target=serve, kwargs={'port':port}, name=f'serve_thread_{port}')
             server_thread.start()
-            receiver_threads.append(serve_thread)
+            receiver_threads.append(server_thread)
         except:
             pass
 

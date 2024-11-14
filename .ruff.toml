@@ -1,0 +1,5 @@
+exclude = ["tests/*"]
+
+[lint]
+ignore = ["ALL"]
+select = ["F821"]
