@@ -134,6 +134,7 @@ def run_coroutine(f):
 
     return wrapper
 
+
 def expand_path(path, turn_to_abs_path=False):
     from os.path import abspath, expanduser, expandvars
     if turn_to_abs_path:
@@ -160,6 +161,7 @@ def validate_command_facility(ctx, param, value):
             return str(parsed.netloc)
         case _:
             raise BadParameter(message=f'Command factory for drunc-controller only allows \'grpc\'', ctx=ctx, param=param)
+
 
 def resolve_localhost_to_hostname(address):
     from socket import gethostbyname, gethostname
@@ -213,10 +215,10 @@ def resolve_localhost_and_127_ip_to_network_ip(address):
 def host_is_local(host):
     from socket import gethostname, gethostbyname
 
-    if host in ['localhost', '0.0.0.0', gethostname(), gethostbyname(gethostname())]:
+    if host in ['localhost', gethostname(), gethostbyname(gethostname())]:
         return True
 
-    if host.startswith('127.'):
+    if host.startswith('127.') or host.startswith('0.'):
         return True
 
     return False
