@@ -100,14 +100,15 @@ class ProcessManagerDriver(GRPCDriver):
             if app_log_path == './':
                 app_log_path = pwd
 
-            if app_log_path: # if the user wants to write to a specific path, we never override
-                log_path = f'{app_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
-            elif session_log_path: # if the user wants the session to write to a specific path, we never override
-                log_path = f'{session_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
-            elif override_logs: # else we check for the override flag
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}.txt'
-            else:
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
+            from drunc.process_manager.utils import get_log_path
+            log_path = get_log_path(
+                user = user,
+                session_name = session_name,
+                application_name = name,
+                override_logs = override_logs,
+                app_log_path = app_log_path,
+                session_log_path = session_log_path
+            )
 
             import os, socket
             from drunc.utils.utils import host_is_local

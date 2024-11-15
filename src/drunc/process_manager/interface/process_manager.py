@@ -2,12 +2,35 @@ import asyncio
 import click
 import grpc
 import os
+import logging
+import getpass
 
 from drunc.utils.utils import log_levels
 
 _cleanup_coroutines = []
 
-def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None, generated_port=None):
+def run_pm(pm_conf:str, pm_address:str, log_level:str, ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None, user:str=getpass.getuser(), override_logs:bool=True):
+    from drunc.utils.utils import update_log_level, pid_info_str
+    from drunc.process_manager.utils import get_log_path
+    import os
+    log = logging.getLogger('process_manager')
+    log.debug(pid_info_str())
+    log_path = get_log_path(
+        user = user,
+        session_name = "",
+        application_name = "process_manager",
+        override_logs = override_logs
+    )
+    if override_logs and os.path.isfile(log_path):
+        os.remove(log_path)
+
+    handler = logging.FileHandler(log_path)
+    handler.setLevel(log_level)
+    formatter = logging.Formatter("%(asctime)s[%(levelname)s] %(funcName)s: %(message)s", "[%H:%M:%S]")
+    handler.setFormatter(formatter)
+    log.addHandler(handler)
+    log.info("Setting up process_manager with run_pm")
+
     if signal_handler is not None:
         signal_handler()
 
@@ -17,12 +40,7 @@ def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None
     from rich.console import Console
     console = Console()
     console.print(f'Using \'{pm_conf}\' as the ProcessManager configuration')
-
-    from drunc.utils.utils import update_log_level, pid_info_str
-    update_log_level(log_level)
-    from logging import getLogger
-    logger = getLogger('run_pm')
-    logger.debug(pid_info_str())
+    log.info(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
     from drunc.process_manager.process_manager import ProcessManager
     from drunc.utils.configuration import parse_conf_url, OKSKey
@@ -74,8 +92,10 @@ def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None
         loop.run_until_complete(
             serve(pm_address)
         )
+        log.debug(f"Serving the process manager at address {pm_address}")
     except Exception as e:
         import os
+        log.error(f"Received exception {e}")
         console.print_exception(width=os.get_terminal_size()[0])
     finally:
         if _cleanup_coroutines:
