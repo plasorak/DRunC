@@ -3,10 +3,10 @@ from druncschema.broadcast_pb2 import BroadcastMessage, BroadcastType
 from druncschema.generic_pb2 import Empty
 import grpc
 from drunc.utils.configuration import ConfTypes
-
+from drunc.controller.configuration import ControllerConfHandler
 
 class gRPCStdoutBroadcastHandler(BroadcastReceiverServicer):
-    def __init__(self, conf:ConfData, token, **kwargs) -> None:
+    def __init__(self, conf:ControllerConfHandler, token, **kwargs) -> None:
         super(gRPCStdoutBroadcastHandler, self).__init__(
             **kwargs
         )
@@ -17,7 +17,7 @@ class gRPCStdoutBroadcastHandler(BroadcastReceiverServicer):
         self.token = token
         from logging import getLogger
         self._log = getLogger("BroadcastReceiver")
-        self._address = f'[::]:{port}'
+        self._address = None # f'[::]:{port}'
         self._log.debug('Broadcast receiver initialised')
 
     def stop_receiving(self)->None:

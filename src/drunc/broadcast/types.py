@@ -4,8 +4,7 @@ from drunc.exceptions import DruncSetupException
 
 class BroadcastTypes(Enum):
     Unknown = 0
-    gRPC = 1
-    Kafka = 2
+    Kafka = 1
     ERS = 2
 
 

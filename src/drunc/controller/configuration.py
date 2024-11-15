@@ -31,7 +31,8 @@ class ControllerConfHandler(ConfHandler):
         self.session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
         this_segment = ControllerConfHandler.find_segment(self.session.segment, self.oks_key.obj_uid)
         if this_segment is None:
-            CouldNotFindSegment(self.oks_key.obj_uid)
+            from drunc.exceptions import DruncSetupException
+            DruncSetupException(f"Could not find segment with oks_key.obj_uid: {self.oks_key.obj_uid}")
         return this_segment
 
     def _post_process_oks(self):
