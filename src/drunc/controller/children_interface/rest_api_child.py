@@ -1,4 +1,5 @@
 from drunc.controller.children_interface.child_node import ChildNode
+from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType
 from drunc.utils.grpc_utils import pack_to_any
 from druncschema.generic_pb2 import PlainText, Stacktrace
