@@ -9,6 +9,7 @@ from druncschema.broadcast_pb2 import BroadcastMessage, BroadcastType
 from druncschema.authoriser_pb2 import ActionType
 from drunc.utils.grpc_utils import unpack_any
 from google.protobuf.any_pb2 import Any
+import drunc.controller.exceptions as ctler_excpt
 
 class ListenerRepresentation:
 
@@ -247,7 +248,7 @@ def main():
             receiver_threads.append(server_thread)
         except:
             pass
-
+    from drunc.broadcast.server.broadcast_sender import BroadcastSender
     broadcaster = BroadcastSender()
     for port in port_list:
         broadcaster.add_listener(f'[::]:{port}')
