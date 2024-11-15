@@ -39,10 +39,12 @@ def wait(obj:ControllerContext, sleep_time:int) -> None:
 @click.command('status')
 @click.pass_obj
 def status(obj:ControllerContext) -> None:
+    # Get the dynamic system information
     statuses = obj.get_driver('controller').status()
-
+    # Get the static system information
+    descriptions = obj.get_driver('controller').describe()
     from drunc.controller.interface.shell_utils import print_status_table
-    print_status_table(obj,statuses)
+    print_status_table(obj, statuses, descriptions)
 
 @click.command('connect')
 @click.argument('controller_address', type=str)
@@ -240,6 +242,7 @@ def fsm(obj:ControllerContext, fsm_command:str) -> None:
         else:
             obj.print(f"[green]{command.command_name}[/green] executed successfully.")
         print_execution_report(command.command_name, result)
+        obj.print_status_summary() # This prints the table, unsure of why. RETURNTOME
         if not result: return
         return result
 
