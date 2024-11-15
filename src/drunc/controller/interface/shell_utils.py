@@ -2,7 +2,24 @@ from rich import print
 from druncschema.controller_pb2 import FSMCommandsDescription
 from drunc.utils.shell_utils import DecodedResponse
 import logging
+import inspect
 log = logging.getLogger('controller_shell_utils')
+
+def match_children(statuses:list, descriptions:list) -> list:
+    children = []
+    for status in statuses:
+        child = {}
+        child_name = status.name
+        for description in descriptions:
+            if description.name == child_name:
+                child["status"] = status
+                child["description"] = description
+                children.append(child)
+                break
+    if len(descriptions) != len(children):
+        from drunc.controller.exceptions import MalformedCommand
+        raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
+    return children
 
 def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
     from druncschema.controller_pb2 import Status
@@ -36,8 +53,8 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
             format_bool(status.data.included),
             description.data.endpoint
         )
-        for child_status, child_description in zip(status.children, description.children):
-            add_status_to_table(t, child_status, child_description, prefix=prefix+'  ')
+        for child in match_children(status.children, description.children):
+            add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
     add_status_to_table(t, statuses, descriptions, prefix='')
     obj.print(t)
     obj.print_status_summary()
