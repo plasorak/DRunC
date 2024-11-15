@@ -1,17 +1,25 @@
 from rich import print
 from druncschema.controller_pb2 import FSMCommandsDescription
+from druncschema.request_response_pb2 import Description
 from drunc.utils.shell_utils import DecodedResponse
 import logging
 import inspect
 log = logging.getLogger('controller_shell_utils')
 
 def match_children(statuses:list, descriptions:list) -> list:
+    def check_message_type(message:Description, expected_type:str) -> None:
+        if message.data.DESCRIPTOR.name != expected_type:
+            raise TypeError("Message {message.name} is not of type 'Description'!")
+        return
+
     children = []
     for status in statuses:
+        check_message_type(status, "Status")
         child = {}
         child_name = status.name
         for description in descriptions:
             if description.name == child_name:
+                check_message_type(description, "Description")
                 child["status"] = status
                 child["description"] = description
                 children.append(child)
