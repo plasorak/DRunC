@@ -19,22 +19,22 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
 
     t = Table(title=f'Status')
     t.add_column('Name')
-    t.add_column('Endpoint')
     t.add_column('Info')
     t.add_column('State')
     t.add_column('Substate')
     t.add_column('In error')
     t.add_column('Included')
+    t.add_column('Endpoint')
 
     def add_status_to_table(table, status, description, prefix):
         table.add_row(
             prefix+status.name,
-            description.data.endpoint,
             description.data.info,
             status.data.state,
             status.data.sub_state,
             format_bool(status.data.in_error, false_is_good = True),
             format_bool(status.data.included),
+            description.data.endpoint
         )
         for child_status, child_description in zip(status.children, description.children):
             add_status_to_table(t, child_status, child_description, prefix=prefix+'  ')
