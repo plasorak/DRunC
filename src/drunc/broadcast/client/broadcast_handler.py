@@ -24,14 +24,6 @@ class BroadcastHandler:
                     message_format = BroadcastMessage,
                     conf = self.configuration
                 )
-            case BroadcastTypes.gRPC:
-                raise BroadcastTypeNotHandled("gRPC is not available for broadcasting!")
-                from drunc.broadcast.client.grpc_stdout_broadcast_handler import gRPCStdoutBroadcastHandler
-                from druncschema.broadcast_pb2 import BroadcastMessage
-                self.implementation = gRPCStdoutBroadcastHandler(
-                    conf = broadcast_configuration,
-                    message_format = BroadcastMessage,
-                )
             case _:
                 self.log.info('Could not understand the BroadcastHandler technology you want to use, you will get no broadcast!')
 

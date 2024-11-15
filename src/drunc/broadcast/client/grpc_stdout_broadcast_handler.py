@@ -17,7 +17,7 @@ class gRPCStdoutBroadcastHandler(BroadcastReceiverServicer):
         self.token = token
         from logging import getLogger
         self._log = getLogger("BroadcastReceiver")
-        self._address = f'[::]:{port}'
+        self._address = None # f'[::]:{port}'
         self._log.debug('Broadcast receiver initialised')
 
     def stop_receiving(self)->None:
