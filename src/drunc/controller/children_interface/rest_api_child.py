@@ -1,10 +1,14 @@
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType
-from druncschema.request_response_pb2 import Response
+from drunc.utils.grpc_utils import pack_to_any
+from druncschema.generic_pb2 import PlainText, Stacktrace
+from druncschema.request_response_pb2 import Response, ResponseFlag, Description
+from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
 from druncschema.token_pb2 import Token
 import threading
 from typing import NoReturn
+import os
 
 class ResponseDispatcher(threading.Thread):
 
@@ -395,13 +399,16 @@ class RESTAPIChildNode(ChildNode):
     def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration:FSMConfHandler, uri):
         super(RESTAPIChildNode, self).__init__(
             name = name,
-            node_type = ControlType.REST_API
+            node_type = ControlType.REST_API, 
+            configuration  = configuration
         )
 
         from logging import getLogger
         self.log = getLogger(f'{name}-rest-api-child')
 
         self.response_listener = ResponseListener.get()
+
+        self.fsm_configuration = fsm_configuration
 
         import socket
         response_listener_host = socket.gethostname()
@@ -413,7 +420,7 @@ class RESTAPIChildNode(ChildNode):
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f"Application {name} does not expose a control service in the configuration, or has not advertised itself to the application registry service, or the application registry service is not reachable.")
 
-        proxy_host, proxy_port = getattr(configuration.data, "proxy", [None, None])
+        proxy_host, proxy_port = getattr(self.configuration.data, "proxy", [None, None])
         proxy_port = int(proxy_port) if proxy_port is not None else None
 
         self.commander = AppCommander(
@@ -465,10 +472,6 @@ class RESTAPIChildNode(ChildNode):
         )
 
     def propagate_command(self, command:str, data, token:Token) -> Response:
-        from druncschema.request_response_pb2 import ResponseFlag
-        from druncschema.generic_pb2 import PlainText, Stacktrace
-        from drunc.utils.grpc_utils import pack_to_any
-
         if command == 'exclude':
             self.state.exclude()
             return Response(
@@ -496,8 +499,6 @@ class RESTAPIChildNode(ChildNode):
                 children = []
             )
 
-        from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
-
         if self.state.excluded():
             return Response(
                 name = self.name,
@@ -514,7 +515,11 @@ class RESTAPIChildNode(ChildNode):
             )
 
         # here lies the mother of all the problems
-        if command != 'execute_fsm_command':
+        if command == 'execute_fsm_command':
+            return self.propagate_fsm_command(command, data, token)
+        elif command == 'describe':
+            return self.describe(token)
+        else:
             self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
             return Response(
                 name = self.name,
@@ -524,6 +529,7 @@ class RESTAPIChildNode(ChildNode):
                 children = []
             )
 
+    def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
         from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
@@ -531,7 +537,6 @@ class RESTAPIChildNode(ChildNode):
         self.state.executing_command_mark()
         import json
         self.log.info(f'Sending \'{data.command_name}\' to \'{self.name}\'')
-
 
         try:
             self.commander.send_command(
@@ -558,7 +563,6 @@ class RESTAPIChildNode(ChildNode):
                 command_name = data.command_name,
                 data = response_data
             )
-            from drunc.utils.grpc_utils import pack_to_any
             response = Response(
                 name = self.name,
                 token = token,
