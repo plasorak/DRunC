@@ -118,7 +118,7 @@ class GRCPBroadcastSender(BroadcastSenderServicer):
 
 
     def remove_from_broadcast_list(self, request:Request, context) -> Response:
-        r = unpack_any(data, BroadcastRequest)
+        r = unpack_any(request, BroadcastRequest)
         if not self.broadcaster.rm_listener(r.broadcast_receiver_address):
             raise ctler_excpt.ControllerException(f'Failed to remove {r.broadcast_receiver_address} from broadcast list')
         return PlainText(text = f'Removed {r.broadcast_receiver_address} to broadcast list')
