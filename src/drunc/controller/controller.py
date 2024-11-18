@@ -141,6 +141,10 @@ class Controller(ControllerServicer):
         )
 
         for child in self.children_nodes:
+            if child.status() != Status.READY:
+                self.state.to_error()
+
+        for child in self.children_nodes:
             self.logger.info(child)
             child.propagate_command('take_control', None, self.actor.get_token())
 
@@ -462,7 +466,7 @@ class Controller(ControllerServicer):
             type = 'controller',
             name = self.name,
             endpoint = self.uri,
-            info = get_detector_name(self.configuration), 
+            info = get_detector_name(self.configuration),
             session = self.session,
             commands = self.commands,
         )

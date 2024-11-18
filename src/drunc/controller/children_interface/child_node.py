@@ -61,7 +61,7 @@ class ChildNode(abc.ABC):
             name = descriptionName,
             endpoint = self.get_endpoint(),
             info = get_detector_name(self.configuration),
-            session = os.getenv("DUNEDAQ_SESSION"), 
+            session = os.getenv("DUNEDAQ_SESSION"),
             commands = None,
             broadcast = None,
         )
@@ -80,13 +80,22 @@ class ChildNode(abc.ABC):
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
 
         from drunc.utils.configuration import ConfTypes
+        import logging
+        log = logging.getLogger("ChildNode.get_child")
 
         ctype = ControlType.Unknown
         uri = None
         if connectivity_service:
-            ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=60)
-        import logging
-        log = logging.getLogger("ChildNode.get_child")
+            try:
+                ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=60)
+            except ApplicationLookupUnsuccessful:
+                log.error(f"Could not find the application \'{name}\' in the connectivity service")
+                node = RESTAPIChildNode(
+                    name=name,
+                    #...
+                )
+                node.state.to_error()
+                return node
 
         if ctype == ControlType.Unknown:
             ctype, uri = get_control_type_and_uri_from_cli(cli)
