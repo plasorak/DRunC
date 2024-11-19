@@ -44,7 +44,6 @@ def print_traceback():
 
 def update_log_level(loglevel):
     log_level = log_levels[loglevel]
-    #logging.basicConfig(level=log_level)
     # Update log level for root logger
     logger = logging.getLogger('drunc')
     logger.setLevel(log_level)

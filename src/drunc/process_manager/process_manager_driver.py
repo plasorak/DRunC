@@ -158,13 +158,13 @@ class ProcessManagerDriver(GRPCDriver):
                 from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
-                                {e}
-                                To debug it, close drunc and run the following command:
+                self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+                                        {e}
+                                        To debug it, close drunc and run the following command:
 
-                                [yellow]oks_dump --files-only {oks_conf}[/]
+                                        [yellow]oks_dump --files-only {oks_conf}[/]
 
-                                ''', extra={'markup': True})
+                                        ''', extra={'markup': True})
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
@@ -252,8 +252,7 @@ class ProcessManagerDriver(GRPCDriver):
 
         import signal
         def keyboard_interrupt_on_sigint(signal, frame):
-            from logging import getLogger
-            log.warning("Interrupted")
+            self._log.warning("Interrupted")
             raise KeyboardInterrupt
 
         original_sigint_handler = signal.getsignal(signal.SIGINT)

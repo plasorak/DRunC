@@ -4,14 +4,17 @@ import grpc
 import os
 import logging
 import getpass
-
-from drunc.utils.utils import log_levels
+from rich.console import Console
+from rich.logging import RichHandler
+from drunc.utils.utils import log_levels, update_log_level
 
 _cleanup_coroutines = []
 
 def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
     log = logging.getLogger("run_pm")
-    log.debug("Running run_pm")
+    log.addHandler(RichHandler())
+    update_log_level(log_level)
+    log.info("Running run_pm")
     if signal_handler is not None:
         signal_handler()
 
@@ -46,7 +49,6 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException('The address on which to expect commands/send status wasn\'t specified')
         from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_server
-
         server = grpc.aio.server()
         add_ProcessManagerServicer_to_server(pm, server)
         port = server.add_insecure_port(address)
@@ -56,7 +58,7 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
         await server.start()
         import socket
         hostname = socket.gethostname()
-        log.debug(f'ProcessManager was started on {hostname}:{port}')
+        log.info(f'ProcessManager was started on {hostname}:{port}')
 
 
         async def server_shutdown():
@@ -65,12 +67,11 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
             # grace period, the server won't accept new connections and allow
             # existing RPCs to continue within the grace period.
             await server.stop(5)
-            pm._terminate_impl(None)
+            pm._terminate_impl()
 
         _cleanup_coroutines.append(server_shutdown())
         if ready_event is not None:
             ready_event.set()
-
         await server.wait_for_termination()
 
 
@@ -82,16 +83,19 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
     except Exception as e:
         log.error("Serving the ProcessManager received an Exception")
         import os
+        from rich.console import Console
+        console = Console()
         console.print_exception(width=os.get_terminal_size()[0])
     finally:
         if _cleanup_coroutines:
-            log.debug("Clearing coroutines")
+            log.info("Clearing coroutines")
             loop.run_until_complete(*_cleanup_coroutines)
         loop.close()
 
 @click.command()
 @click.argument('pm-conf', type=str)
 @click.argument('pm-port', type=int)
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.option(
     '-l',
     '--log-level',
@@ -99,10 +103,10 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
         log_levels.keys(),
         case_sensitive=False
     ),
-    default='INFO',
+    default='DEBUG',
     help='Set the log level'
 )
-def process_manager_cli(pm_conf:str, pm_port:int, log_level):
+def process_manager_cli(pm_conf:str, pm_port:int, override_logs:bool, log_level:str):
     from drunc.process_manager.configuration import get_process_manager_configuration
     pm_conf = get_process_manager_configuration(pm_conf)
-    run_pm(pm_conf, f'0.0.0.0:{pm_port}', log_level)
+    run_pm(pm_conf, f'0.0.0.0:{pm_port}', override_logs, log_level)

@@ -130,7 +130,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self.log.debug(f'{type(self).__name__} terminating')
+        self.log.warning(f'{type(self).__name__} terminating')
         if self.process_store:
             self.log.warning('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]

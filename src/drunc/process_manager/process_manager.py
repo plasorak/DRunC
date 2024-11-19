@@ -26,9 +26,6 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, override_logs:bool, log_level:str, session=None, **kwargs):
         super().__init__()
-
-        self.log = logging.getLogger("process_manager")
-        self.log.debug(pid_info_str())
         log_path = get_log_path(
             user = kwargs.get("user", getpass.getuser()),
             session_name = type(self).__name__,
@@ -38,11 +35,18 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         if override_logs and os.path.isfile(log_path):
             os.remove(log_path)
 
+        self.log = logging.getLogger("process_manager")
         handler = logging.FileHandler(log_path)
         handler.setLevel(log_level)
-        formatter = logging.Formatter("%(asctime)s[%(levelname)s] %(funcName)s: %(message)s", "[%H:%M:%S]")
+        formatter = logging.Formatter(
+            fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+            datefmt = "[%X]",
+            style="%"
+        )
         handler.setFormatter(formatter)
         self.log.addHandler(handler)
+
+        self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
 
         self.configuration = configuration
