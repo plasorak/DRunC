@@ -306,7 +306,7 @@ class ShellContext:
         if status.in_error:
             self.print(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
         else:
-            available_actions = [command.name.replace('_', '-') for command in self.get_driver('controller').describe_fsm().data.commands]
+            available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
             self.print(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
 
 

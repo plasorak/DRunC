@@ -19,12 +19,13 @@ class gRPCChildNode(ChildNode):
     def __init__(self, name, configuration:gRCPChildConfHandler, init_token, uri):
         super().__init__(
             name = name,
-            node_type = ControlType.gRPC
+            node_type = ControlType.gRPC, 
+            configuration  = configuration
         )
 
         from logging import getLogger
         self.log = getLogger(f'{self.name}-grpc-child')
-        self.configuration = configuration
+
 
         host, port = uri.split(":")
         port = int(port)
@@ -110,7 +111,6 @@ class gRPCChildNode(ChildNode):
         pass
 
     def propagate_command(self, command, data, token) -> Response:
-
         return send_command(
             controller = self.controller,
             token = token,
