@@ -82,6 +82,7 @@ class SSHProcessManager(ProcessManager):
         ret = []
         for uuid in uuids:
             process = self.process_store[uuid]
+            app_name = [_ for _ in str(process.process.cmd[-1]).split(";") if "DUNEDAQ_APPLICATION_NAME" in _][0].split("=")[1].strip("\"")
             if process.is_alive():
                 import signal
                 sequence = [
@@ -92,7 +93,7 @@ class SSHProcessManager(ProcessManager):
                 for sig in sequence:
                     if not process.is_alive():
                         break
-                    self.log.info(f'Sending signal \'{str(sig)}\' to \'{uuid}\'')
+                    self.log.info(f'Sending signal \'{str(sig)}\' to {app_name} with UUID {uuid}')
                     process.signal_group(sig) # TODO grab this from the inputs
                     if not process.is_alive():
                         break

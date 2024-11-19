@@ -14,6 +14,7 @@ import logging
 @click.argument('process-manager', type=str, nargs=1)
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -21,6 +22,7 @@ def unified_shell(
     boot_configuration:str,
     session_name:str,
     log_level:str,
+    override_logs:bool
 ) -> None:
 
     from drunc.utils.utils import update_log_level, pid_info_str, ignore_sigint_sighandler
@@ -28,9 +30,6 @@ def unified_shell(
     from logging import getLogger
     logger = getLogger('unified_shell')
     logger.debug(pid_info_str())
-
-
-
     url_process_manager = urlparse(process_manager)
     external_pm = True
 
@@ -51,6 +50,7 @@ def unified_shell(
             kwargs = {
                 "pm_conf": process_manager,
                 "pm_address": "localhost:0",
+                "override_logs": override_logs,
                 "log_level": log_level,
                 "ready_event": ready_event,
                 "signal_handler": ignore_sigint_sighandler,

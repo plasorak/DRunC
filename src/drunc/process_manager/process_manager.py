@@ -1,19 +1,21 @@
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
-from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.authoriser_pb2 import ActionType, SystemType
-
+from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessRestriction, ProcessDescription, ProcessUUID, ProcessInstanceList, LogRequest, LogLine
 from druncschema.process_manager_pb2_grpc import ProcessManagerServicer
-from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
-from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
-import abc
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag
 
 from drunc.authoriser.decorators import authentified_and_authorised, async_authentified_and_authorised
-from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
-
-
+from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
 from drunc.exceptions import DruncCommandException
+from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
+from drunc.process_manager.utils import get_log_path
+from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
+from drunc.utils.utils import update_log_level, pid_info_str
 
+import abc
+import os
+import getpass
+import logging
 
 class BadQuery(DruncCommandException):
     def __init__(self, txt):
@@ -22,13 +24,14 @@ class BadQuery(DruncCommandException):
 
 class ProcessManager(abc.ABC, ProcessManagerServicer):
 
-    def __init__(self, configuration:ProcessManagerConfHandler, name, session=None, **kwargs):
+    def __init__(self, configuration:ProcessManagerConfHandler, name:str, override_logs:bool, log_level:str, session=None, **kwargs):
         super().__init__()
 
         self.configuration = configuration
-
         self.name = name
         self.session = session
+        self.override_logs = override_logs
+
         from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
         from drunc.utils.configuration import ConfTypes
         bsch = BroadcastSenderConfHandler(
@@ -43,8 +46,23 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             configuration = bsch,
         ) if bsch.data else None
 
-        from logging import getLogger
-        self.log = getLogger("process_manager")
+        self.log = logging.getLogger("process_manager")
+        self.log.debug(pid_info_str())
+        log_path = get_log_path(
+            user = kwargs.get("user", getpass.getuser()),
+            session_name = type(self).__name__,
+            application_name = self.name,
+            override_logs = self.override_logs
+        )
+        if self.override_logs and os.path.isfile(log_path):
+            os.remove(log_path)
+
+        handler = logging.FileHandler(log_path)
+        handler.setLevel(log_level)
+        formatter = logging.Formatter("%(asctime)s[%(levelname)s] %(funcName)s: %(message)s", "[%H:%M:%S]")
+        handler.setFormatter(formatter)
+        self.log.addHandler(handler)
+        self.log.info("Setting up process_manager with run_pm")
 
         from drunc.authoriser.configuration import DummyAuthoriserConfHandler
         from drunc.utils.configuration import ConfTypes
@@ -129,34 +147,27 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             message = 'ready',
             btype = BroadcastType.SERVER_READY
         )
-
-    # def terminate(self):
-    #     self.broadcast(
-    #         message='over_and_out',
-    #         btype=BroadcastType.SERVER_SHUTDOWN
-    #     )
-    #     self._terminate()
-
-    # @abc.abstractmethod
-    # def _terminate(self):
-    #     pass
-
     '''
     A couple of simple pass-through functions to the broadcasting service
     '''
     def broadcast(self, *args, **kwargs):
+        self.log.debug(f"{type(self).__name__} broadcasting")
         return self.broadcast_service.broadcast(*args, **kwargs) if self.broadcast_service else None
 
     def can_broadcast(self, *args, **kwargs):
+        self.log.debug(f"Checking if {type(self).__name__} can broadcast")
         return self.broadcast_service.can_broadcast(*args, **kwargs) if self.broadcast_service else False
 
     def describe_broadcast(self, *args, **kwargs):
+        self.log.debug(f"Describing {type(self).__name__} broadcast")
         return self.broadcast_service.describe_broadcast(*args, **kwargs) if self.broadcast_service else None
 
     def interrupt_with_exception(self, *args, **kwargs):
+        self.log.debug(f"Interrupting {type(self).__name__} broadcast with exception")
         return self.broadcast_service._interrupt_with_exception(*args, **kwargs) if self.broadcast_service else None
 
     def async_interrupt_with_exception(self, *args, **kwargs):
+        self.log.debug(f"Interrupting {type(self).__name__} broadcast asynchronously with exception")
         return self.broadcast_service._async_interrupt_with_exception(*args, **kwargs) if self.broadcast_service else None
 
 
@@ -172,6 +183,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(BootRequest) # 3rd step
     def boot(self, br:BootRequest) -> Response:
+        self.log.info(f"{type(self).__name__} running boot for application {br.process_description.metadata.name} in session {br.process_description.metadata.session}")
         try:
             resp = self._boot_impl(br)
             return Response(
@@ -203,6 +215,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
     def terminate(self) -> Response:
+        self.log.info(f"{type(self).__name__} running terminate")
         try:
             resp = self._terminate_impl()
             return Response(
@@ -233,6 +246,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def restart(self, q:ProcessQuery)-> Response:
+        self.log.info(f"{type(self).__name__} running restart")
         try:
             resp = self._restart_impl(q)
             return Response(
@@ -264,6 +278,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def kill(self, q:ProcessQuery) -> Response:
+        self.log.info(f"{type(self).__name__} running kill")
         try:
             resp = self._kill_impl(q)
             return Response(
@@ -295,6 +310,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def ps(self, q:ProcessQuery) -> Response:
+        self.log.info(f"{type(self).__name__} running ps")
         try:
             resp = self._ps_impl(q)
             return Response(
@@ -321,6 +337,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def flush(self, query:ProcessQuery) -> Response:
+        self.log.info(f"{type(self).__name__} running flush")
         ret = []
 
         for uuid in self._get_process_uid(query):
@@ -382,6 +399,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
     def describe(self) -> Response:
+        self.log.info(f"{type(self).__name__} running describe")
         from druncschema.request_response_pb2 import Description
         from drunc.utils.grpc_utils import pack_to_any
         bd = self.describe_broadcast()
@@ -416,6 +434,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @async_unpack_request_data_to(LogRequest) # 3rd step
     async def logs(self, lr:LogRequest) -> Response:
+        self.log.info(f"{type(self).__name__} running logs")
         try:
             async for r in self._logs_impl(lr):
                 yield Response(

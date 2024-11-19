@@ -125,6 +125,7 @@ def get_rte_script():
 
 def get_log_path(user:str, session_name:str, application_name:str, override_logs:bool, app_log_path:str = None, session_log_path:str = None):
     import os
+    from drunc.utils.utils import now_str
     pwd = os.getcwd()
     log_path = None
     if app_log_path: # if the user wants to write to a specific path, we never override
