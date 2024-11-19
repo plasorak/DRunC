@@ -159,12 +159,12 @@ class ProcessManagerDriver(GRPCDriver):
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
                 log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
-{e}
-To debug it, close drunc and run the following command:
+                                {e}
+                                To debug it, close drunc and run the following command:
 
-[yellow]oks_dump --files-only {oks_conf}[/]
+                                [yellow]oks_dump --files-only {oks_conf}[/]
 
-''', extra={'markup': True})
+                                ''', extra={'markup': True})
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
@@ -265,10 +265,9 @@ To debug it, close drunc and run the following command:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
                 log.warning(f"""This shell didn't connect to the {top_controller_name}.
-To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
-[yellow]connect {{controller_address}}:{{controller_port}}>[/]
-""",
-                    extra={"markup": True}
+                                To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+                                [yellow]connect {{controller_address}}:{{controller_port}}>[/]
+                                """, extra={"markup": True}
                 )
             else:
                 log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")

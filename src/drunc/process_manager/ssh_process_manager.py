@@ -70,7 +70,6 @@ class SSHProcessManager(ProcessManager):
         )
 
         import logging
-        self._log = logging.getLogger('ssh-process-manager')
         # self.children_logs_depth = 1000
         # self.children_logs = {}
         self.watchers = []
@@ -131,19 +130,19 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self._log.debug(f'{type(self).__name__} terminating')
+        self.log.debug(f'{type(self).__name__} terminating')
         if self.process_store:
-            self._log.warning('Killing all the known processes before exiting')
+            self.log.warning('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]
             return self.kill_processes(uuids)
         else:
-            self._log.info('No known process to kill before exiting')
+            self.log.info('No known process to kill before exiting')
             return ProcessInstanceList()
 
 
 
     async def _logs_impl(self, log_request:LogRequest) -> LogLine:
-        self._log.debug(f'{type(self).__name__} retrieving logs for {log_request.query}')
+        self.log.debug(f'{type(self).__name__} retrieving logs for {log_request.query}')
         uid = self._ensure_one_process(self._get_process_uid(log_request.query))
         logfile = self.boot_request[uid].process_description.process_logs_path
         # https://stackoverflow.com/questions/7167008/efficiently-finding-the-last-line-in-a-text-file
@@ -194,14 +193,14 @@ class SSHProcessManager(ProcessManager):
 
 
     def notify_join(self, name, session, user, exec):
-        self._log.debug(f"{type(self).__name__} joining processes from the event loop")
+        self.log.debug(f"{type(self).__name__} joining processes from the event loop")
         exit_code = None
         if exec:
             exit_code = exec.exit_code
         end_str = f"Process \'{name}\' (session: \'{session}\', user: \'{user}\') process exited with exit code {exit_code}"
-        self._log.debug(end_str)
+        self.log.debug(end_str)
         if exec:
-            self._log.debug(name+str(exec))
+            self.log.debug(name+str(exec))
 
         from druncschema.broadcast_pb2 import BroadcastType
         self.broadcast(
@@ -210,7 +209,7 @@ class SSHProcessManager(ProcessManager):
         )
 
     def _watch(self, name, session, user, process):
-        self._log.debug(f'{type(self).__name__} watching process {name}')
+        self.log.debug(f'{type(self).__name__} watching process {name}')
         t = AppProcessWatcherThread(
             pm = self,
             session = session,
@@ -222,7 +221,7 @@ class SSHProcessManager(ProcessManager):
         self.watchers.append(t)
 
     def __boot(self, boot_request:BootRequest, uuid:str) -> ProcessInstance:
-        self._log.debug(f'{type(self).__name__} booting session {boot_request.process_description.metadata}')
+        self.log.debug(f'{type(self).__name__} booting session \'{boot_request.process_description.metadata}\'')
         import os
         platform = os.uname().sysname.lower()
         macos = ("darwin" in platform)
@@ -236,10 +235,8 @@ class SSHProcessManager(ProcessManager):
 
         if uuid in self.boot_request:
             raise DruncCommandException(f'Process {uuid} already exists!')
-
         self.boot_request[uuid] = BootRequest()
         self.boot_request[uuid].CopyFrom(boot_request)
-
         hostname = ""
 
         for host in boot_request.process_restriction.allowed_hosts:
@@ -272,7 +269,7 @@ class SSHProcessManager(ProcessManager):
                     cmd = cmd[:-1]
 
                 arguments = [user_host, "-tt", "-o StrictHostKeyChecking=no", f'{{ {cmd} ; }} &> {log_file}']
-                self._log.debug(f"{arguments}")
+                self.log.debug(f"{arguments}")
                 # arguments = [user_host, "-tt", "-o StrictHostKeyChecking=no", f'{{ {cmd} ; }} > >(tee -a {log_file}) 2> >(tee -a {log_file} >&2)']
                 # I'm gonna bail now and read that log file, anyway, it's probably better that heavy logger applications don't clog up the process manager CPU.
                 self.process_store[uuid] = self.ssh (
@@ -283,14 +280,13 @@ class SSHProcessManager(ProcessManager):
                     _new_session=True,
                     _preexec_fn = on_parent_exit(signal.SIGTERM) if not macos else None
                 )
-
                 self._watch(
                     name = meta.name,
                     user = meta.user,
                     session = meta.session,
                     process = self.process_store[uuid]
                 )
-                self._log.debug(f'Command:\nssh \'{" ".join(arguments)}\'')
+                self.log.debug(f'Command:\nssh \'{" ".join(arguments)}\'')
                 break
 
             except Exception as e:
@@ -301,7 +297,7 @@ class SSHProcessManager(ProcessManager):
         ## Saving the host to the metadata
         self.boot_request[uuid].process_description.metadata.hostname = hostname
 
-        self._log.info(f'Booted \'{boot_request.process_description.metadata.name}\' with UUID {uuid}')
+        self.log.info(f'Booted \'{boot_request.process_description.metadata.name}\' with UUID {uuid}')
         pd = ProcessDescription()
         pd.CopyFrom(self.boot_request[uuid].process_description)
         pr = ProcessRestriction()
@@ -326,7 +322,6 @@ class SSHProcessManager(ProcessManager):
                 return_code = self.process_store[uuid].exit_code
             else:
                 alive = True
-
         except Exception as e:
             pass
 
@@ -341,7 +336,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _ps_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self._log.debug(f'{type(self).__name__} running ps')
+        self.log.debug(f'{type(self).__name__} running ps')
         ret = []
 
         for uuid in self._get_process_uid(query):
@@ -387,7 +382,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _boot_impl(self, boot_request:BootRequest) -> ProcessInstance:
-        self._log.debug(f'{type(self).__name__} running _boot_impl')
+        self.log.debug(f'{type(self).__name__} running _boot_impl')
         import uuid
         this_uuid = str(uuid.uuid4())
         return self.__boot(boot_request, this_uuid)
@@ -395,7 +390,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _restart_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self._log.info(f'{type(self).__name__} restarting {query.names} in session {query.session}')
+        self.log.info(f'{type(self).__name__} restarting {query.names} in session {self.session}')
         uuids = self._get_process_uid(query, in_boot_request=True)
         uuid = self._ensure_one_process(uuids, in_boot_request=True)
 
@@ -421,11 +416,11 @@ class SSHProcessManager(ProcessManager):
         return ret
 
     def _kill_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self._log.info(f'{type(self).__name__} killing {query.names} in session {query.session}')
+        self.log.info(f'{type(self).__name__} killing {query.names} in session {self.session}')
         if self.process_store:
-            self._log.warning('Killing all the known processes before exiting')
+            self.log.warning('Killing all the known processes before exiting')
             uuids = self._get_process_uid(query)
             return self.kill_processes(uuids)
         else:
-            self._log.info('No known process to kill before exiting')
+            self.log.info('No known process to kill before exiting')
             return ProcessInstanceList()

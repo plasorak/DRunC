@@ -183,7 +183,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(BootRequest) # 3rd step
     def boot(self, br:BootRequest) -> Response:
-        self.log.debug(f"{type(self).__name__} booting {br.process_description.metadata.name} from session {br.process_description.metadata.session}")
+        self.log.debug(f"{type(self).__name__} booting \'{br.process_description.metadata.name}\' from session \'{br.process_description.metadata.session}\'")
         try:
             resp = self._boot_impl(br)
             return Response(
@@ -310,7 +310,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def ps(self, q:ProcessQuery) -> Response:
-        self.log.info(f"{type(self).__name__} running ps")
+        self.log.debug(f"{type(self).__name__} running ps")
         try:
             resp = self._ps_impl(q)
             return Response(
@@ -337,7 +337,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def flush(self, query:ProcessQuery) -> Response:
-        self.log.info(f"{type(self).__name__} running flush")
+        self.log.debug(f"{type(self).__name__} running flush")
         ret = []
 
         for uuid in self._get_process_uid(query):
@@ -434,7 +434,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @async_unpack_request_data_to(LogRequest) # 3rd step
     async def logs(self, lr:LogRequest) -> Response:
-        self.log.info(f"{type(self).__name__} running logs")
+        self.log.debug(f"Getting logs")
         try:
             async for r in self._logs_impl(lr):
                 yield Response(
