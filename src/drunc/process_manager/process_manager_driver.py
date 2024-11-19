@@ -263,13 +263,13 @@ class ProcessManagerDriver(GRPCDriver):
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
-                log.warning(f"""This shell didn't connect to the {top_controller_name}.
+                self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
                                 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
                                 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
                                 """, extra={"markup": True}
                 )
             else:
-                log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+                self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
         finally:
             signal.signal(signal.SIGINT, original_sigint_handler)
 
