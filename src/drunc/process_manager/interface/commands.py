@@ -1,5 +1,6 @@
 import click
 import getpass
+import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
 from drunc.process_manager.interface.cli_argument import add_query_options
@@ -24,7 +25,7 @@ async def boot(
     log_level:str,
     override_logs:bool,
     ) -> None:
-
+    log = logging.getLogger("process_manager_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -36,7 +37,7 @@ async def boot(
         )
         async for result in results:
             if not result: break
-            obj.print(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
         return
 
@@ -58,7 +59,7 @@ async def boot(
 @click.pass_obj
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
-
+    log = logging.getLogger("process_manager_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(
@@ -70,7 +71,7 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
         )
         async for result in results:
             if not result: break
-            obj.print(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
         return
 

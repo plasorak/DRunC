@@ -30,6 +30,7 @@ def list_transitions(obj:ControllerContext, all:bool) -> None:
 def wait(obj:ControllerContext, sleep_time:int) -> None:
     # Requested to "allow processing of commands to pause for a specified number of seconds"
     from time import sleep
+    obj.print(f"Command [green]wait[/green] running for {sleep_time} seconds.")
     sleep(sleep_time)
     obj.print(f"Command [green]wait[/green] ran for {sleep_time} seconds.")
 

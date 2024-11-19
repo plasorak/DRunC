@@ -27,6 +27,24 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, override_logs:bool, log_level:str, session=None, **kwargs):
         super().__init__()
 
+        self.log = logging.getLogger("process_manager")
+        self.log.debug(pid_info_str())
+        log_path = get_log_path(
+            user = kwargs.get("user", getpass.getuser()),
+            session_name = type(self).__name__,
+            application_name = name,
+            override_logs = override_logs
+        )
+        if override_logs and os.path.isfile(log_path):
+            os.remove(log_path)
+
+        handler = logging.FileHandler(log_path)
+        handler.setLevel(log_level)
+        formatter = logging.Formatter("%(asctime)s[%(levelname)s] %(funcName)s: %(message)s", "[%H:%M:%S]")
+        handler.setFormatter(formatter)
+        self.log.addHandler(handler)
+        self.log.debug("Initialized ProcessManager")
+
         self.configuration = configuration
         self.name = name
         self.session = session
@@ -45,24 +63,6 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             session = session,
             configuration = bsch,
         ) if bsch.data else None
-
-        self.log = logging.getLogger("process_manager")
-        self.log.debug(pid_info_str())
-        log_path = get_log_path(
-            user = kwargs.get("user", getpass.getuser()),
-            session_name = type(self).__name__,
-            application_name = self.name,
-            override_logs = self.override_logs
-        )
-        if self.override_logs and os.path.isfile(log_path):
-            os.remove(log_path)
-
-        handler = logging.FileHandler(log_path)
-        handler.setLevel(log_level)
-        formatter = logging.Formatter("%(asctime)s[%(levelname)s] %(funcName)s: %(message)s", "[%H:%M:%S]")
-        handler.setFormatter(formatter)
-        self.log.addHandler(handler)
-        self.log.info("Setting up process_manager with run_pm")
 
         from drunc.authoriser.configuration import DummyAuthoriserConfHandler
         from drunc.utils.configuration import ConfTypes
@@ -183,7 +183,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(BootRequest) # 3rd step
     def boot(self, br:BootRequest) -> Response:
-        self.log.info(f"{type(self).__name__} running boot for application {br.process_description.metadata.name} in session {br.process_description.metadata.session}")
+        self.log.debug(f"{type(self).__name__} booting {br.process_description.metadata.name} from session {br.process_description.metadata.session}")
         try:
             resp = self._boot_impl(br)
             return Response(
@@ -215,7 +215,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
     def terminate(self) -> Response:
-        self.log.info(f"{type(self).__name__} running terminate")
+        self.log.info(f"{type(self).__name__} terminating")
         try:
             resp = self._terminate_impl()
             return Response(
@@ -399,7 +399,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
     def describe(self) -> Response:
-        self.log.info(f"{type(self).__name__} running describe")
+        self.log.debug(f"{type(self).__name__} running describe")
         from druncschema.request_response_pb2 import Description
         from drunc.utils.grpc_utils import pack_to_any
         bd = self.describe_broadcast()
@@ -503,18 +503,19 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     @staticmethod
     def get(conf, **kwargs):
-        from rich.console import Console
-        console = Console()
+        from logging import getLogger
+        log = getLogger("ProcessManager_get")
 
         if conf.data.type == ProcessManagerTypes.SSH:
-            console.print(f'Starting \'SSHProcessManager\'')
+            log.info(f'Starting \'SSHProcessManager\'')
             from drunc.process_manager.ssh_process_manager import SSHProcessManager
             return SSHProcessManager(conf, **kwargs)
         elif conf.data.type == ProcessManagerTypes.K8s:
-            console.print(f'Starting \'K8sProcessManager\'')
+            log.info(f'Starting \'K8sProcessManager\'')
             from drunc.process_manager.k8s_process_manager import K8sProcessManager
             return K8sProcessManager(conf, **kwargs)
         else:
+            log.error(f'ProcessManager type {conf.get("type")} is unsupported!')
             raise RuntimeError(f'ProcessManager type {conf.get("type")} is unsupported!')
 
 

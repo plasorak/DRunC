@@ -18,9 +18,9 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
     from drunc.utils.utils import parent_death_pact
     parent_death_pact() # If the parent dies (for example unified shell), we die too
 
-    from rich.console import Console
-    console = Console()
-    console.print(f'Using \'{pm_conf}\' as the ProcessManager configuration')
+    # from rich.console import Console
+    # console = Console()
+    log.debug(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
     from drunc.process_manager.process_manager import ProcessManager
     from drunc.utils.configuration import parse_conf_url, OKSKey
@@ -56,11 +56,11 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, ready
         await server.start()
         import socket
         hostname = socket.gethostname()
-        console.print(f'ProcessManager was started on {hostname}:{port}')
+        log.debug(f'ProcessManager was started on {hostname}:{port}')
 
 
         async def server_shutdown():
-            console.print("Starting shutdown...")
+            log.warning("Starting shutdown...")
             # Shuts down the server with 5 seconds of grace period. During the
             # grace period, the server won't accept new connections and allow
             # existing RPCs to continue within the grace period.

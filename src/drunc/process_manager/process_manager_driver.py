@@ -145,7 +145,7 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
-
+        self._log.info(f"Booting session {session_name}")
         import conffwk
         from drunc.utils.configuration import find_configuration
         oks_conf = find_configuration(conf)

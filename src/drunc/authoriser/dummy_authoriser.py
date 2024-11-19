@@ -10,7 +10,7 @@ class DummyAuthoriser:
     def __init__(self, system:SystemType, configuration_handler:DummyAuthoriserConfHandler=None):
         import logging
         self.log = logging.getLogger("Controller")
-        self.log.info(f'DummyAuthoriser ready')
+        self.log.debug(f'DummyAuthoriser ready')
         self.configuration = configuration_handler
         self.command_actions = {} # Dict[str, ActionType]
         self.system = system
