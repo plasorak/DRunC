@@ -2,6 +2,10 @@ import abc
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType, get_control_type_and_uri_from_connectivity_service, get_control_type_and_uri_from_cli
 import logging
+from drunc.utils.grpc_utils import pack_to_any
+from druncschema.token_pb2 import Token
+from druncschema.request_response_pb2 import Response, ResponseFlag, Description
+import os
 
 class ChildInterfaceTechnologyUnknown(DruncSetupException):
     def __init__(self, t, name):
@@ -9,13 +13,14 @@ class ChildInterfaceTechnologyUnknown(DruncSetupException):
 
 
 class ChildNode(abc.ABC):
-    def __init__(self, name:str, node_type:ControlType, **kwargs) -> None:
+    def __init__(self, name:str, configuration, node_type:ControlType, **kwargs) -> None:
         super().__init__(**kwargs)
 
         self.node_type = node_type
         import logging
         self.log = logging.getLogger(f"{name}-child-node")
         self.name = name
+        self.configuration = configuration
 
     @abc.abstractmethod
     def __str__(self):
@@ -39,6 +44,37 @@ class ChildNode(abc.ABC):
     @abc.abstractmethod
     def get_endpoint(self):
         pass
+
+    def describe(self, token:Token) -> Response:
+        descriptionType = None
+        descriptionName = None
+
+        if hasattr(self.configuration.data, "application_name"): # Get the application name and type
+            descriptionType = self.configuration.data.application_name
+            descriptionName = self.configuration.data.id
+        elif hasattr(self.configuration.data, "controller") and hasattr(self.configuration.data.controller, "application_name"): # Get the controller name and type
+            descriptionType = self.configuration.data.controller.application_name
+            descriptionName = self.configuration.data.controller.id
+
+        from drunc.controller.utils import get_detector_name
+        d = Description(
+            type = descriptionType,
+            name = descriptionName,
+            endpoint = self.get_endpoint(),
+            info = get_detector_name(self.configuration),
+            session = os.getenv("DUNEDAQ_SESSION"),
+            commands = None,
+            broadcast = None,
+        )
+
+        resp = Response(
+            name = self.name,
+            token = token,
+            data = pack_to_any(d),
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = None
+        )
+        return resp
 
 
     @staticmethod

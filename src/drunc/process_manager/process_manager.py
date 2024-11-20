@@ -429,7 +429,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             yield Response(
                 name = self.name,
                 token = None,
-                data = pack_to_any(resp),
+                data = None,
                 flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
                 children = [],
             )

@@ -1,11 +1,35 @@
 from rich import print
 from druncschema.controller_pb2 import FSMCommandsDescription
-
+from druncschema.request_response_pb2 import Description
+from drunc.utils.shell_utils import DecodedResponse
 import logging
+import inspect
 log = logging.getLogger('controller_shell_utils')
 
+def match_children(statuses:list, descriptions:list) -> list:
+    def check_message_type(message:Description, expected_type:str) -> None:
+        if message.data.DESCRIPTOR.name != expected_type:
+            raise TypeError("Message {message.name} is not of type 'Description'!")
+        return
 
-def print_status_table(obj, statuses):
+    children = []
+    for status in statuses:
+        check_message_type(status, "Status")
+        child = {}
+        child_name = status.name
+        for description in descriptions:
+            if description.name == child_name:
+                check_message_type(description, "Description")
+                child["status"] = status
+                child["description"] = description
+                children.append(child)
+                break
+    if len(descriptions) != len(children):
+        from drunc.controller.exceptions import MalformedCommand
+        raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
+    return children
+
+def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
     from druncschema.controller_pb2 import Status
     if not statuses: return
 
@@ -20,22 +44,26 @@ def print_status_table(obj, statuses):
 
     t = Table(title=f'Status')
     t.add_column('Name')
+    t.add_column('Info')
     t.add_column('State')
     t.add_column('Substate')
-    t.add_column('In error', justify='center')
-    t.add_column('Included', justify='center')
+    t.add_column('In error')
+    t.add_column('Included')
+    t.add_column('Endpoint')
 
-    def add_status_to_table(status, table, prefix):
+    def add_status_to_table(table, status, description, prefix):
         table.add_row(
             prefix+status.name,
+            description.data.info,
             status.data.state,
             status.data.sub_state,
             format_bool(status.data.in_error, false_is_good = True),
             format_bool(status.data.included),
+            description.data.endpoint
         )
-        for child in status.children:
-            add_status_to_table(child, table, prefix=prefix+'  ')
-    add_status_to_table(statuses, t, prefix='')
+        for child in match_children(status.children, description.children):
+            add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
+    add_status_to_table(t, statuses, descriptions, prefix='')
     obj.print(t)
     obj.print_status_summary()
 
@@ -292,11 +320,11 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     obj.print(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
     from druncschema.controller_pb2 import FSMCommand
 
-    description = obj.get_driver('controller').describe_fsm().data
+    fsm_description = obj.get_driver('controller').describe_fsm().data
 
     from drunc.controller.interface.shell_utils import search_fsm_command, validate_and_format_fsm_arguments, ArgumentException
 
-    command_desc = search_fsm_command(transition_name, description.commands)
+    command_desc = search_fsm_command(transition_name, fsm_description.commands)
 
     if command_desc is None:
         obj.error(f'Command "{transition_name}" does not exist, or is not accessible right now')
@@ -349,9 +377,10 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     obj.print(t)
 
     statuses = obj.get_driver('controller').status()
+    descriptions = obj.get_driver('controller').describe()
 
     from drunc.controller.interface.shell_utils import print_status_table
-    print_status_table(obj, statuses)
+    print_status_table(obj, statuses, descriptions)
 
 
 from druncschema.controller_pb2 import FSMCommandDescription

@@ -3,6 +3,9 @@ from druncschema.request_response_pb2 import Response, ResponseFlag, Request
 from druncschema.token_pb2 import Token
 from drunc.utils.grpc_utils import pack_to_any
 
+import logging
+log = logging.getLogger('controller_utils')
+
 def get_status_message(stateful:StatefulNode):
     from druncschema.controller_pb2 import Status
     state_string = stateful.get_node_operational_state()
@@ -15,6 +18,16 @@ def get_status_message(stateful:StatefulNode):
         in_error = stateful.node_is_in_error(),
         included = stateful.node_is_included(),
     )
+
+def get_detector_name(configuration) -> str:
+    detector_name = None
+    if hasattr(configuration.data, "contains") and len(configuration.data.contains) > 0:
+        if len(configuration.data.contains) > 0:
+            log.debug(f"Application {configuration.data.id} has multiple contains, using the first one")
+        detector_name = configuration.data.contains[0].id.replace("-", "_").replace("_", " ")
+    else:
+        log.debug(f"Application {configuration.data.id} has no \"contains\" relation, hence no detector")
+    return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):
     import grpc

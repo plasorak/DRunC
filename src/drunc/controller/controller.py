@@ -1,25 +1,24 @@
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
-from druncschema.token_pb2 import Token
-from druncschema.generic_pb2 import PlainText, PlainTextVector
+from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.controller_pb2 import Status
-from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag
+from druncschema.controller_pb2 import Status, FSMCommand, FSMCommandResponse, FSMResponseFlag
+from druncschema.generic_pb2 import PlainText, PlainTextVector
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+from druncschema.token_pb2 import Token
 
-from drunc.controller.children_interface.child_node import ChildNode
-from drunc.controller.stateful_node import StatefulNode
-from drunc.broadcast.server.broadcast_sender import BroadcastSender
-import drunc.controller.exceptions as ctler_excpt
-from drunc.utils.grpc_utils import pack_to_any
-from typing import Optional, List
-from drunc.broadcast.server.decorators import broadcasted
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
 from drunc.authoriser.decorators import authentified_and_authorised
-from druncschema.authoriser_pb2 import ActionType, SystemType
+from drunc.broadcast.server.broadcast_sender import BroadcastSender
+from drunc.broadcast.server.decorators import broadcasted
+from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.decorators import in_control
+import drunc.controller.exceptions as ctler_excpt
+from drunc.controller.stateful_node import StatefulNode
 from drunc.exceptions import DruncException
+from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
 
 import signal
+from typing import Optional, List
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
@@ -168,10 +167,10 @@ class Controller(ControllerServicer):
                 name = 'describe_fsm',
                 data_type = ['generic_pb2.PlainText', 'None'],
                 help = '''Return a description of the FSM transitions:
-if a transition name is provided in its input, return that transition description;
-if a state is provided, return the transitions accessible from that state;
-if "all-transitions" is provided, return all the transitions;
-if nothing (None) is provided, return the transitions accessible from the current state.''',
+                    if a transition name is provided in its input, return that transition description;
+                    if a state is provided, return the transitions accessible from that state;
+                    if "all-transitions" is provided, return all the transitions;
+                    if nothing (None) is provided, return the transitions accessible from the current state.''',
                 return_type = 'request_response_pb2.Description'
             ),
 
@@ -457,21 +456,22 @@ if nothing (None) is provided, return the transitions accessible from the curren
     def describe(self, token:Token) -> Response:
         from druncschema.request_response_pb2 import Description
         from drunc.utils.grpc_utils import pack_to_any
+        from drunc.controller.utils import get_detector_name
         bd = self.describe_broadcast()
         d = Description(
-            # endpoint = self.uri,
             type = 'controller',
             name = self.name,
+            endpoint = self.uri,
+            info = get_detector_name(self.configuration), 
             session = self.session,
             commands = self.commands,
-            # children_endpoints = [child.get_endpoint() for child in self.children_nodes],
         )
 
         if bd:
             d.broadcast.CopyFrom(pack_to_any(bd))
 
 
-        response_children = self.propagate_to_list(
+        children_description = self.propagate_to_list(
             'describe',
             command_data = None,
             token = token,
@@ -483,7 +483,7 @@ if nothing (None) is provided, return the transitions accessible from the curren
             token = None,
             data = pack_to_any(d),
             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = response_children,
+            children = children_description,
         )
 
     # ORDER MATTERS!
