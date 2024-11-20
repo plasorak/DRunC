@@ -25,8 +25,8 @@ def unified_shell(
     override_logs:bool
 ) -> None:
 
-    from drunc.utils.utils import update_log_level, pid_info_str, ignore_sigint_sighandler
-    update_log_level(log_level)
+    from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
+    setup_logger(log_level)
     from logging import getLogger
     log = getLogger('unified_shell')
     log.debug(pid_info_str())

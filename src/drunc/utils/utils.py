@@ -31,18 +31,22 @@ def regex_match(regex, string):
 
 log_level = logging.INFO
 
-def print_traceback():
-    from rich.console import Console
-    c = Console()
-    import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 300
-    c.print_exception(width=width)
+def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
+    if with_rich:
+        from rich.console import Console
+        c = Console()
+        import os
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 300
+        c.print_exception(width=width)
+    # else: # RETURNTOME
+    #     import sys
+    #     sys.traceback # FIX THISNOW
 
 
-def update_log_level(loglevel):
+def setup_logger(loglevel, log_path:str = None):
     log_level = log_levels[loglevel]
     # Update log level for root logger
     logger = logging.getLogger('drunc')
@@ -86,8 +90,8 @@ def update_log_level(loglevel):
                 show_path=False,
                 tracebacks_width=width
             ) # Make this True, and everything crashes on exceptions (no clue why)
-        ]
-    )
+        ]+ [logging.FileHandler(log_path)] if log_path else []
+    )        
 
 def get_new_port():
     import socket

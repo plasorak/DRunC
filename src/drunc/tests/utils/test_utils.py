@@ -35,26 +35,26 @@ def test_print_traceback(capsys):
 
 
 @pytest.mark.xfail ## I don't understand why this one doesn't work???
-def test_update_log_level(capsys):
-    from drunc.utils.utils import update_log_level
+def test_setup_logger(capsys):
+    from drunc.utils.utils import setup_logger
     import logging
-    update_log_level("DEBUG")
+    setup_logger("DEBUG")
     assert logging.getLogger().getEffectiveLevel() == logging.DEBUG
     assert logging.getLogger("tester0").getEffectiveLevel() == logging.DEBUG
 
-    update_log_level("INFO")
+    setup_logger("INFO")
     assert logging.getLogger().getEffectiveLevel() == logging.INFO
     assert logging.getLogger("tester1").getEffectiveLevel() == logging.INFO
 
-    update_log_level("WARNING")
+    setup_logger("WARNING")
     assert logging.getLogger().getEffectiveLevel() == logging.WARNING
     assert logging.getLogger("tester2").getEffectiveLevel() == logging.WARNING
 
-    update_log_level("ERROR")
+    setup_logger("ERROR")
     assert logging.getLogger().getEffectiveLevel() == logging.ERROR
     assert logging.getLogger("tester3").getEffectiveLevel() == logging.ERROR
 
-    update_log_level("CRITICAL")
+    setup_logger("CRITICAL")
     assert logging.getLogger().getEffectiveLevel() == logging.CRITICAL
     assert logging.getLogger("tester4").getEffectiveLevel() == logging.CRITICAL
 

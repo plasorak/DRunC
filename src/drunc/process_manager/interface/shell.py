@@ -9,8 +9,8 @@ from drunc.utils.utils import CONTEXT_SETTINGS, log_levels,validate_command_faci
 @click.argument('process-manager-address', type=str, callback=validate_command_facility)
 @click.pass_context
 def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> None:
-    from drunc.utils.utils import update_log_level
-    update_log_level(log_level)
+    from drunc.utils.utils import setup_logger
+    setup_logger(log_level)
 
     ctx.obj.reset(
         address = process_manager_address,
