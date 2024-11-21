@@ -26,11 +26,8 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, log_level:str, override_logs:bool=True, session:str=None, log_path:str=os.getcwd(), **kwargs):
         super().__init__()
-        appName = "process_manager"
-        pmConfFileName = get_pm_conf_name_from_dir(configuration.initial_data)
         setup_logger(log_level)
-
-        self.log = logging.getLogger(appName)
+        self.log = logging.getLogger("drunc.process_manager")
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
 

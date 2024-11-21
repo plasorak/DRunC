@@ -23,19 +23,8 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         override_logs = override_logs,
         app_log_path = log_path
     )
-    setup_logger(log_level)
-    import os
-    if override_logs and log_path and os.path.isfile(log_path):
-        os.remove(log_path)
-    log = logging.getLogger("process_manager")
-    fileHandler = logging.FileHandler(filename = log_path)
-    fileHandler.setLevel(log_level)
-    fileHandlerFormatter = logging.Formatter(
-        fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-        datefmt="[%X]"
-    )
-    fileHandler.setFormatter(fileHandlerFormatter)
-    log.addHandler(fileHandler)
+    setup_logger(log_level, log_path)
+    log = logging.getLogger("drunc.process_manager")
 
     log.info("Running run_pm")
     if signal_handler is not None:
