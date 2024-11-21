@@ -297,7 +297,7 @@ class SSHProcessManager(ProcessManager):
         ## Saving the host to the metadata
         self.boot_request[uuid].process_description.metadata.hostname = hostname
 
-        self.log.info(f'Booted \'{boot_request.process_description.metadata.name}\' with UUID {uuid}')
+        self.log.info(f'Booted \'{boot_request.process_description.metadata.name}\' from session \'{boot_request.process_description.metadata.session}\' with UUID {uuid}')
         pd = ProcessDescription()
         pd.CopyFrom(self.boot_request[uuid].process_description)
         pr = ProcessRestriction()
