@@ -137,3 +137,6 @@ def get_log_path(user:str, session_name:str, application_name:str, override_logs
     else:
         log_path = f'{pwd}/log_{user}_{session_name}_{application_name}_{now_str(True)}.txt'
     return log_path
+
+def get_pm_conf_name_from_dir(pm_conf_path:str) -> str:
+    return pm_conf_path.split('/')[-1].split('.')[0]

@@ -6,20 +6,37 @@ import logging
 import getpass
 from rich.console import Console
 from rich.logging import RichHandler
-from drunc.utils.utils import log_levels, update_log_level
+from drunc.utils.utils import log_levels, setup_logger
 from drunc.process_manager.utils import get_log_path
 _cleanup_coroutines = []
 
-def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, log_path:str=os.getcwd(), user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
+def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
+    appName = "process_manager"
+
+    from drunc.process_manager.utils import get_pm_conf_name_from_dir
+    pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
+
     log_path = get_log_path(
         user = user,
-        session_name = pm_conf.split('/')[-1].split('.')[0],
-        application_name = "process_manager",
+        session_name = pmConfFileName,
+        application_name = appName,
         override_logs = override_logs,
         app_log_path = log_path
     )
-    update_log_level(log_level, log_path = log_path)
-    log = logging.getLogger("run_pm")
+    setup_logger(log_level)
+    import os
+    if override_logs and log_path and os.path.isfile(log_path):
+        os.remove(log_path)
+    log = logging.getLogger("process_manager")
+    fileHandler = logging.FileHandler(filename = log_path)
+    fileHandler.setLevel(log_level)
+    fileHandlerFormatter = logging.Formatter(
+        fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        datefmt="[%X]"
+    )
+    fileHandler.setFormatter(fileHandlerFormatter)
+    log.addHandler(fileHandler)
+
     log.info("Running run_pm")
     if signal_handler is not None:
         signal_handler()
@@ -42,7 +59,7 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, log_p
 
     pm = ProcessManager.get(
         pmch,
-        name='process_manager',
+        name = appName,
         override_logs = override_logs,
         log_level = log_level
     )
@@ -101,9 +118,6 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, log_p
 @click.command()
 @click.argument('pm-conf', type=str)
 @click.argument('pm-port', type=int)
-@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
-@click.option('-lp', '--log-path', type=str, default=os.getcwd(), help="Log path of process_manager logs.")
-@click.option('-u', '--username', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
 @click.option(
     '-l',
     '--log-level',
@@ -114,14 +128,17 @@ def run_pm(pm_conf:str, pm_address:str, override_logs:bool, log_level:str, log_p
     default='DEBUG',
     help='Set the log level'
 )
-def process_manager_cli(pm_conf:str, pm_port:int, override_logs:bool, log_path:str, username:str, log_level:str):
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
+@click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
+def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str):
     from drunc.process_manager.configuration import get_process_manager_configuration
     pm_conf = get_process_manager_configuration(pm_conf)
     run_pm(
         pm_conf = pm_conf,
         pm_address = f'0.0.0.0:{pm_port}',
-        override_logs = override_logs,
         log_level = log_level,
+        override_logs = override_logs,
         log_path = log_path,
-        user = username
+        user = user
     )

@@ -46,8 +46,8 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
     #     sys.traceback # FIX THISNOW
 
 
-def setup_logger(loglevel, log_path:str = None):
-    log_level = log_levels[loglevel]
+def setup_logger(log_level:str):
+    log_level = log_levels[log_level]
     # Update log level for root logger
     logger = logging.getLogger('drunc')
     logger.setLevel(log_level)
@@ -90,8 +90,8 @@ def setup_logger(loglevel, log_path:str = None):
                 show_path=False,
                 tracebacks_width=width
             ) # Make this True, and everything crashes on exceptions (no clue why)
-        ]+ [logging.FileHandler(log_path)] if log_path else []
-    )        
+        ]
+    )
 
 def get_new_port():
     import socket

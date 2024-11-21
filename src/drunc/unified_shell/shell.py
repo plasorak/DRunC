@@ -8,6 +8,7 @@ from drunc.process_manager.interface.cli_argument import validate_conf_string
 from urllib.parse import urlparse
 # from rich import print as rprint
 import logging
+import getpass
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
@@ -15,6 +16,7 @@ import logging
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -22,9 +24,9 @@ def unified_shell(
     boot_configuration:str,
     session_name:str,
     log_level:str,
-    override_logs:bool
+    override_logs:bool,
+    user:str
 ) -> None:
-
     from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
     setup_logger(log_level)
     from logging import getLogger

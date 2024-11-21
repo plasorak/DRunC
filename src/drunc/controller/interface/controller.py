@@ -1,6 +1,6 @@
 import click
 import signal
-from drunc.utils.utils import log_levels,  setup_logger, validate_command_facility
+from drunc.utils.utils import log_levels, setup_logger, validate_command_facility
 import os
 import logging
 
