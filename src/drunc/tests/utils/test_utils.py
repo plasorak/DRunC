@@ -34,7 +34,6 @@ def test_print_traceback(capsys):
     assert "Test error" in captured.out
 
 
-@pytest.mark.xfail ## I don't understand why this one doesn't work???
 def test_setup_logger(capsys):
     from drunc.utils.utils import setup_logger
     import logging
