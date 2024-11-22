@@ -81,7 +81,7 @@ class SSHProcessManager(ProcessManager):
         ret = []
         for uuid in uuids:
             process = self.process_store[uuid]
-            app_name = [_ for _ in str(process.process.cmd[-1]).split(";") if "DUNEDAQ_APPLICATION_NAME" in _][0].split("=")[1].strip("\"")
+            app_name = self.boot_request[uuid].process_description.metadata.name
             if process.is_alive():
                 import signal
                 sequence = [
@@ -130,7 +130,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self.log.warning(f'{type(self).__name__} terminating')
+        self.log.warning(f'{self.name} terminating')
         if self.process_store:
             self.log.warning('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]
@@ -142,7 +142,7 @@ class SSHProcessManager(ProcessManager):
 
 
     async def _logs_impl(self, log_request:LogRequest) -> LogLine:
-        self.log.debug(f'{type(self).__name__} retrieving logs for {log_request.query}')
+        self.log.debug(f'{self.name} retrieving logs for {log_request.query}')
         uid = self._ensure_one_process(self._get_process_uid(log_request.query))
         logfile = self.boot_request[uid].process_description.process_logs_path
         # https://stackoverflow.com/questions/7167008/efficiently-finding-the-last-line-in-a-text-file
@@ -193,7 +193,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def notify_join(self, name, session, user, exec):
-        self.log.debug(f"{type(self).__name__} joining processes from the event loop")
+        self.log.debug(f"{self.name} joining processes from the event loop")
         exit_code = None
         if exec:
             exit_code = exec.exit_code
@@ -209,7 +209,7 @@ class SSHProcessManager(ProcessManager):
         )
 
     def _watch(self, name, session, user, process):
-        self.log.debug(f'{type(self).__name__} watching process {name}')
+        self.log.debug(f'{self.name} watching process {name}')
         t = AppProcessWatcherThread(
             pm = self,
             session = session,
@@ -221,7 +221,7 @@ class SSHProcessManager(ProcessManager):
         self.watchers.append(t)
 
     def __boot(self, boot_request:BootRequest, uuid:str) -> ProcessInstance:
-        self.log.debug(f'{type(self).__name__} booting session \'{boot_request.process_description.metadata}\'')
+        self.log.debug(f'{self.name} booting session \'{boot_request.process_description.metadata}\'')
         import os
         platform = os.uname().sysname.lower()
         macos = ("darwin" in platform)
@@ -336,7 +336,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _ps_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self.log.debug(f'{type(self).__name__} running ps')
+        self.log.debug(f'{self.name} running ps')
         ret = []
 
         for uuid in self._get_process_uid(query):
@@ -382,7 +382,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _boot_impl(self, boot_request:BootRequest) -> ProcessInstance:
-        self.log.debug(f'{type(self).__name__} running _boot_impl')
+        self.log.debug(f'{self.name} running _boot_impl')
         import uuid
         this_uuid = str(uuid.uuid4())
         return self.__boot(boot_request, this_uuid)
@@ -390,7 +390,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _restart_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self.log.info(f'{type(self).__name__} restarting {query.names} in session {self.session}')
+        self.log.info(f'{self.name} restarting {query.names} in session {self.session}')
         uuids = self._get_process_uid(query, in_boot_request=True)
         uuid = self._ensure_one_process(uuids, in_boot_request=True)
 
@@ -416,7 +416,7 @@ class SSHProcessManager(ProcessManager):
         return ret
 
     def _kill_impl(self, query:ProcessQuery) -> ProcessInstanceList:
-        self.log.info(f'{type(self).__name__} killing {query.names} in session {self.session}')
+        self.log.info(f'{self.name} killing {query.names} in session {self.session}')
         if self.process_store:
             self.log.warning('Killing all the known processes before exiting')
             uuids = self._get_process_uid(query)

@@ -24,9 +24,8 @@ class BadQuery(DruncCommandException):
 
 class ProcessManager(abc.ABC, ProcessManagerServicer):
 
-    def __init__(self, configuration:ProcessManagerConfHandler, name:str, log_level:str, override_logs:bool=True, session:str=None, log_path:str=os.getcwd(), **kwargs):
+    def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
-        setup_logger(log_level)
         self.log = logging.getLogger("drunc.process_manager")
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
@@ -34,7 +33,6 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         self.configuration = configuration
         self.name = name
         self.session = session
-        self.override_logs = override_logs
 
         from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
         from drunc.utils.configuration import ConfTypes

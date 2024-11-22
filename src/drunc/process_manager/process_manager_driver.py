@@ -159,12 +159,12 @@ class ProcessManagerDriver(GRPCDriver):
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
                 self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
-                                        {e}
-                                        To debug it, close drunc and run the following command:
+{e}
+To debug it, close drunc and run the following command:
 
-                                        [yellow]oks_dump --files-only {oks_conf}[/]
+[yellow]oks_dump --files-only {oks_conf}[/]
 
-                                        ''', extra={'markup': True})
+''', extra={'markup': True})
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
@@ -212,25 +212,25 @@ class ProcessManagerDriver(GRPCDriver):
                 except ApplicationLookupUnsuccessful as e:
                     import getpass
                     self._log.error(f'''
-                                        Could not find \'{top_controller_name}\' on the connectivity service.
+Could not find \'{top_controller_name}\' on the connectivity service.
 
-                                        Two possibilities:
+Two possibilities:
 
-                                        1. The most likely, the controller died. You can check that by looking for error like:
-                                        [yellow]Process \'{top_controller_name}\' (session: \'{session_name}\', user: \'{getpass.getuser()}\') process exited with exit code 1).[/]
-                                        Try running [yellow]ps[/] to see if the {top_controller_name} is still running.
-                                        You may also want to check the logs of the controller, try typing:
-                                        [yellow]logs --name {top_controller_name} --how-far 1000[/]
-                                        If that's not helping, you can restart this shell with [yellow]--log-level debug[/], and look out for \'STDOUT\' and \'STDERR\'.
+1. The most likely, the controller died. You can check that by looking for error like:
+[yellow]Process \'{top_controller_name}\' (session: \'{session_name}\', user: \'{getpass.getuser()}\') process exited with exit code 1).[/]
+Try running [yellow]ps[/] to see if the {top_controller_name} is still running.
+You may also want to check the logs of the controller, try typing:
+[yellow]logs --name {top_controller_name} --how-far 1000[/]
+If that's not helping, you can restart this shell with [yellow]--log-level debug[/], and look out for \'STDOUT\' and \'STDERR\'.
 
-                                        2. The controller did not die, but is still setting up and has not advertised itself on the connection service.
-                                        You may be able to connect to the {top_controller_name} in a bit. Check the logs of the controller:
-                                        [yellow]logs --name {top_controller_name} --grep grpc[/]
-                                        And look for messages like:
-                                        [yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
-                                        To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
-                                        [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-                                        ''', extra={"markup": True})
+2. The controller did not die, but is still setting up and has not advertised itself on the connection service.
+You may be able to connect to the {top_controller_name} in a bit. Check the logs of the controller:
+[yellow]logs --name {top_controller_name} --grep grpc[/]
+And look for messages like:
+[yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
+To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
+''', extra={"markup": True})
                     return
 
                 return uri.replace('grpc://', '')
@@ -264,9 +264,9 @@ class ProcessManagerDriver(GRPCDriver):
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
                 self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
-                                To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
-                                [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-                                """, extra={"markup": True}
+To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
+""", extra={"markup": True}
                 )
             else:
                 self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")

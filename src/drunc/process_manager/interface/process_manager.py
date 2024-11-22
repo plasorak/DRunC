@@ -46,12 +46,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         data = conf_path
     )
 
-    pm = ProcessManager.get(
-        pmch,
-        name = appName,
-        override_logs = override_logs,
-        log_level = log_level
-    )
+    pm = ProcessManager.get(pmch, name="process_manager")
     log.debug("Setup up ProcessManager")
 
     loop = asyncio.get_event_loop()

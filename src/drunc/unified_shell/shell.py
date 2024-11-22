@@ -16,7 +16,6 @@ import getpass
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
-@click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -25,7 +24,6 @@ def unified_shell(
     session_name:str,
     log_level:str,
     override_logs:bool,
-    user:str
 ) -> None:
     from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
     setup_logger(log_level)
