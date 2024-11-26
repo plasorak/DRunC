@@ -16,6 +16,8 @@ from drunc.controller.stateful_node import StatefulNode
 from drunc.exceptions import DruncException
 from drunc.utils.grpc_utils import pack_to_any
 from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
+from drunc.utils.grpc_utils import unpack_any
+
 
 import signal
 from typing import Optional, List
@@ -140,13 +142,23 @@ class Controller(ControllerServicer):
             connectivity_service = self.connectivity_service
         )
 
-        for child in self.children_nodes:
-            if child.status() != Status.READY:
-                self.state.to_error()
 
         for child in self.children_nodes:
-            self.logger.info(child)
-            child.propagate_command('take_control', None, self.actor.get_token())
+            response = child.get_status(token) 
+    
+            status = unpack_any(response.data, Status)
+            
+            if status.in_error:
+                #self.state.to_error()  # Set the parent node's state to error
+                self.stateful_node.to_error()
+
+
+        for child in self.children_nodes:
+            if child is None:
+                self.logger.info("Child is None")
+            else:
+                self.logger.info(child)
+                child.propagate_command('take_control', None, self.actor.get_token())
 
         from druncschema.request_response_pb2 import CommandDescription
         # TODO, probably need to think of a better way to do this?
@@ -465,7 +477,7 @@ class Controller(ControllerServicer):
         d = Description(
             type = 'controller',
             name = self.name,
-            endpoint = self.uri,
+            endpoint = self.uri if self.uri is not None else "unknown",
             info = get_detector_name(self.configuration),
             session = self.session,
             commands = self.commands,
@@ -623,7 +635,7 @@ class Controller(ControllerServicer):
                 child_worst_response_flag = response_child.flag
                 continue
 
-            from drunc.utils.grpc_utils import unpack_any
+            
             fsm_response = unpack_any(response_child.data, FSMCommandResponse)
 
             if fsm_response.flag != FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:

@@ -26,7 +26,6 @@ class gRPCChildNode(ChildNode):
         from logging import getLogger
         self.log = getLogger(f'{self.name}-grpc-child')
 
-
         host, port = uri.split(":")
         port = int(port)
 

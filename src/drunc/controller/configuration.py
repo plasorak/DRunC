@@ -74,6 +74,8 @@ class ControllerConfHandler(ConfHandler):
                 if confmodel.component_disabled(self.db._obj, session.id, segment.id):
                     continue
 
+            timeout = 60
+
             from drunc.process_manager.configuration import get_cla
             new_node = ChildNode.get_child(
                 cli = get_cla(self.db._obj, session.id, segment.controller),
@@ -81,6 +83,7 @@ class ControllerConfHandler(ConfHandler):
                 name = segment.controller.id,
                 configuration = segment,
                 connectivity_service = connectivity_service,
+                timeout = timeout
             )
             self.children.append(new_node)
 
@@ -99,6 +102,7 @@ class ControllerConfHandler(ConfHandler):
                 configuration = app,
                 fsm_configuration = self.data.controller.fsm,
                 connectivity_service = connectivity_service,
+                timeout = 60
             )
             self.children.append(new_node)
 
