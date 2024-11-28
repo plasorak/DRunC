@@ -1,5 +1,6 @@
 from drunc.utils.configuration import ConfHandler
 from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.utils import get_segment_lookup_timeout
 
 class ControllerConfData: # the bastardised OKS
     def __init__(self):
@@ -46,12 +47,13 @@ class ControllerConfHandler(ConfHandler):
             self.this_host = socket.gethostname()
 
 
-    def get_children(self, init_token, without_excluded=False, connectivity_service=None):
+    def get_children(self, init_token, without_excluded=False, connectivity_service=None, call_count=1):
 
         enabled_only = not without_excluded
+        timeout = get_segment_lookup_timeout(call_count)
 
         if self.children != []:
-            return self.get_children
+            return self.get_children(init_token, without_excluded, connectivity_service, call_count+1)
 
         session = None
 
@@ -73,8 +75,6 @@ class ControllerConfHandler(ConfHandler):
             if enabled_only:
                 if confmodel.component_disabled(self.db._obj, session.id, segment.id):
                     continue
-
-            timeout = 60
 
             from drunc.process_manager.configuration import get_cla
             new_node = ChildNode.get_child(

@@ -93,5 +93,5 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
     return response
 
 
-def get_segment_lookup_timeout(segment, base_timeout = 60):
-    return 60
+def get_segment_lookup_timeout(call_count, base_timeout = 60):
+    return base_timeout * call_count

@@ -47,7 +47,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         token = token,
     )
 
-
+    #if name == 'ru-controller': exit()
 
     def serve(listen_addr:str) -> None:
         import grpc
