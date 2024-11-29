@@ -1,4 +1,11 @@
+from drunc.fsm import Transition, TransitionDataOfIncorrectFormat, DoubleArgument, UnhandledArgumentType
+from inspect import signature
 
+
+class Callback:
+    def __init__(self, method, mandatory=True):
+        self.method = method
+        self.mandatory = mandatory
 
 class XxxTransition:
     def __init__(self, transition:Transition, pre_or_post = "pre"):
@@ -40,7 +47,7 @@ class XxxTransition:
         try:
             input_data = json.loads(transition_data)
         except:
-            raise fsme.TransitionDataOfIncorrectFormat(transition_data)
+            raise TransitionDataOfIncorrectFormat(transition_data)
 
         for callback in self.sequence:
             from drunc.exceptions import DruncException
@@ -86,7 +93,7 @@ class XxxTransition:
                     continue
 
                 if pname in all_the_parameter_names:
-                    raise fsme.DoubleArgument(f"Parameter {pname} is already in the list of parameters")
+                    raise DoubleArgument(f"Parameter {pname} is already in the list of parameters")
                 all_the_parameter_names.append(p)
 
                 default_value = ''
@@ -119,7 +126,7 @@ class XxxTransition:
                     if p.default != Parameter.empty:
                         default_value = pack_to_any(bool_msg(value = p.default))
                 else:
-                    raise fsme.UnhandledArgumentType(p.annotation)
+                    raise UnhandledArgumentType(p.annotation)
 
                 a = Argument(
                     name = p.name,
