@@ -57,7 +57,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
 
 
 
-    t = Table(title=f'Status')
+    t = Table(title='Status')
     t.add_column('Name')
     t.add_column('Info')
     t.add_column('State')
@@ -378,39 +378,37 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
 def generate_fsm_command(ctx, transition, controller_name:str):
 
-    cmd = partial(run_one_fsm_command, controller_name, transition.id)
+    cmd = partial(run_one_fsm_command, controller_name, transition.name)
 
     cmd = click.pass_obj(cmd)
 
-
     for argument in transition.arguments:
         atype = None
-        if argument.type == Argument.Type.STRING:
-            atype = str
-            default_value = unpack_any(argument.default_value, string_msg) if argument.HasField('default_value') else None
-            # choices = [unpack_any(choice, string_msg).value for choice in argument.choices] if argument.choices else None
-        elif argument.type ==  Argument.Type.INT:
-            atype = int
-            default_value = unpack_any(argument.default_value, int_msg)    if argument.HasField('default_value') else None
-            # choices = [unpack_any(choice, int_msg).value for choice in argument.choices] if argument.choices else None
-        elif argument.type == Argument.Type.FLOAT:
-            atype = float
-            default_value = unpack_any(argument.default_value, float_msg)  if argument.HasField('default_value') else None
-            # choices = [unpack_any(choice, float_msg).value for choice in argument.choices] if argument.choices else None
-        elif argument.type == Argument.Type.BOOL:
-            atype = bool
-            default_value = unpack_any(argument.default_value, bool_msg)   if argument.HasField('default_value') else None
-            # choices = [unpack_any(choice, bool_msg).value for choice in argument.choices] if argument.choices else None
-        else:
-            raise Exception(f'Unhandled argument type \'{argument.type}\'')
+        match argument.type:
+            case "string":
+                atype = str
+            case "int":
+                atype = int
+            case "double":
+                atype = float
+            case "boolean":
+                atype = bool
+            case _:
+                raise DruncShellException(f'Unhandled argument type \'{argument.type}\'')
 
+        default_value = getattr(argument, f'{argument.type}_default', None)
+        choices       = getattr(argument, f'{argument.type}_choices', None)
+        print(choices)
+        if choices == []:
+            choices = None
         argument_name = f'--{argument.name.lower().replace("_", "-")}'
+
         cmd = click.option(
-            f'{argument_name}',
-            type=atype,
-            default = atype(default_value.value) if argument.presence != Argument.Presence.MANDATORY else None,
-            required= argument.presence == Argument.Presence.MANDATORY,
-            help=argument.help,
+            argument_name,
+            type = atype if choices is None else click.Choice(choices),
+            default = default_value,
+            required =  argument.mandatory,
+            help = argument.help,
         )(cmd)
 
     cmd = click.command(
