@@ -5,9 +5,9 @@ def convert_fsm_transition(transitions):
     for t in transitions:
         desc.commands.append(
             FSMCommandDescription(
-                name = t.name,
+                name = t.id,
                 data_type = ['controller_pb2.FSMCommand'],
-                help = t.help,
+                help = None,
                 return_type = 'controller_pb2.FSMCommandResponse',
                 arguments = t.arguments
             )
