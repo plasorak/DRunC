@@ -20,3 +20,6 @@ class MalformedCommand(ControllerException):
 
 class MalformedCommandArgument(ControllerException):
     pass
+
+class NoSegmentFound(ControllerException):
+    pass
