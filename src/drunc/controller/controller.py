@@ -12,17 +12,17 @@ from drunc.broadcast.server.decorators import broadcasted
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.decorators import in_control
 import drunc.controller.exceptions as ctler_excpt
-from drunc.controller.stateful_node import StatefulNode
+from drunc.stateful import Stateful
 from drunc.exceptions import DruncException
 from drunc.utils.grpc_utils import pack_to_any
 from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
 
 import signal
 from typing import Optional, List
+from logging import getLogger
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
-        from logging import getLogger
         self.logger = getLogger("ControllerActor")
 
         self._token = Token(
@@ -101,7 +101,7 @@ class Controller(ControllerServicer):
             data = self.configuration.data.controller.fsm,
         )
 
-        self.stateful_node = StatefulNode(
+        self.stateful = Stateful(
             fsm_configuration = fsmch,
             broadcaster = self.broadcast_service
         )
@@ -436,7 +436,7 @@ class Controller(ControllerServicer):
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def status(self, token:Token) -> Response:
         from drunc.controller.utils import get_status_message
-        status = get_status_message(self.stateful_node)
+        status = get_status_message(self.stateful)
         return Response (
             name = self.name,
             token = token,
@@ -462,7 +462,7 @@ class Controller(ControllerServicer):
             type = 'controller',
             name = self.name,
             endpoint = self.uri,
-            info = get_detector_name(self.configuration), 
+            info = get_detector_name(self.configuration),
             session = self.session,
             commands = self.commands,
         )
@@ -497,11 +497,11 @@ class Controller(ControllerServicer):
         from drunc.fsm.utils import convert_fsm_transition
 
         if input.text == 'all-transitions':
-            desc = convert_fsm_transition(self.stateful_node.get_all_fsm_transitions())
+            desc = convert_fsm_transition(self.stateful.get_all_fsm_transitions())
         elif input.text == '':
-            desc = convert_fsm_transition(self.stateful_node.get_fsm_transitions())
+            desc = convert_fsm_transition(self.stateful.get_fsm_transitions())
         else:
-            all_transitions = self.stateful_node.get_all_fsm_transitions()
+            all_transitions = self.stateful.get_all_fsm_transitions()
             interesting_transitions = []
             for transition in all_transitions:
                 if input.text == transition.source:
@@ -541,14 +541,14 @@ class Controller(ControllerServicer):
         """
         from druncschema.request_response_pb2 import ResponseFlag
 
-        if self.stateful_node.node_is_in_error():
+        if self.stateful.node_is_in_error():
             return self.construct_error_node_response(
                 fsm_command.command_name,
                 token,
                 cause = FSMResponseFlag.FSM_NOT_EXECUTED_IN_ERROR
             )
 
-        if not self.stateful_node.node_is_included():
+        if not self.stateful.node_is_included():
             self.logger.error(f"Node is not included, not executing command {fsm_command.command_name}.")
             fsm_result = FSMCommandResponse(
                 flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
@@ -564,12 +564,12 @@ class Controller(ControllerServicer):
             )
 
 
-        transition = self.stateful_node.get_fsm_transition(fsm_command.command_name)
+        transition = self.stateful.get_fsm_transition(fsm_command.command_name)
 
         self.logger.debug(f'The transition requested is "{str(transition)}"')
 
-        if not self.stateful_node.can_transition(transition):
-            self.logger.error(f'Cannot \"{transition.name}\" as this is an invalid command in state \"{self.stateful_node.node_operational_state()}\"')
+        if not self.stateful.can_transition(transition):
+            self.logger.error(f'Cannot \"{transition.name}\" as this is an invalid command in state \"{self.stateful.node_operational_state()}\"')
 
             fsm_result = FSMCommandResponse(
                 flag = FSMResponseFlag.FSM_INVALID_TRANSITION,
@@ -586,16 +586,16 @@ class Controller(ControllerServicer):
 
         self.logger.debug(f'FSM command data: {fsm_command}')
 
-        fsm_args = self.stateful_node.decode_fsm_arguments(fsm_command)
+        fsm_args = self.stateful.decode_fsm_arguments(fsm_command)
 
-        fsm_data = self.stateful_node.prepare_transition(
+        fsm_data = self.stateful.prepare_transition(
             transition = transition,
             transition_args = fsm_args,
             transition_data = fsm_command.data,
             ctx = self,
         )
 
-        self.stateful_node.propagate_transition_mark(transition)
+        self.stateful.propagate_transition_mark(transition)
 
         children_fsm_command = FSMCommand()
         children_fsm_command.CopyFrom(fsm_command)
@@ -626,13 +626,13 @@ class Controller(ControllerServicer):
                 child_worst_fsm_flag = fsm_response.flag
 
 
-        self.stateful_node.finish_propagating_transition_mark(transition)
+        self.stateful.finish_propagating_transition_mark(transition)
 
-        self.stateful_node.start_transition_mark(transition)
+        self.stateful.start_transition_mark(transition)
 
-        self.stateful_node.terminate_transition_mark(transition)
+        self.stateful.terminate_transition_mark(transition)
 
-        fsm_data = self.stateful_node.finalise_transition(
+        fsm_data = self.stateful.finalise_transition(
             transition = transition,
             transition_args = fsm_args,
             transition_data = fsm_data,
@@ -642,7 +642,7 @@ class Controller(ControllerServicer):
         if (child_worst_response_flag != ResponseFlag.EXECUTED_SUCCESSFULLY or
             child_worst_fsm_flag != FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY):
 
-            self.stateful_node.to_error()
+            self.stateful.to_error()
 
         #     return self.construct_error_node_response(
         #         fsm_command.command_name,
@@ -675,7 +675,7 @@ class Controller(ControllerServicer):
     @unpack_request_data_to(pass_token=True) # 4th step
     def include(self, token:Token) -> PlainText:
         response_children = self.propagate_to_list('include', command_data=None, token=token, node_to_execute=self.children_nodes)
-        self.stateful_node.include_node()
+        self.stateful.include_node()
         resp = PlainText(text = f'{self.name} and children included')
 
         return Response (
@@ -697,7 +697,7 @@ class Controller(ControllerServicer):
     @unpack_request_data_to(pass_token=True) # 3rd step
     def exclude(self, token:Token) -> Response:
         response_children = self.propagate_to_list('exclude', command_data=None, token=token, node_to_execute=self.children_nodes)
-        self.stateful_node.exclude_node()
+        self.stateful.exclude_node()
         resp =  PlainText(text = f'{self.name} and children excluded')
         return Response (
             name = self.name,

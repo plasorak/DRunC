@@ -1,92 +1,12 @@
-import abc
-from drunc.fsm.fsm import FSM
-from drunc.broadcast.server.broadcast_sender import BroadcastSender
-import drunc.fsm.exceptions as fsme
 from typing import Optional
+
 from druncschema.broadcast_pb2 import BroadcastType
 
-class Observed:
-    @property
-    def value(self):
-        return self._value
+from drunc.broadcast.server.broadcast_sender import BroadcastSender
+from drunc.stateful.observable import OperationalState, ErrorState, InclusionState
+from drunc.fsm import FSM, InvalidTransition
 
-    @value.setter
-    def value(self, value):
-        if self._broadcast_on_change is None or self._broadcast_key is None:
-            self._value = value
-            return
-
-        self._broadcast_on_change.broadcast(
-            message = f'Changing {self._name} from {self._value} to {value}',
-            btype = self._broadcast_key,
-        )
-        self._value = value
-
-    def __init__(
-            self,
-            name:str,
-            broadcast_on_change:Optional[BroadcastSender]=None,
-            broadcast_key=None, # Optional[BroadcastType]=None
-            initial_value:Optional[str]=None
-        ):
-        self._name = name
-        self._broadcast_on_change = broadcast_on_change
-        self._value = initial_value
-        self._broadcast_key = broadcast_key
-
-
-class OperationalState(Observed):
-    def __init__(self, **kwargs):
-        super(OperationalState, self).__init__(
-            name = 'operational_state',
-            **kwargs
-        )
-
-
-class ErrorState(Observed):
-    def __init__(self, **kwargs):
-        super(ErrorState, self).__init__(
-            name = 'error_state',
-            **kwargs
-        )
-
-
-class InclusionState(Observed):
-    def __init__(self, **kwargs):
-        super(InclusionState, self).__init__(
-            name = 'inclusion_state',
-            **kwargs
-        )
-
-from drunc.exceptions import DruncCommandException
-class StatefulNodeException(DruncCommandException):
-    pass
-
-class CannotInclude(StatefulNodeException):
-    def __init__(self):
-        super().__init__('Cannot include node (most likely, it is already included)')
-
-class CannotExclude(StatefulNodeException):
-    def __init__(self):
-        super().__init__('Cannot exclude node (most likely, it is already excluded)')
-
-class InvalidSubTransition(StatefulNodeException):
-    def __init__(self, current_state, expected_state, action):
-        message = f'SubTransition "{action}" cannot be executed, state needs to be "{expected_state}", it is now "{current_state}"'
-        super(InvalidSubTransition, self).__init__(message)
-
-class TransitionNotTerminated(StatefulNodeException):
-    def __init__(self):
-        super().__init__('The transition did not finished successfully')
-
-class TransitionExecuting(StatefulNodeException):
-    def __init__(self):
-        super().__init__('A transition is already executing')
-
-
-
-
-class StatefulNode(abc.ABC):
+class Stateful:
     def __init__(self, fsm_configuration, broadcaster:Optional[BroadcastSender]=None):
 
         self.broadcast = broadcaster
@@ -169,10 +89,10 @@ class StatefulNode(abc.ABC):
 
     def prepare_transition(self, transition, transition_data, transition_args, ctx=None):
         if self.get_node_operational_state() != self.get_node_operational_sub_state():
-            raise fsme.InvalidSubTransition(self.get_node_sub_operational_state(), self.get_node_operational_state(), 'prepare_transition')
+            raise InvalidSubTransition(self.get_node_sub_operational_state(), self.get_node_operational_state(), 'prepare_transition')
 
         if not self.__fsm.can_execute_transition(self.get_node_operational_state(), transition):
-            raise fsme.InvalidTransition(transition, self.get_node_operational_state())
+            raise InvalidTransition(transition, self.get_node_operational_state())
 
         self.__operational_sub_state.value = f'preparing-{transition.name}'
 
