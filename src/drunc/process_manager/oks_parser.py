@@ -1,3 +1,6 @@
+import logging
+import os
+
 import sys
 
 import confmodel
@@ -6,6 +9,7 @@ import conffwk
 from typing import List, Dict, Any
 
 from drunc.exceptions import  DruncException
+from drunc.process_manager.utils import get_cla
 
 dal = conffwk.dal.module('x', 'schema/confmodel/dunedaq.schema.xml')
 
@@ -25,10 +29,6 @@ def collect_variables(variables, env_dict:Dict[str,str]) -> None:
         env_dict[item.name] = item.value
 
 
-class EnvironmentVariableCannotBeSet(DruncException):
-  pass
-
-
 # Recursively process all Segments in given Segment extracting Applications
 def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> List[Dict]:
   """
@@ -41,12 +41,10 @@ def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> L
 
   """
 
-  import logging
   log = logging.getLogger('collect_apps')
   # Get default environment from Session
   defenv = env.copy()
 
-  import os
   DB_PATH = os.getenv("DUNEDAQ_DB_PATH")
   if DB_PATH is None:
     log.warning("DUNEDAQ_DB_PATH not set in this shell")
@@ -63,7 +61,6 @@ def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> L
   collect_variables(controller.application_environment, rc_env)
   rc_env['DUNEDAQ_APPLICATION_NAME'] = controller.id
 
-  from drunc.process_manager.configuration import get_cla
   host = controller.runs_on.runs_on.id
 
   tree_id_str = '.'.join(map(str, tree_prefix))
@@ -139,12 +136,10 @@ def collect_infra_apps(session, env:Dict[str, str], tree_prefix) -> List[Dict]:
   @return The list of dictionaries holding application attributs
 
   """
-  import logging
   log = logging.getLogger('collect_infra_apps')
 
   defenv = env
 
-  import os
   DB_PATH = os.getenv("DUNEDAQ_DB_PATH")
   if DB_PATH is None:
     log.warning("DUNEDAQ_DB_PATH not set in this shell")
