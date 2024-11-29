@@ -1,6 +1,8 @@
 import abc
 from typing import Callable
 
+from druncschema.controller_pb2 import Argument
+
 class RCAction(abc.ABC):
     def __init__(self):
         pass
