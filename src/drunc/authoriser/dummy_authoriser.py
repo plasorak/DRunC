@@ -7,12 +7,10 @@ from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 
 # The Rolls Royce of the authoriser systems
 class DummyAuthoriser:
-    def __init__(self, system:SystemType, configuration_handler:DummyAuthoriserConfHandler=None):
+    def __init__(self, system:SystemType):
         import logging
         self.log = logging.getLogger("Controller")
         self.log.info(f'DummyAuthoriser ready')
-        self.configuration = configuration_handler
-        self.command_actions = {} # Dict[str, ActionType]
         self.system = system
 
 
@@ -25,9 +23,3 @@ class DummyAuthoriser:
         self.log.info(f'Grabbing authorisations for {token.token}')
         return []
 
-
-def main():
-    a = DummyAuthoriser()
-
-if __name__ == '__main__':
-    main()
