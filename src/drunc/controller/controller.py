@@ -21,7 +21,6 @@ from druncschema.request_response_pb2 import Request, Response, ResponseFlag, Co
 from druncschema.token_pb2 import Token
 
 from drunc.authoriser.decorators import authentified_and_authorised
-from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 from drunc.authoriser.dummy_authoriser import DummyAuthoriser
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.broadcast.server.decorators import broadcasted

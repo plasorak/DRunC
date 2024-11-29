@@ -1,8 +1,6 @@
 from druncschema.token_pb2 import Token
 from druncschema.authoriser_pb2 import ActionType, SystemType
 
-from drunc.authoriser.configuration import DummyAuthoriserConfHandler
-
 # TODO: Should be communicating over network
 
 # The Rolls Royce of the authoriser systems
