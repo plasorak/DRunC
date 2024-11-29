@@ -1,6 +1,23 @@
+import logging
+
+# Good ol' moo import
+from dunedaq.env import get_moo_model_path
+import moo.io
+moo.io.default_load_path = get_moo_model_path()
+import moo.otypes
+import moo.oschema as moosc
+moo.otypes.load_types('rcif/cmd.jsonnet')
+moo.otypes.load_types('cmdlib/cmd.jsonnet')
+import dunedaq.rcif.cmd as rccmd
+import dunedaq.cmdlib.cmd as cmd
+
+from druncschema.controller_pb2 import Argument, FSMTransitionsDescription, FSMTransitionDescription
+
+import drunc.fsm.exceptions as fsme
+from drunc.utils.grpc_utils import unpack_any
+
 
 def convert_fsm_transition(transitions):
-    from druncschema.controller_pb2 import FSMCommandsDescription, FSMCommandDescription
     desc = FSMCommandsDescription()
     for t in transitions:
         desc.commands.append(
@@ -15,10 +32,6 @@ def convert_fsm_transition(transitions):
     return desc
 
 def decode_fsm_arguments(arguments, arguments_format):
-    from drunc.utils.grpc_utils import unpack_any
-    import drunc.fsm.exceptions as fsme
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
-    from druncschema.controller_pb2 import Argument
 
     def get_argument(name, arguments):
         for n, k in arguments.items():
@@ -48,7 +61,40 @@ def decode_fsm_arguments(arguments, arguments_format):
                 out_dict[arg.name] = unpack_any(arg_value, bool_msg).value
             case _:
                 raise fsme.UnhandledArgumentType(arg.type)
-    import logging
     l = logging.getLogger('decode_fsm_arguments')
     l.debug(f'Parsed FSM arguments: {out_dict}')
     return out_dict
+
+
+def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
+    if rcif_type in ["i2", "i4", "i8", "u2", "u4", "u8"]:
+        return "int"
+    elif rcif_type == "string":
+        return "string"
+    elif rcif_type in ["f4", "f8"]:
+        return "double"
+    elif rcif_type == "boolean":
+        return "boolean"
+    else:
+        raise fsme.UnhandledArgumentType(rcif_type)
+
+def get_underlying_schema(field_ost:dict) -> str:
+
+    if field_ost.get('dtype'):
+        return convert_rcif_type_to_protobuf(field_ost['dtype'])
+
+    if field_ost.get('item'):
+        underlying_schema_name = field_ost['item'].split('.')[-1]
+        underlying_schema = getattr(rccmd, underlying_schema_name, None)
+        if underlying_schema is None:
+            raise fsme.SchemaNotSupportedByRCIF(underlying_schema_name)
+
+        underlying_schema_ost = underlying_schema.__dict__["_ost"]
+
+        if underlying_schema_ost.get('item'):
+            return get_underlying_schema(underlying_schema)
+
+        if 'dtype' in underlying_schema_ost:
+            return convert_rcif_type_to_protobuf(underlying_schema_ost['dtype'])
+        if 'schema' in underlying_schema_ost:
+            return convert_rcif_type_to_protobuf(underlying_schema_ost['schema'])

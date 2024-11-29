@@ -19,6 +19,7 @@ from druncschema.generic_pb2 import NullValue
 
 import drunc.fsm.exceptions as fsme
 from drunc.fsm.transition import Transition, TransitionSequence
+from drunc.fsm.utils import get_underlying_schema
 from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.utils import regex_match
 
@@ -53,39 +54,6 @@ class FSM:
             raise fsme.SchemaNotSupportedByRCIF(rcif_schema)
 
         arguments = []
-
-        def get_underlying_schema(field_ost:dict) -> str:
-
-            if field_ost.get('dtype'):
-                return convert_rcif_type_to_protobuf(field_ost['dtype'])
-
-            if field_ost.get('item'):
-                underlying_schema_name = field_ost['item'].split('.')[-1]
-                underlying_schema = getattr(rccmd, underlying_schema_name, None)
-                if underlying_schema is None:
-                    raise fsme.SchemaNotSupportedByRCIF(underlying_schema_name)
-
-                underlying_schema_ost = underlying_schema.__dict__["_ost"]
-
-                if underlying_schema_ost.get('item'):
-                    return get_underlying_schema(underlying_schema)
-
-                if 'dtype' in underlying_schema_ost:
-                    return convert_rcif_type_to_protobuf(underlying_schema_ost['dtype'])
-                if 'schema' in underlying_schema_ost:
-                    return convert_rcif_type_to_protobuf(underlying_schema_ost['schema'])
-
-        def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
-            if rcif_type in ["i2", "i4", "i8", "u2", "u4", "u8"]:
-                return "int"
-            elif rcif_type == "string":
-                return "string"
-            elif rcif_type in ["f4", "f8"]:
-                return "double"
-            elif rcif_type == "boolean":
-                return "boolean"
-            else:
-                raise fsme.UnhandledArgumentType(rcif_type)
 
         for field in schema.__dict__["_ost"]["fields"]:
             self._log.debug(f" - field {field}")
