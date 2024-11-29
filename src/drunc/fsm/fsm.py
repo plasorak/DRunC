@@ -23,6 +23,7 @@ from drunc.fsm.utils import get_underlying_schema
 from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.utils import regex_match
 
+
 class Callback:
     def __init__(self, method, mandatory=True):
         self.method = method
@@ -138,6 +139,7 @@ class FSM:
         '''
         return self.states
 
+
     def get_all_transitions(self) -> [Transition]:
         '''
         grab all the transitions
@@ -156,6 +158,7 @@ class FSM:
                     return source_state
                 else:
                     return tr.destination
+
 
     def get_executable_transitions(self, source_state:str) -> [Transition]:
         valid_transitions = []

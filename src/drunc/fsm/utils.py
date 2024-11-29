@@ -31,6 +31,7 @@ def convert_fsm_transition(transitions):
         )
     return desc
 
+
 def decode_fsm_arguments(arguments, arguments_format):
 
     def get_argument(name, arguments):
@@ -38,7 +39,6 @@ def decode_fsm_arguments(arguments, arguments_format):
             if n == name:
                 return k
         return None
-
 
     out_dict = {}
     for arg in arguments_format:
@@ -77,6 +77,7 @@ def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
         return "boolean"
     else:
         raise fsme.UnhandledArgumentType(rcif_type)
+
 
 def get_underlying_schema(field_ost:dict) -> str:
 
