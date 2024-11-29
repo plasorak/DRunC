@@ -1,5 +1,5 @@
 import abc
-from drunc.fsm.core import FSM
+from drunc.fsm.fsm import FSM
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 import drunc.fsm.exceptions as fsme
 from typing import Optional
