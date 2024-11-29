@@ -8,6 +8,7 @@ from drunc.process_manager.interface.cli_argument import validate_conf_string
 from urllib.parse import urlparse
 from rich import print as rprint
 import logging
+from drunc.utils.configuration import ConfigurationWrapper
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
@@ -101,8 +102,7 @@ def unified_shell(
         else:
             exit()
 
-    from drunc.utils.configuration import find_configuration
-    ctx.obj.boot_configuration = find_configuration(boot_configuration)
+    ctx.obj.boot_configuration = boot_configuration
     ctx.obj.session_name = session_name
 
 
@@ -136,48 +136,21 @@ def unified_shell(
     # We instantiate a stateful node which has the same configuration as the one from this session
     # Let's do this
     import conffwk
-
     db = conffwk.Configuration(f"oksconflibs:{ctx.obj.boot_configuration}")
-    session_dal = db.get_dal(class_name="Session", uid=session_name)
-
-    from drunc.utils.configuration import parse_conf_url, OKSKey
-    conf_path, conf_type = parse_conf_url(f"oksconflibs:{ctx.obj.boot_configuration}")
-    controller_name = session_dal.segment.controller.id
-    from drunc.controller.configuration import ControllerConfHandler
-    controller_configuration = ControllerConfHandler(
-        type = conf_type,
-        data = conf_path,
-        oks_key = OKSKey(
-            schema_file='schema/confmodel/dunedaq.schema.xml',
-            class_name="RCApplication",
-            obj_uid=controller_name,
-            session=session_name, # some of the function for enable/disable require the full dal of the session
-        ),
-    )
-
-    from drunc.fsm.configuration import FSMConfHandler
-    fsm_logger = getLogger("FSM")
-    fsm_log_level = fsm_logger.level
-    fsm_logger.setLevel("ERROR")
-    fsm_conf_logger = getLogger("FSMConfHandler")
-    fsm_conf_log_level = fsm_conf_logger.level
-    fsm_conf_logger.setLevel("ERROR")
-
-    fsmch = FSMConfHandler(
-        data = controller_configuration.data.controller.fsm,
-    )
+    session_conf = ConfigurationWrapper(db._obj, db.get_dal(class_name="Session", uid=session_name))
+    controller_name = session_conf.dal.segment.controller.id
 
     from drunc.controller.stateful_node import StatefulNode
     stateful_node = StatefulNode(
-        fsm_configuration = fsmch,
+        fsm_configuration = session_conf.get('segment.controller.fsm'),
         broadcaster = None,
     )
 
     from drunc.fsm.utils import convert_fsm_transition
 
-    transitions = convert_fsm_transition(stateful_node.get_all_fsm_transitions())
-    fsm_logger.setLevel(fsm_log_level)
-    fsm_conf_logger.setLevel(fsm_conf_log_level)
+    transitions = stateful_node.get_all_fsm_transitions()
+    # fsm_logger.setLevel(fsm_log_level)
+    # fsm_conf_logger.setLevel(fsm_conf_log_level)
     # End of shameful code
 
     from drunc.controller.interface.shell_utils import generate_fsm_command
