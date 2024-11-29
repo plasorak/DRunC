@@ -99,3 +99,48 @@ def get_underlying_schema(field_ost:dict) -> str:
             return convert_rcif_type_to_protobuf(underlying_schema_ost['dtype'])
         if 'schema' in underlying_schema_ost:
             return convert_rcif_type_to_protobuf(underlying_schema_ost['schema'])
+
+
+
+def build_arguments_from_rcif(rcif_schema:str) -> [Argument]:
+    log = logging.getLogger('build_arguments_from_rcif')
+
+    if rcif_schema == "":
+        return []
+
+    log.debug(f'Parsing the rcif_schema: \'{rcif_schema}\'')
+
+    schema = getattr(rccmd, rcif_schema, None)
+    if schema is None:
+        raise fsme.SchemaNotSupportedByRCIF(rcif_schema)
+
+    arguments = []
+
+    for field in schema.__dict__["_ost"]["fields"]:
+        log.debug(f" - field {field}")
+        arg_type = get_underlying_schema(field)
+        log.debug(f"   ... of type \'{arg_type}\'")
+
+        arg_kwargs = {
+            "name": field['name'],
+            "type": arg_type,
+            "help": field['doc'],
+            "mandatory": not field.get('optional', False),
+        }
+
+        if 'choices' in field:
+            arg_kwargs.update({
+                f"{arg_type}_choices": field['choices'],
+            })
+
+        if 'default' in field:
+            arg_kwargs.update({
+                f"{arg_type}_default": field['default'],
+            })
+
+        a = Argument(**arg_kwargs)
+
+        log.debug(f"Argument produced:\n{a}")
+        default_arg = getattr(a, arg_type+"_default")
+        arguments += [a]
+    return arguments

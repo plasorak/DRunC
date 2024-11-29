@@ -19,7 +19,7 @@ from druncschema.generic_pb2 import NullValue
 
 import drunc.fsm.exceptions as fsme
 from drunc.fsm.transition import Transition, TransitionSequence
-from drunc.fsm.utils import get_underlying_schema
+from drunc.fsm.utils import build_arguments_from_rcif
 from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.utils import regex_match
 
@@ -44,50 +44,8 @@ class FSM:
         self.transitions = self._build_transitions(self.configuration.dal.transitions)
 
 
-    def _build_arguments_from_rcif(self, rcif_schema:str) -> [Argument]:
-        if rcif_schema == "":
-            return []
-
-        self._log.debug(f'Parsing the rcif_schema: \'{rcif_schema}\'')
-
-        schema = getattr(rccmd, rcif_schema, None)
-        if schema is None:
-            raise fsme.SchemaNotSupportedByRCIF(rcif_schema)
-
-        arguments = []
-
-        for field in schema.__dict__["_ost"]["fields"]:
-            self._log.debug(f" - field {field}")
-            arg_type = get_underlying_schema(field)
-            self._log.debug(f"   ... of type \'{arg_type}\'")
-
-            arg_kwargs = {
-                "name": field['name'],
-                "type": arg_type,
-                "help": field['doc'],
-                "mandatory": not field.get('optional', False),
-            }
-
-            if 'choices' in field:
-                arg_kwargs.update({
-                    f"{arg_type}_choices": field['choices'],
-                })
-
-            if 'default' in field:
-                arg_kwargs.update({
-                    f"{arg_type}_default": field['default'],
-                })
-
-            a = Argument(**arg_kwargs)
-
-            self._log.debug(f"Argument produced:\n{a}")
-            default_arg = getattr(a, arg_type+"_default")
-            arguments += [a]
-        return arguments
-
-
     def _build_one_transition(self, transition) -> Transition:
-        arguments = self._build_arguments_from_rcif(transition.rcif_schema)
+        arguments = build_arguments_from_rcif(transition.rcif_schema)
 
         return Transition(
             name = transition.id,
