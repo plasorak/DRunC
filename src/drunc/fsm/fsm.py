@@ -3,17 +3,6 @@ from inspect import Parameter, signature
 from logging import getLogger
 import traceback
 
-# Good ol' moo import
-from dunedaq.env import get_moo_model_path
-import moo.io
-moo.io.default_load_path = get_moo_model_path()
-import moo.otypes
-import moo.oschema as moosc
-moo.otypes.load_types('rcif/cmd.jsonnet')
-moo.otypes.load_types('cmdlib/cmd.jsonnet')
-import dunedaq.rcif.cmd as rccmd
-import dunedaq.cmdlib.cmd as cmd
-
 from druncschema.controller_pb2 import Argument
 from druncschema.generic_pb2 import NullValue
 
