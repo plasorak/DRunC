@@ -136,8 +136,6 @@ class XxxTransition:
         return retr
 
 
-
-
 def PreTransition(XxxTransition):
     pass
 

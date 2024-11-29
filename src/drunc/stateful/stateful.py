@@ -9,12 +9,19 @@ from drunc.fsm import FSM, InvalidTransition
 from drunc.fsm.utils import decode_fsm_arguments
 
 class Stateful:
-    def __init__(self, fsm_configuration, object_configuration, broadcaster:Optional[BroadcastSender]=None):
+    def __init__(
+            self,
+            fsm_configuration, #:ConfigurationWrapper
+            pre_transitions_configuration=[],
+            post_transitions_configuration=[],
+            broadcaster:Optional[BroadcastSender]=None
+        ):
 
         self.broadcast = broadcaster
 
         self.__fsm = FSM(fsm_configuration)
-        self.object_configuration = object_configuration
+        self.pre_transitions_configuration  = pre_transitions_configuration
+        self.post_transitions_configuration = post_transitions_configuration
 
         self.logger = getLogger('StatefulNode')
 

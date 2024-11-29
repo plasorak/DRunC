@@ -83,7 +83,7 @@ def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
 
 def get_underlying_schema(field_ost:dict) -> str:
     '''
-    Deal with the recursive type of moo
+    Deal with the recursive types in moo
     '''
 
     if field_ost.get('dtype'):
