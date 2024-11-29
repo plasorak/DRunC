@@ -1,3 +1,4 @@
+from logging import getLogger
 from typing import Optional
 
 from druncschema.broadcast_pb2 import BroadcastType
@@ -5,15 +6,16 @@ from druncschema.broadcast_pb2 import BroadcastType
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.stateful.observable import OperationalState, ErrorState, InclusionState
 from drunc.fsm import FSM, InvalidTransition
+from drunc.fsm.utils import decode_fsm_arguments
 
 class Stateful:
-    def __init__(self, fsm_configuration, broadcaster:Optional[BroadcastSender]=None):
+    def __init__(self, fsm_configuration, object_configuration, broadcaster:Optional[BroadcastSender]=None):
 
         self.broadcast = broadcaster
 
         self.__fsm = FSM(fsm_configuration)
+        self.object_configuration = object_configuration
 
-        from logging import getLogger
         self.logger = getLogger('StatefulNode')
 
         self.__operational_state = OperationalState(
@@ -83,7 +85,6 @@ class Stateful:
         return self.__fsm.can_execute_transition(self.get_node_operational_state(), transition)
 
     def decode_fsm_arguments(self, fsm_command):
-        from drunc.fsm.utils import decode_fsm_arguments
         transition = self.get_fsm_transition(fsm_command.command_name)
         return decode_fsm_arguments(fsm_command.arguments, transition.arguments)
 
