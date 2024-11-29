@@ -16,10 +16,10 @@ from drunc.utils.grpc_utils import unpack_any
 
 
 def convert_fsm_transition(transitions):
-    desc = FSMCommandsDescription()
+    desc = FSMTransitionsDescription()
     for t in transitions:
         desc.commands.append(
-            FSMCommandDescription(
+            FSMTransitionDescription(
                 name = t.id,
                 data_type = ['controller_pb2.FSMCommand'],
                 help = None,
