@@ -1,25 +1,44 @@
+
+from multiprocessing import Manager
+from logging import getLogger
+import os
+import signal
+import time
+from threading import Lock, Thread
+import threading
+import traceback
+from typing import Optional, List
+
+import conffwk
+import confmodel
+
 from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.controller_pb2 import Status, FSMCommand, FSMCommandResponse, FSMResponseFlag
-from druncschema.generic_pb2 import PlainText, PlainTextVector
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+from druncschema.controller_pb2 import Status, FSMTransition, FSMTransitionResponse, FSMResponseFlag
+from druncschema.generic_pb2 import PlainText, PlainTextVector, Stacktrace
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag, CommandDescription, Description
 from druncschema.token_pb2 import Token
 
 from drunc.authoriser.decorators import authentified_and_authorised
+from drunc.authoriser.configuration import DummyAuthoriserConfHandler
+from drunc.authoriser.dummy_authoriser import DummyAuthoriser
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.broadcast.server.decorators import broadcasted
-from drunc.controller.children_interface.child_node import ChildNode
+from drunc.connectivity_service.client import ConnectivityServiceClient
+from drunc.controller.children_interface.rest_api_child import ResponseListener
+from drunc.controller.children_interface.utils import get_child
 from drunc.controller.decorators import in_control
+from drunc.controller.utils import get_status_message, get_detector_name, get_segment_from_controller_id
 import drunc.controller.exceptions as ctler_excpt
-from drunc.stateful import Stateful
 from drunc.exceptions import DruncException
-from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
+from drunc.fsm.utils import convert_fsm_transition
+from drunc.process_manager.configuration import get_cla
+from drunc.stateful import Stateful
+from drunc.utils.configuration import ConfigurationWrapper
+from drunc.utils.grpc_utils import pack_to_any, unpack_any, unpack_request_data_to, pack_response
+from drunc.utils.utils import print_traceback
 
-import signal
-from typing import Optional, List
-from logging import getLogger
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
@@ -33,7 +52,6 @@ class ControllerActor:
         if token is not None:
             self._token.CopyFrom(token)
 
-        from threading import Lock
         self._lock = Lock()
 
     def get_token(self) -> Token:
@@ -79,42 +97,28 @@ class Controller(ControllerServicer):
         self.session = session
         self.broadcast_service = None
 
-        from logging import getLogger
         self.logger = getLogger('Controller')
+        db = conffwk.Configuration(configuration)
+        self.session_configuration = ConfigurationWrapper(db._obj, db.get_dal(class_name="Session", uid=self.session))
+        controller_conf = self.session_configuration.get('segment.controller')
 
-        self.configuration = configuration
+        self.logger.debug(f'Controller configuration: {controller_conf.dal}')
+        self.configuration = controller_conf
 
-        from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
-        bsch = BroadcastSenderConfHandler(
-            data = self.configuration.data.controller.broadcaster,
-        )
-
-        self.broadcast_service = BroadcastSender(
-            name = name,
-            session = session,
-            configuration = bsch,
-        )
-
-
-        from drunc.fsm.configuration import FSMConfHandler
-        fsmch = FSMConfHandler(
-            data = self.configuration.data.controller.fsm,
-        )
+        if self.configuration.dal.broadcaster:
+            self.broadcast_service = BroadcastSender(
+                name = name,
+                session = session,
+                configuration = self.configuration.get('broadcaster'),
+            )
 
         self.stateful = Stateful(
-            fsm_configuration = fsmch,
-            broadcaster = self.broadcast_service
+            fsm_configuration = self.configuration.get('fsm'),
+            broadcaster = self.broadcast_service,
+
         )
 
-        from drunc.authoriser.configuration import DummyAuthoriserConfHandler
-        dach = DummyAuthoriserConfHandler(
-            data = self.configuration.authoriser,
-        )
-
-        from drunc.authoriser.dummy_authoriser import DummyAuthoriser
-        from druncschema.authoriser_pb2 import SystemType
         self.authoriser = DummyAuthoriser(
-            dach,
             SystemType.CONTROLLER
         )
 
@@ -123,28 +127,23 @@ class Controller(ControllerServicer):
         self.connectivity_service = None
         self.connectivity_service_thread = None
         self.uri = ''
-        if self.configuration.session.connectivity_service:
-            import os
-            connection_server = self.configuration.session.connectivity_service.host
-            connection_port   = self.configuration.session.connectivity_service.service.port
+
+        if self.session_configuration.dal.connectivity_service:
+            connection_server = self.session_configuration.dal.connectivity_service.host
+            connection_port   = self.session_configuration.dal.connectivity_service.service.port
             self.logger.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
 
-            from drunc.connectivity_service.client import ConnectivityServiceClient
             self.connectivity_service = ConnectivityServiceClient(
                     session = self.session,
                     address = f'{connection_server}:{connection_port}',
                 )
 
-        self.children_nodes = self.configuration.get_children(
-            init_token = self.actor.get_token(),
-            connectivity_service = self.connectivity_service
-        )
+        self.children_nodes = self.get_children()
 
         for child in self.children_nodes:
             self.logger.info(child)
             child.propagate_command('take_control', None, self.actor.get_token())
 
-        from druncschema.request_response_pb2 import CommandDescription
         # TODO, probably need to think of a better way to do this?
         # Maybe I should "bind" the commands to their methods, and have something looping over this list to generate the gRPC functions
         # Not particularly pretty...
@@ -176,23 +175,23 @@ class Controller(ControllerServicer):
 
             CommandDescription(
                 name = 'execute_fsm_command',
-                data_type = ['controller_pb2.FSMCommand'],
+                data_type = ['controller_pb2.FSMTransition'],
                 help = 'Execute an FSM command',
-                return_type = 'controller_pb2.FSMCommandResponse'
+                return_type = 'controller_pb2.FSMTransitionResponse'
             ),
 
             CommandDescription(
                 name = 'include',
                 data_type = ['None'],
                 help = 'Include self in the current session, if a children is provided, include it and its eventual children',
-                return_type = 'controller_pb2.FSMCommandResponse'
+                return_type = 'controller_pb2.FSMTransitionResponse'
             ),
 
             CommandDescription(
                 name = 'exclude',
                 data_type = ['None'],
                 help = 'Exclude self in the current session, if a children is provided, exclude it and its eventual children',
-                return_type = 'controller_pb2.FSMCommandResponse'
+                return_type = 'controller_pb2.FSMTransitionResponse'
             ),
 
             CommandDescription(
@@ -224,6 +223,44 @@ class Controller(ControllerServicer):
         )
 
 
+    def get_children(self):
+        children = []
+
+        segment = get_segment_from_controller_id(self.session_configuration.dal.segment, self.name)
+        if segment is None:
+            raise ctler_excpt.NoSegmentFound(f'The controller \'{self.name}\' does not seem to be part of any segment')
+
+        for child in segment.applications:
+
+            if confmodel.component_disabled(self.configuration.db_obj, self.session, child.id):
+                continue
+
+            children += [
+                get_child(
+                    name = child.id,
+                    cli = get_cla(self.configuration.db_obj, self.session, child),
+                    configuration = child,
+                    fsm_configuration = self.configuration.get('fsm'),
+                )
+            ]
+
+
+        for child in segment.segments:
+
+            if confmodel.component_disabled(self.configuration.db_obj,  self.session, segment.id):
+                continue
+
+            children += [
+                get_child(
+                    name = child.id,
+                    cli = get_cla(self.db._obj, self.session, segment.controller),
+                    token = self.actor.get_token(),
+                    configuration = child.controller,
+                )
+            ]
+
+        return children
+
     '''
     A couple of simple pass-through functions to the broadcasting service
     '''
@@ -246,7 +283,7 @@ class Controller(ControllerServicer):
 
 
     def construct_error_node_response(self, command_name:str, token:Token, cause:FSMResponseFlag) -> Response:
-        fsm_result = FSMCommandResponse(
+        fsm_result = FSMTransitionResponse(
             flag = cause,
             command_name = command_name,
         )
@@ -267,7 +304,6 @@ class Controller(ControllerServicer):
 
         self.logger.info(f'Registering {self.name} to the connectivity service at {address}')
 
-        from threading import Thread
         self.running = True
 
         def update_connectivity_service(
@@ -275,7 +311,6 @@ class Controller(ControllerServicer):
             connectivity_service,
             interval
         ):
-            import time
             while ctrler.running:
                 ctrler.connectivity_service.publish(
                     ctrler.name+"_control",
@@ -315,17 +350,14 @@ class Controller(ControllerServicer):
             child.terminate()
         self.children_nodes = []
 
-        from drunc.controller.children_interface.rest_api_child import ResponseListener
 
         if ResponseListener.exists():
             ResponseListener.get().terminate()
 
-        import threading
         self.logger.debug("Threading threads")
         for t in threading.enumerate():
             self.logger.debug(f'{t.getName()} TID: {t.native_id} is_alive: {t.is_alive}')
 
-        from multiprocessing import Manager
         with Manager() as manager:
             self.logger.debug("Multiprocess threads")
             self.logger.debug(manager.list())
@@ -342,7 +374,6 @@ class Controller(ControllerServicer):
         )
 
         response_children = []
-        from threading import Lock, Thread
         response_lock = Lock()
 
         def propagate_to_child(child, command, command_data, token, response_lock, response_children):
@@ -371,15 +402,11 @@ class Controller(ControllerServicer):
 
             except Exception as e: # Catch all, we are in a thread and want to do something sensible when an exception is thrown
                 self.logger.error(f"Something wrong happened while sending the command to {child.name}: Error raised: {str(e)}")
-                from drunc.utils.utils import print_traceback
                 print_traceback()
-                from drunc.exceptions import DruncException
                 flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
 
                 with response_lock:
-                    from druncschema.request_response_pb2 import Response
-                    from druncschema.generic_pb2 import PlainText, Stacktrace
-                    import traceback
+
                     stack = traceback.format_exc().split("\n")
                     response_children.append(
                         Response(
@@ -435,7 +462,6 @@ class Controller(ControllerServicer):
 
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def status(self, token:Token) -> Response:
-        from drunc.controller.utils import get_status_message
         status = get_status_message(self.stateful)
         return Response (
             name = self.name,
@@ -454,9 +480,6 @@ class Controller(ControllerServicer):
     ) # 2nd step
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def describe(self, token:Token) -> Response:
-        from druncschema.request_response_pb2 import Description
-        from drunc.utils.grpc_utils import pack_to_any
-        from drunc.controller.utils import get_detector_name
         bd = self.describe_broadcast()
         d = Description(
             type = 'controller',
@@ -494,7 +517,6 @@ class Controller(ControllerServicer):
     ) # 2nd step
     @unpack_request_data_to(PlainText) # 4th step
     def describe_fsm(self, input:PlainText) -> Response:
-        from drunc.fsm.utils import convert_fsm_transition
 
         if input.text == 'all-transitions':
             desc = convert_fsm_transition(self.stateful.get_all_fsm_transitions())
@@ -531,15 +553,14 @@ class Controller(ControllerServicer):
         system=SystemType.CONTROLLER
     ) # 2nd step
     @in_control # 3rd step
-    @unpack_request_data_to(FSMCommand, pass_token=True) # 4th step
-    def execute_fsm_command(self, fsm_command:FSMCommand, token:Token) -> Response:
+    @unpack_request_data_to(FSMTransition, pass_token=True) # 4th step
+    def execute_fsm_command(self, fsm_command:FSMTransition, token:Token) -> Response:
         """
         A generic way to execute the controller commands from a user.
         1. Check if the command can be executed (correct FSM transition)
         2. Execute the command on children controller, app, and self
         3. Return the result
         """
-        from druncschema.request_response_pb2 import ResponseFlag
 
         if self.stateful.node_is_in_error():
             return self.construct_error_node_response(
@@ -550,7 +571,7 @@ class Controller(ControllerServicer):
 
         if not self.stateful.node_is_included():
             self.logger.error(f"Node is not included, not executing command {fsm_command.command_name}.")
-            fsm_result = FSMCommandResponse(
+            fsm_result = FSMTransitionResponse(
                 flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
                 command_name = fsm_command.command_name,
             )
@@ -571,7 +592,7 @@ class Controller(ControllerServicer):
         if not self.stateful.can_transition(transition):
             self.logger.error(f'Cannot \"{transition.name}\" as this is an invalid command in state \"{self.stateful.node_operational_state()}\"')
 
-            fsm_result = FSMCommandResponse(
+            fsm_result = FSMTransitionResponse(
                 flag = FSMResponseFlag.FSM_INVALID_TRANSITION,
                 command_name = fsm_command.command_name,
             )
@@ -597,7 +618,7 @@ class Controller(ControllerServicer):
 
         self.stateful.propagate_transition_mark(transition)
 
-        children_fsm_command = FSMCommand()
+        children_fsm_command = FSMTransition()
         children_fsm_command.CopyFrom(fsm_command)
         children_fsm_command.data = fsm_data
         children_fsm_command.ClearField("children_nodes") # we strip the children node, since when we feed them to the children they are meaningless
@@ -619,8 +640,7 @@ class Controller(ControllerServicer):
                 child_worst_response_flag = response_child.flag
                 continue
 
-            from drunc.utils.grpc_utils import unpack_any
-            fsm_response = unpack_any(response_child.data, FSMCommandResponse)
+            fsm_response = unpack_any(response_child.data, FSMTransitionResponse)
 
             if fsm_response.flag != FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:
                 child_worst_fsm_flag = fsm_response.flag
@@ -651,7 +671,7 @@ class Controller(ControllerServicer):
         #     )
 
         self_response_fsm_flag = FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY # self has executed successfully, even if children have not
-        fsm_result = FSMCommandResponse(
+        fsm_result = FSMTransitionResponse(
             flag = self_response_fsm_flag,
             command_name = fsm_command.command_name,
         )
