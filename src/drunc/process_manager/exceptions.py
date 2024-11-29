@@ -5,9 +5,10 @@ class UnknownProcessManagerType(DruncSetupException):
         super().__init__(f'\'{pm_type}\' is not handled/unknown')
 
 class BadQuery(DruncCommandException):
-    def __init__(self, txt):
-        super(BadQuery, self).__init__(txt, code_pb2.INVALID_ARGUMENT)
+    pass
 
 class DruncK8sNamespaceAlreadyExists(DruncException): # Exceptions that gets thrown when namespaces already exists
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    pass
+
+class EnvironmentVariableCannotBeSet(DruncException):
+    pass
