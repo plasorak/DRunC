@@ -1,13 +1,21 @@
-from drunc.controller.stateful_node import StatefulNode
+from google.protobuf import any_pb2
+import grpc
+from grpc_status import rpc_status
+import logging
+
+from druncschema.controller_pb2 import Status
+from druncschema.generic_pb2 import Stacktrace, PlainText
 from druncschema.request_response_pb2 import Response, ResponseFlag, Request
 from druncschema.token_pb2 import Token
-from drunc.utils.grpc_utils import pack_to_any
 
-import logging
+from drunc.stateful import Stateful
+from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.grpc_utils import rethrow_if_unreachable_server, unpack_any
+
 log = logging.getLogger('controller_utils')
 
-def get_status_message(stateful:StatefulNode):
-    from druncschema.controller_pb2 import Status
+
+def get_status_message(stateful:Stateful):
     state_string = stateful.get_node_operational_state()
     if state_string != stateful.get_node_operational_sub_state():
         state_string += f' ({stateful.get_node_operational_sub_state()})'
@@ -30,10 +38,7 @@ def get_detector_name(configuration) -> str:
     return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):
-    import grpc
-    from google.protobuf import any_pb2
 
-    import logging
     log = logging.getLogger("send_command")
 
     # Grab the command from the controller stub in the context
@@ -59,16 +64,11 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
 
         response = cmd(request)
     except grpc.RpcError as e:
-        from drunc.utils.grpc_utils import rethrow_if_unreachable_server
         rethrow_if_unreachable_server(e)
 
-        from grpc_status import rpc_status
         status = rpc_status.from_call(e)
 
         log.error(f'Error sending command "{command}" to controller')
-
-        from druncschema.generic_pb2 import Stacktrace, PlainText
-        from drunc.utils.grpc_utils import unpack_any
 
         if hasattr(status, 'message'):
             log.error(status.message)
@@ -91,3 +91,13 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
         return None
 
     return response
+
+def get_segment_from_controller_id(segment_configuration, controller_id):
+    if segment_configuration.controller.id == controller_id:
+        return segment_configuration
+
+    for segment in segment_configuration.segments:
+        if get_segment_from_controller_id(segment, controller_id) is not None:
+            return segment
+
+    return None
