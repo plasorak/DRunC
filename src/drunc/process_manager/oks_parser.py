@@ -1,14 +1,11 @@
 import logging
 import os
-
 import sys
+from typing import List, Dict, Any
 
 import confmodel
 import conffwk
 
-from typing import List, Dict, Any
-
-from drunc.exceptions import  DruncException
 from drunc.process_manager.utils import get_cla
 
 dal = conffwk.dal.module('x', 'schema/confmodel/dunedaq.schema.xml')
