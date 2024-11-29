@@ -149,12 +149,9 @@ def unified_shell(
     from drunc.fsm.utils import convert_fsm_transition
 
     transitions = stateful.get_all_fsm_transitions()
-    # fsm_logger.setLevel(fsm_log_level)
-    # fsm_conf_logger.setLevel(fsm_conf_log_level)
-    # End of shameful code
 
     from drunc.controller.interface.shell_utils import generate_fsm_command
-    for transition in transitions.commands:
+    for transition in transitions:
         ctx.command.add_command(*generate_fsm_command(ctx.obj, transition, controller_name))
 
 
