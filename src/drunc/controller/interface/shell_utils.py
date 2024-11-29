@@ -1,9 +1,28 @@
-from rich import print
-from druncschema.controller_pb2 import FSMCommandsDescription
-from druncschema.request_response_pb2 import Description
-from drunc.utils.shell_utils import DecodedResponse
-import logging
+import click
+import grpc
 import inspect
+import logging
+import time
+
+from functools import partial
+
+from google.protobuf.any_pb2 import Any
+
+from rich import print
+from rich.table import Table
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+
+from druncschema.controller_pb2 import Argument, FSMTransition, FSMTransitionDescription, FSMTransitionResponse, FSMResponseFlag, Status
+from druncschema.request_response_pb2 import Description, ResponseFlag
+
+from drunc.controller.exceptions import MalformedCommand
+from drunc.controller.interface.context import ControllerContext
+
+from drunc.exceptions import DruncSetupException, DruncShellException
+from drunc.utils.grpc_utils import pack_to_any, unpack_any, ServerUnreachable
+from drunc.utils.shell_utils import DecodedResponse
+
+
 log = logging.getLogger('controller_shell_utils')
 
 def match_children(statuses:list, descriptions:list) -> list:
@@ -25,22 +44,18 @@ def match_children(statuses:list, descriptions:list) -> list:
                 children.append(child)
                 break
     if len(descriptions) != len(children):
-        from drunc.controller.exceptions import MalformedCommand
         raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
     return children
 
 def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
-    from druncschema.controller_pb2 import Status
     if not statuses: return
 
     if type(statuses.data) != Status:
-        from google.protobuf.any_pb2 import Any
         data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
         obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
         return
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
-    from rich.table import Table
+
 
     t = Table(title=f'Status')
     t.add_column('Name')
@@ -71,10 +86,8 @@ def controller_cleanup_wrapper(ctx):
     def controller_cleanup():
         # remove the shell from the controller broadcast list
         dead = False
-        import grpc
         who = ''
 
-        from drunc.utils.grpc_utils import unpack_any
         try:
             who = ctx.get_driver('controller').who_is_in_charge().data
 
@@ -103,17 +116,12 @@ def controller_cleanup_wrapper(ctx):
 
 def controller_setup(ctx, controller_address):
     if not hasattr(ctx, 'took_control'):
-        from drunc.exceptions import DruncSetupException
         raise DruncSetupException('This context is not compatible with a controller, you need to add a \'took_control\' bool member')
 
 
-    from druncschema.request_response_pb2 import Description
     desc = Description()
 
     timeout = 60
-
-    from drunc.utils.grpc_utils import ServerUnreachable
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
     with Progress(
         SpinnerColumn(),
@@ -127,7 +135,6 @@ def controller_setup(ctx, controller_address):
         waiting = progress.add_task("[yellow]Trying to talk to the top controller...", total=timeout)
 
         stored_exception = None
-        import time
         start_time = time.time()
         while time.time()-start_time < timeout:
             progress.update(waiting, completed=time.time()-start_time)
@@ -162,7 +169,6 @@ def controller_setup(ctx, controller_address):
     ctx.info(f'Taking control of the controller as {ctx.get_token()}')
     try:
         ret = ctx.get_driver('controller').take_control()
-        from druncschema.request_response_pb2 import ResponseFlag
 
         if ret.flag == ResponseFlag.EXECUTED_SUCCESSFULLY:
             ctx.info('You are in control.')
@@ -180,15 +186,12 @@ def controller_setup(ctx, controller_address):
     return desc
 
 
-from drunc.controller.interface.context import ControllerContext
-from druncschema.controller_pb2 import FSMCommand
-def search_fsm_command(command_name:str, command_list:list[FSMCommand]):
+def search_fsm_command(command_name:str, command_list:[FSMTransition]):
     for command in command_list:
         if command_name == command.name:
             return command
     return None
 
-from drunc.exceptions import DruncShellException
 class ArgumentException(DruncShellException):
     pass
 
@@ -217,10 +220,8 @@ class UnhandledArguments(ArgumentException):
         message = f'These arguments are not handled by this command: {arguments_and_values}'
         super(UnhandledArguments, self).__init__(message)
 
-from druncschema.controller_pb2 import Argument
 def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Argument]):
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
-    from drunc.utils.grpc_utils import pack_to_any
+
     out_dict = {}
 
     arguments_left = arguments
@@ -318,11 +319,9 @@ def tree_prefix(i, n):
 
 def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     obj.print(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
-    from druncschema.controller_pb2 import FSMCommand
 
     fsm_description = obj.get_driver('controller').describe_fsm().data
 
-    from drunc.controller.interface.shell_utils import search_fsm_command, validate_and_format_fsm_arguments, ArgumentException
 
     command_desc = search_fsm_command(transition_name, fsm_description.commands)
 
@@ -332,7 +331,7 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     try:
         formated_args = validate_and_format_fsm_arguments(kwargs, command_desc.arguments)
-        data = FSMCommand(
+        data = FSMTransition(
             command_name = transition_name,
             arguments = formated_args,
         )
@@ -345,17 +344,12 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     if not result: return
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
-    from drunc.utils.grpc_utils import unpack_any
-    from druncschema.controller_pb2 import FSMResponseFlag, FSMCommandResponse
 
-    from rich.table import Table
     t = Table(title=f'{transition_name} execution report')
     t.add_column('Name')
     t.add_column('Command execution')
     t.add_column('FSM transition')
 
-    from druncschema.request_response_pb2 import ResponseFlag
     def bool_to_success(flag_message, FSM):
         flag = False
         if FSM and flag_message == FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:
@@ -379,23 +373,15 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     statuses = obj.get_driver('controller').status()
     descriptions = obj.get_driver('controller').describe()
 
-    from drunc.controller.interface.shell_utils import print_status_table
     print_status_table(obj, statuses, descriptions)
 
 
-from druncschema.controller_pb2 import FSMCommandDescription
+def generate_fsm_command(ctx, transition, controller_name:str):
 
-def generate_fsm_command(ctx, transition:FSMCommandDescription, controller_name:str):
-    import click
-
-    from functools import partial
-    cmd = partial(run_one_fsm_command, controller_name, transition.name)
+    cmd = partial(run_one_fsm_command, controller_name, transition.id)
 
     cmd = click.pass_obj(cmd)
 
-    from druncschema.controller_pb2 import Argument
-    from drunc.utils.grpc_utils import unpack_any
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
 
     for argument in transition.arguments:
         atype = None
