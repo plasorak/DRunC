@@ -1,16 +1,22 @@
-from drunc.fsm.action_factory import FSMActionFactory
 from typing import List, Set, Dict, Tuple
 from inspect import signature, Parameter
 import drunc.fsm.exceptions as fsme
-from drunc.fsm.transition import Transition
+from drunc.fsm.transition import Transition, TransitionSequence
 import traceback
+from drunc.utils.configuration import ConfigurationWrapper
+from druncschema.controller_pb2 import Argument
+from druncschema.generic_pb2 import NullValue
 
-class FSMAction:
-    '''Abstract class defining a generic action'''
-    def __init__(self, name):
-        self.name = name
-
-
+# Good ol' moo import
+from dunedaq.env import get_moo_model_path
+import moo.io
+moo.io.default_load_path = get_moo_model_path()
+import moo.otypes
+import moo.oschema as moosc
+moo.otypes.load_types('rcif/cmd.jsonnet')
+moo.otypes.load_types('cmdlib/cmd.jsonnet')
+import dunedaq.rcif.cmd as rccmd
+import dunedaq.cmdlib.cmd as cmd
 
 class Callback:
     def __init__(self, method, mandatory=True):
@@ -154,54 +160,158 @@ class PreOrPostTransitionSequence:
         return retr
 
 
-
 class FSM:
-    def __init__(self, conf):
+    def __init__(self, conf:ConfigurationWrapper):
 
         self.configuration = conf
 
         from logging import getLogger
         self._log = getLogger('FSM')
 
-        self.initial_state = self.configuration.get_initial_state()
-        self.states = self.configuration.get_states()
+        self.initial_state = self.configuration.dal.initial_state
 
-        self.transitions = self.configuration.get_transitions()
+        from confmodel import get_states
+        self.states = get_states(self.configuration.db_obj, self.configuration.dal.id)
 
-        self._enusure_unique_transition(self.transitions)
+        self.transitions = self._build_transitions(self.configuration.dal.transitions)
 
 
-        self.pre_transition_sequences = self.configuration.get_pre_transitions_sequences()
-        self.post_transition_sequences = self.configuration.get_post_transitions_sequences()
+    def _build_arguments_from_rcif(self, rcif_schema:str) -> [Argument]:
+        if rcif_schema == "":
+            return []
 
-        self._log.info(f'Initial state is "{self.initial_state}"')
-        self._log.info('Allowed transitions are:')
-        for t in self.transitions:
-            self._log.info(str(t))
-            self._log.info(f'Pre transition: {self.pre_transition_sequences[t]}')
-            self._log.info(f'Post transition: {self.post_transition_sequences[t]}')
+        self._log.debug(f'Parsing the rcif_schema: \'{rcif_schema}\'')
 
-    def _enusure_unique_transition(self, transitions):
-        a_set = set()
+        schema = getattr(rccmd, rcif_schema, None)
+        if schema is None:
+            raise fsme.SchemaNotSupportedByRCIF(rcif_schema)
+
+        arguments = []
+
+        def get_underlying_schema(field_ost:dict) -> str:
+
+            if field_ost.get('dtype'):
+                return convert_rcif_type_to_protobuf(field_ost['dtype'])
+
+            if field_ost.get('item'):
+                underlying_schema_name = field_ost['item'].split('.')[-1]
+                underlying_schema = getattr(rccmd, underlying_schema_name, None)
+                if underlying_schema is None:
+                    raise fsme.SchemaNotSupportedByRCIF(underlying_schema_name)
+
+                underlying_schema_ost = underlying_schema.__dict__["_ost"]
+
+                if underlying_schema_ost.get('item'):
+                    return get_underlying_schema(underlying_schema)
+
+                if 'dtype' in underlying_schema_ost:
+                    return convert_rcif_type_to_protobuf(underlying_schema_ost['dtype'])
+                if 'schema' in underlying_schema_ost:
+                    return convert_rcif_type_to_protobuf(underlying_schema_ost['schema'])
+
+        def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
+            if rcif_type in ["i2", "i4", "i8", "u2", "u4", "u8"]:
+                return "int"
+            elif rcif_type == "string":
+                return "string"
+            elif rcif_type in ["f4", "f8"]:
+                return "double"
+            elif rcif_type == "boolean":
+                return "boolean"
+            else:
+                raise fsme.UnhandledArgumentType(rcif_type)
+
+        for field in schema.__dict__["_ost"]["fields"]:
+            self._log.debug(f" - field {field}")
+            arg_type = get_underlying_schema(field)
+            self._log.debug(f"   ... of type \'{arg_type}\'")
+
+            arg_kwargs = {
+                "name": field['name'],
+                "type": arg_type,
+                "help": field['doc'],
+                "mandatory": not field.get('optional', False),
+            }
+
+            if 'choices' in field:
+                arg_kwargs.update({
+                    f"{arg_type}_choices": field['choices'],
+                })
+
+            if 'default' in field:
+                arg_kwargs.update({
+                    f"{arg_type}_default": field['default'],
+                })
+
+            a = Argument(**arg_kwargs)
+
+            self._log.debug(f"Argument produced:\n{a}")
+            default_arg = getattr(a, arg_type+"_default")
+            arguments += [a]
+        return arguments
+
+
+    def _build_one_transition(self, transition) -> Transition:
+        arguments = self._build_arguments_from_rcif(transition.rcif_schema)
+
+        return Transition(
+            name = transition.id,
+            source = transition.source,
+            destination = transition.dest,
+            arguments = arguments,
+        )
+
+
+    def _build_transition_set(self, transition_set) -> (TransitionSequence, [Transition]):
+        all_transitions = []
+        for t in transition_set.sequence:
+            all_transitions += [self._build_one_transition(t)]
+        return TransitionSequence(transition_set.id, transitions = all_transitions), all_transitions
+
+
+    def _build_transitions(self, transitions:[]) -> [Transition]:
+        '''
+        Builds the transitions
+        '''
+        the_drunc_transitions = []
+
         for t in transitions:
-            if t.name in a_set:
-                raise fsme.DuplicateTransition(t.name)
-            a_set.add(t.name)
+            self._log.debug(f'Considering transition: \'{t.id}\'')
 
-    def get_all_states(self) -> List[str]:
+            match t.className():
+                case 'FSMTransition':
+                    the_drunc_transitions += [self._build_one_transition(t)]
+
+                case 'FSMTransitionSet':
+                    transition_sequence, transitions = self._build_transition_set(t)
+                    the_drunc_transitions += transitions
+                    the_drunc_transitions += [transition_sequence]
+
+                case _:
+                    self._log.error(t.className())
+                    raise fsme.UnhandledTransitionType(t.id, t.className())
+
+        retr = {}
+        for the_drunc_transition in the_drunc_transitions:
+            retr[the_drunc_transition.name] = the_drunc_transition
+
+        return retr.values()
+
+
+    def get_all_states(self) -> [str]:
         '''
         grabs all the states
         '''
         return self.states
 
-    def get_all_transitions(self) -> List[Transition]:
+    def get_all_transitions(self) -> [Transition]:
         '''
         grab all the transitions
         '''
         return self.transitions
 
 
-    def get_destination_state(self, source_state, transition) -> str:
+    def get_destination_state(self, source_state:str, transition:Transition) -> str:
         '''
         Tells us where a particular transition will take us, given the source_state
         '''
@@ -213,7 +323,7 @@ class FSM:
                 else:
                     return tr.destination
 
-    def get_executable_transitions(self, source_state) -> List[Transition]:
+    def get_executable_transitions(self, source_state:str) -> [Transition]:
         valid_transitions = []
 
         for tr in self.transitions:
@@ -227,14 +337,14 @@ class FSM:
         return valid_transitions
 
 
-    def get_transition(self, transition_name) -> bool:
+    def get_transition(self, transition_name:str) -> bool:
         transition = [t for t in self.transitions if t.name == transition_name]
         if not transition:
             fsme.NoTransitionOfName(transition_name)
         return transition[0]
 
 
-    def can_execute_transition(self, source_state, transition) -> bool:
+    def can_execute_transition(self, source_state:str, transition:Transition) -> bool:
         '''
         Check that this transition is allowed given the source_state
         '''
@@ -243,7 +353,7 @@ class FSM:
         return regex_match(transition.source, source_state)
 
 
-    def prepare_transition(self, transition, transition_data, transition_args, ctx=None):
+    def prepare_transition(self, transition:Transition, transition_data:dict, transition_args:dict, ctx:dict=None):
         transition_data = self.pre_transition_sequences[transition].execute(
             transition_data,
             transition_args,
@@ -252,7 +362,7 @@ class FSM:
         return transition_data
 
 
-    def finalise_transition(self, transition, transition_data, transition_args, ctx=None):
+    def finalise_transition(self, transition:Transition, transition_data:dict, transition_args:dict, ctx:dict=None):
         transition_data = self.post_transition_sequences[transition].execute(
             transition_data,
             transition_args,
