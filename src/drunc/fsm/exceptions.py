@@ -121,3 +121,14 @@ class CannotSendElisaMessage(FSMException):
     def __init__(self, data):
         self.message = f'Cannot send message to ELisA because {data}. Do it manually at https://np-vd-coldbox-elog.app.cern.ch or https://pdsp-elog.app.cern.ch!'
         super().__init__(self.message)
+
+
+class SchemaNotSupportedByRCIF(FSMException):
+    def __init__(self, schema):
+        self.message = f'The schema "{schema}" is not supported by the RCIF'
+        super().__init__(self.message)
+
+class UnhandledTransitionType(FSMException):
+    def __init__(self, transition, transition_type):
+        self.message = f'The transition "{transition}" is of an unhandled type ({transition_type=})'
+        super().__init__(self.message)
