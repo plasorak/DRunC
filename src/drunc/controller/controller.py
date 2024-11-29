@@ -239,6 +239,7 @@ class Controller(ControllerServicer):
                     name = child.id,
                     cli = get_cla(self.configuration.db_obj, self.session, child),
                     configuration = child,
+                    init_token = self.actor.get_token(),
                     fsm_configuration = self.configuration.get('fsm'),
                 )
             ]
@@ -252,8 +253,8 @@ class Controller(ControllerServicer):
             children += [
                 get_child(
                     name = child.id,
-                    cli = get_cla(self.db._obj, self.session, segment.controller),
-                    token = self.actor.get_token(),
+                    cli = get_cla(self.configuration.db_obj, self.session, segment.controller),
+                    init_token = self.actor.get_token(),
                     configuration = child.controller,
                 )
             ]
