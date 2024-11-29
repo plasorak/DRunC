@@ -7,9 +7,7 @@ moo.io.default_load_path = get_moo_model_path()
 import moo.otypes
 import moo.oschema as moosc
 moo.otypes.load_types('rcif/cmd.jsonnet')
-moo.otypes.load_types('cmdlib/cmd.jsonnet')
 import dunedaq.rcif.cmd as rccmd
-import dunedaq.cmdlib.cmd as cmd
 
 from druncschema.controller_pb2 import Argument, FSMTransitionsDescription, FSMTransitionDescription
 
@@ -67,6 +65,10 @@ def decode_fsm_arguments(arguments, arguments_format):
 
 
 def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
+    '''
+    Simplify the RCIF type to internal drunc type
+    '''
+
     if rcif_type in ["i2", "i4", "i8", "u2", "u4", "u8"]:
         return "int"
     elif rcif_type == "string":
@@ -80,6 +82,9 @@ def convert_rcif_type_to_protobuf(rcif_type:dict) -> str:
 
 
 def get_underlying_schema(field_ost:dict) -> str:
+    '''
+    Deal with the recursive type of moo
+    '''
 
     if field_ost.get('dtype'):
         return convert_rcif_type_to_protobuf(field_ost['dtype'])
@@ -103,6 +108,10 @@ def get_underlying_schema(field_ost:dict) -> str:
 
 
 def build_arguments_from_rcif(rcif_schema:str) -> [Argument]:
+    '''
+    This function parses the rcif schema and returns a list of Arguments
+    '''
+
     log = logging.getLogger('build_arguments_from_rcif')
 
     if rcif_schema == "":
@@ -143,4 +152,5 @@ def build_arguments_from_rcif(rcif_schema:str) -> [Argument]:
         log.debug(f"Argument produced:\n{a}")
         default_arg = getattr(a, arg_type+"_default")
         arguments += [a]
+
     return arguments
