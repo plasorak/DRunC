@@ -67,6 +67,24 @@ def find_configuration(path:str) -> str:
     return configuration_files[0]
 
 
+class ConfigurationWrapper:
+    def __init__(self, db_obj, dal):
+        self.db_obj = db_obj
+        self.dal = dal
+
+    def _get_object(self, from_object, object_name:str):
+        if '.' not in object_name:
+            the_object = getattr(from_object, object_name)
+            return the_object
+
+        first_object_name = object_name.split('.')[0]
+        one_object_down = getattr(from_object, first_object_name)
+        return self._get_object(one_object_down, object_name.replace(f'{first_object_name}.', ''))
+
+    def get(self, object_name:str):
+        the_object = self._get_object(self.dal, object_name)
+        return ConfigurationWrapper(self.db_obj, the_object)
+
 
 class ConfTypeNotSupported(DruncSetupException):
     def __init__(self, conf_type:ConfTypes, class_name:str):
