@@ -5,9 +5,7 @@ import conffwk
 
 from typing import List, Dict, Any
 
-from drunc.process_manager.configuration import ProcessManagerConfHandler
 from drunc.exceptions import  DruncException
-pmch = ProcessManagerConfHandler()
 
 dal = conffwk.dal.module('x', 'schema/confmodel/dunedaq.schema.xml')
 

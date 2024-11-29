@@ -1,6 +1,25 @@
+import click
+import copy as cp
+from functools import update_wrapper
+import json
+from operator import attrgetter
+from os import path,getenv
+import re
+from rich.console import Console
+from rich.table import Table
+from urllib.parse import urlparse
+
+from appmodel import smart_daq_application_construct_commandline_parameters
+from confmodel import daq_application_construct_commandline_parameters, rc_application_construct_commandline_parameters
+
+from druncschema.process_manager_pb2 import ProcessUUID, ProcessQuery, ProcessInstance
+
+from drunc.exceptions import DruncCommandException, DruncSetupException
+from drunc.process_manager.k8s_process_manager import K8sProcessManager
+from drunc.process_manager.ssh_process_manager import SSHProcessManager
+from drunc.process_manager.types import ProcessManagerTypes
 
 def generate_process_query(f, at_least_one:bool, all_processes_by_default:bool=False):
-    import click
 
     @click.pass_context
     def new_func(ctx, session, name, user, uuid, **kwargs):
@@ -11,8 +30,6 @@ def generate_process_query(f, at_least_one:bool, all_processes_by_default:bool=F
 
         if all_processes_by_default and is_trivial_query:
             name = ['.*']
-
-        from druncschema.process_manager_pb2 import ProcessUUID, ProcessQuery
 
         uuids = [ProcessUUID(uuid=uuid_) for uuid_ in uuid]
 
@@ -25,7 +42,6 @@ def generate_process_query(f, at_least_one:bool, all_processes_by_default:bool=F
         #print(query)
         return ctx.invoke(f, query=query,**kwargs)
 
-    from functools import update_wrapper
     return update_wrapper(new_func, f)
 
 def make_tree(values):
@@ -39,7 +55,6 @@ def make_tree(values):
     return lines
 
 def tabulate_process_instance_list(pil, title, long=False):
-    from rich.table import Table
     t = Table(title=title)
     t.add_column('session')
     t.add_column('friendly name')
@@ -51,13 +66,11 @@ def tabulate_process_instance_list(pil, title, long=False):
     if long:
         t.add_column('executable')
 
-    from operator import attrgetter
     sorted_pil = sorted(pil.values, key=attrgetter('process_description.metadata.tree_id'))
     tree_str = make_tree(sorted_pil)
     try:
         for process, line in zip(sorted_pil, tree_str):
             m = process.process_description.metadata
-            from druncschema.process_manager_pb2 import ProcessInstance
             alive = 'True' if process.status_code == ProcessInstance.StatusCode.RUNNING else '[danger]False[/danger]'
             row = [m.session, line, m.user, m.hostname, process.uuid.uuid]
             if long:
@@ -66,14 +79,12 @@ def tabulate_process_instance_list(pil, title, long=False):
             row += [alive, f'{process.return_code}']
             t.add_row(*row)
     except TypeError:
-        from drunc.exceptions import DruncCommandException
         raise DruncCommandException("Unable to extract the parameters for tabulate_process_instance_list, exiting.")
     return t
 
 
 def strip_env_for_rte(env):
-    import copy as cp
-    import re
+
     env_stripped = cp.deepcopy(env)
     for key in env.keys():
         if key in ["PATH","CET_PLUGIN_PATH","DUNEDAQ_SHARE_PATH","LD_LIBRARY_PATH","LIBRARY_PATH","PYTHONPATH"]:
@@ -83,21 +94,18 @@ def strip_env_for_rte(env):
     return env_stripped
 
 def get_version():
-    from os import getenv
     version = getenv("DUNE_DAQ_BASE_RELEASE")
     if not version:
         raise RuntimeError('Utils: dunedaq version not in the variable env DUNE_DAQ_BASE_RELEASE! Exit drunc and\nexport DUNE_DAQ_BASE_RELEASE=dunedaq-vX.XX.XX\n')
     return version
 
 def get_releases_dir():
-    from os import getenv
     releases_dir = getenv("SPACK_RELEASES_DIR")
     if not releases_dir:
         raise RuntimeError('Utils: cannot get env SPACK_RELEASES_DIR! Exit drunc and\nrun dbt-workarea-env or dbt-setup-release.')
     return releases_dir
 
 def release_or_dev():
-    from os import getenv
     is_release = getenv("DBT_SETUP_RELEASE_SCRIPT_SOURCED")
     if is_release:
         return 'rel'
@@ -107,7 +115,6 @@ def release_or_dev():
     return 'rel'
 
 def get_rte_script():
-    from os import path,getenv
     script = ''
     if release_or_dev() == 'rel':
         ver = get_version()
@@ -119,6 +126,43 @@ def get_rte_script():
         script = path.join(dbt_install_dir, 'daq_app_rte.sh')
 
     if not path.exists(script):
-        from drunc.exceptions import DruncSetupException
         raise DruncSetupException(f'Couldn\'t understand where to find the rte script tentative: {script}')
     return script
+
+
+
+def get_process_manager(conf, **kwargs):
+    console = Console()
+    conf_parse = urlparse(conf)
+
+    with open(conf_parse.path) as f:
+        conf_data = json.load(f)
+
+        match ProcessManagerTypes.from_str(conf_data['type']):
+            case ProcessManagerTypes.SSH:
+                console.print(f'Starting \'SSHProcessManager\'')
+                return SSHProcessManager(conf_data, **kwargs)
+            case ProcessManagerTypes.K8s:
+                console.print(f'Starting \'K8sProcessManager\'')
+                return K8sProcessManager(conf_data, **kwargs)
+            case _:
+                raise DruncSetupException(f'ProcessManager type {conf.get("type")} is unsupported!')
+
+
+
+
+
+
+def get_cla(db, session_uid, obj):
+
+    if hasattr(obj, "oksTypes"):
+        if 'RCApplication' in obj.oksTypes():
+            return rc_application_construct_commandline_parameters(db, session_uid, obj.id)
+
+        elif 'SmartDaqApplication' in obj.oksTypes():
+            return smart_daq_application_construct_commandline_parameters(db, session_uid, obj.id)
+
+        elif 'DaqApplication' in obj.oksTypes():
+            return daq_application_construct_commandline_parameters(db, session_uid, obj.id)
+
+    return obj.commandline_parameters

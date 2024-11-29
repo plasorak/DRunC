@@ -5,10 +5,10 @@ from druncschema.authoriser_pb2 import ActionType, SystemType
 
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.exceptions import DruncCommandException, DruncException
-from drunc.k8s_exceptions import DruncK8sNamespaceAlreadyExists
+from drunc.process_manager.exceptions import DruncK8sNamespaceAlreadyExists
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.broadcast.server.decorators import broadcasted
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
+from drunc.utils.grpc_utils import unpack_request_data_to
 
 
 
@@ -445,7 +445,6 @@ class K8sProcessManager(ProcessManager):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
-    @pack_response # 4th step
     def flush(self, query:ProcessQuery) -> Response:
         ret=[]
         self._log.info(f'Flushing dead processes')
