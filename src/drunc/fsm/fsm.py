@@ -13,12 +13,6 @@ from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.utils import regex_match
 
 
-class Callback:
-    def __init__(self, method, mandatory=True):
-        self.method = method
-        self.mandatory = mandatory
-
-
 class FSM:
     def __init__(self, conf:ConfigurationWrapper):
 
@@ -77,7 +71,7 @@ class FSM:
         for the_drunc_transition in the_drunc_transitions:
             retr[the_drunc_transition.name] = the_drunc_transition
 
-        return retr.values()
+        return list(retr.values())
 
 
     def get_all_states(self) -> [str]:
