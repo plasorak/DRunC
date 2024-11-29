@@ -140,15 +140,15 @@ def unified_shell(
     session_conf = ConfigurationWrapper(db._obj, db.get_dal(class_name="Session", uid=session_name))
     controller_name = session_conf.dal.segment.controller.id
 
-    from drunc.controller.stateful_node import StatefulNode
-    stateful_node = StatefulNode(
+    from drunc.stateful import Stateful
+    stateful = Stateful(
         fsm_configuration = session_conf.get('segment.controller.fsm'),
         broadcaster = None,
     )
 
     from drunc.fsm.utils import convert_fsm_transition
 
-    transitions = stateful_node.get_all_fsm_transitions()
+    transitions = stateful.get_all_fsm_transitions()
     # fsm_logger.setLevel(fsm_log_level)
     # fsm_conf_logger.setLevel(fsm_conf_log_level)
     # End of shameful code
