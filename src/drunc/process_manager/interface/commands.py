@@ -1,5 +1,6 @@
 import click
 import getpass
+import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
 from drunc.process_manager.interface.cli_argument import add_query_options
@@ -11,7 +12,7 @@ from drunc.process_manager.interface.cli_argument import validate_conf_string
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
-@click.option('--override-logs/--no-override-logs', default=True)
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.argument('boot-configuration', type=str, callback=validate_conf_string)
 @click.argument('session-name', type=str)
 @click.pass_obj
@@ -24,7 +25,7 @@ async def boot(
     log_level:str,
     override_logs:bool,
     ) -> None:
-
+    log = logging.getLogger("process_manager_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -36,7 +37,7 @@ async def boot(
         )
         async for result in results:
             if not result: break
-            obj.print(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
         return
 
@@ -58,7 +59,7 @@ async def boot(
 @click.pass_obj
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
-
+    log = logging.getLogger("process_manager_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(
@@ -70,7 +71,7 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
         )
         async for result in results:
             if not result: break
-            obj.print(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
         return
 

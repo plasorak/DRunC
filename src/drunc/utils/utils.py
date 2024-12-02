@@ -31,20 +31,27 @@ def regex_match(regex, string):
 
 log_level = logging.INFO
 
-def print_traceback():
-    from rich.console import Console
-    c = Console()
+def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
+    if with_rich:
+        from rich.console import Console
+        c = Console()
+        import os
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 300
+        c.print_exception(width=width)
+    # else: # RETURNTOME
+    #     import sys
+    #     sys.traceback # FIX THISNOW
+
+
+def setup_logger(log_level:str, log_path:str = None):
     import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 300
-    c.print_exception(width=width)
+    if log_path and os.path.isfile(log_path):
+        os.remove(log_path)
 
-
-def update_log_level(loglevel):
-    log_level = log_levels[loglevel]
-    #logging.basicConfig(level=log_level)
+    log_level = log_levels[log_level]
     # Update log level for root logger
     logger = logging.getLogger('drunc')
     logger.setLevel(log_level)
@@ -89,6 +96,15 @@ def update_log_level(loglevel):
             ) # Make this True, and everything crashes on exceptions (no clue why)
         ]
     )
+    if (log_path):
+        fileHandler = logging.FileHandler(filename = log_path)
+        fileHandler.setLevel(log_level)
+        fileHandlerFormatter = logging.Formatter(
+            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+            datefmt="[%X]"
+        )
+        fileHandler.setFormatter(fileHandlerFormatter)
+        logger.addHandler(fileHandler)
 
 def get_new_port():
     import socket

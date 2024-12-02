@@ -22,7 +22,7 @@ class BroadcastSenderConfHandler(ConfHandler):
     def _post_process_oks(self):
         from drunc.broadcast.types import BroadcastTypes
         self.impl_technology = BroadcastTypes.Kafka if self.data else None
-        self.log.info(self.data)
+        self.log.debug(self.data)
 
     def get_impl_technology(self):
         return self.impl_technology

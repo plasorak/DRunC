@@ -34,39 +34,47 @@ def test_print_traceback(capsys):
     assert "Test error" in captured.out
 
 
-@pytest.mark.xfail ## I don't understand why this one doesn't work???
-def test_update_log_level(capsys):
-    from drunc.utils.utils import update_log_level
+def test_setup_logger(caplog):
+    from drunc.utils.utils import setup_logger
     import logging
-    update_log_level("DEBUG")
-    assert logging.getLogger().getEffectiveLevel() == logging.DEBUG
-    assert logging.getLogger("tester0").getEffectiveLevel() == logging.DEBUG
+    setup_logger("DEBUG")
+    assert logging.getLogger('drunc').getEffectiveLevel() == logging.DEBUG
+    assert logging.getLogger("drunc.tester0").getEffectiveLevel() == logging.DEBUG
 
-    update_log_level("INFO")
-    assert logging.getLogger().getEffectiveLevel() == logging.INFO
-    assert logging.getLogger("tester1").getEffectiveLevel() == logging.INFO
+    setup_logger("INFO")
+    assert logging.getLogger('drunc').getEffectiveLevel() == logging.INFO
+    assert logging.getLogger("drunc.tester1").getEffectiveLevel() == logging.INFO
 
-    update_log_level("WARNING")
-    assert logging.getLogger().getEffectiveLevel() == logging.WARNING
-    assert logging.getLogger("tester2").getEffectiveLevel() == logging.WARNING
+    setup_logger("WARNING")
+    assert logging.getLogger('drunc').getEffectiveLevel() == logging.WARNING
+    assert logging.getLogger("drunc.tester2").getEffectiveLevel() == logging.WARNING
 
-    update_log_level("ERROR")
-    assert logging.getLogger().getEffectiveLevel() == logging.ERROR
-    assert logging.getLogger("tester3").getEffectiveLevel() == logging.ERROR
+    setup_logger("ERROR")
+    assert logging.getLogger('drunc').getEffectiveLevel() == logging.ERROR
+    assert logging.getLogger("drunc.tester3").getEffectiveLevel() == logging.ERROR
 
-    update_log_level("CRITICAL")
-    assert logging.getLogger().getEffectiveLevel() == logging.CRITICAL
-    assert logging.getLogger("tester4").getEffectiveLevel() == logging.CRITICAL
+    setup_logger("CRITICAL")
+    assert logging.getLogger('drunc').getEffectiveLevel() == logging.CRITICAL
+    assert logging.getLogger("drunc.tester4").getEffectiveLevel() == logging.CRITICAL
 
-    logger = logging.getLogger("tester5")
-    logger.debug   ("invisible")
-    logger.info    ("invisible")
-    logger.warning ("invisible")
-    logger.error   ("invisible")
-    logger.critical("VISIBLE")
-    captured = capsys.readouterr()
-    assert "VISIBLE" in captured.out
-    assert "invisible" not in captured.out
+    import tempfile
+    with tempfile.TemporaryDirectory() as temp_dir:
+        log_path = temp_dir+"/test.log"
+
+        setup_logger("CRITICAL", log_path=log_path)
+        logger = logging.getLogger("drunc.tester5")
+        logger.debug   ("invisible")
+        logger.info    ("invisible")
+        logger.warning ("invisible")
+        logger.error   ("invisible")
+        logger.critical("VISIBLE")
+
+        assert caplog.record_tuples == [
+            ("drunc.tester5", logging.CRITICAL, "VISIBLE"),
+        ]
+
+        with open(log_path, "r") as f:
+            assert "VISIBLE" in f.read()
 
 
 def test_get_new_port():
