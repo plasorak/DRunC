@@ -129,7 +129,7 @@ class ConfHandler:
             import conffwk
             self.dal = conffwk.dal.module('x', self.oks_key.schema_file)
             self.oks_path = f"oksconflibs:{oks_path}"
-            self.log.info(f'Using {self.oks_path} to configure')
+            self.log.debug(f'Using {self.oks_path} to configure')
             self.db = conffwk.Configuration(self.oks_path)
             return self.db.get_dal(
                 class_name=self.oks_key.class_name,

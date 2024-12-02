@@ -1,9 +1,7 @@
 from concurrent import futures
 import click
-import grpc
-import logging
-from logging import getLogger
 import os
+from logging import getLogger
 import signal
 from rich.console import Console
 
@@ -12,7 +10,7 @@ from druncschema.token_pb2 import Token
 
 from drunc.controller.controller import Controller
 from drunc.utils.configuration import parse_conf_url, OKSKey
-from drunc.utils.utils import print_traceback, resolve_localhost_and_127_ip_to_network_ip, log_levels,  update_log_level, validate_command_facility
+from drunc.utils.utils import print_traceback, resolve_localhost_and_127_ip_to_network_ip, log_levels,  update_log_level, validate_command_facility, log_levels, setup_logger, validate_command_facility
 
 @click.command()
 @click.argument('configuration', type=str)
@@ -24,7 +22,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
 
     console = Console()
 
-    update_log_level(log_level)
+    setup_logger(log_level)
     log = getLogger('controller_cli')
 
     token = Token(
@@ -55,13 +53,13 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         ctrlr.terminate()
 
     def kill_me(sig, frame):
-        l = logging.getLogger("kill_me")
+        l = getLogger("drunc.controller.interface.controller.kill_me")
         l.info('Sending SIGKILL')
         pgrp = os.getpgid(os.getpid())
         os.killpg(pgrp, signal.SIGKILL)
 
     def shutdown(sig, frame):
-        l = logging.getLogger("shutdown")
+        l = getLogger("drunc.controller.interface.controller.shutdown")
         l.info('Shutting down gracefully')
         try:
             controller_shutdown()

@@ -56,7 +56,6 @@ class ProcessManagerDriver(GRPCDriver):
         apps = collect_apps(db, session_dal, session_dal.segment, env, tree_prefix=[0,])
         # Next line gets the max of all the first number in the tree id, and adds 1 to it.
         next_tree_id = max([int(app['tree_id'].split('.')[0]) for app in apps])+1
-        print(f'{next_tree_id=}')
         infra_apps = collect_infra_apps(session_dal, env, tree_prefix=[next_tree_id])
 
         apps = infra_apps+apps
@@ -103,14 +102,15 @@ class ProcessManagerDriver(GRPCDriver):
             if app_log_path == './':
                 app_log_path = pwd
 
-            if app_log_path: # if the user wants to write to a specific path, we never override
-                log_path = f'{app_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
-            elif session_log_path: # if the user wants the session to write to a specific path, we never override
-                log_path = f'{session_log_path}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
-            elif override_logs: # else we check for the override flag
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}.txt'
-            else:
-                log_path = f'{pwd}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
+            from drunc.process_manager.utils import get_log_path
+            log_path = get_log_path(
+                user = user,
+                session_name = session_name,
+                application_name = name,
+                override_logs = override_logs,
+                app_log_path = app_log_path,
+                session_log_path = session_log_path
+            )
 
             if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
                 raise DruncShellException(f"Log path {log_path} does not exist.")
@@ -146,10 +146,10 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
+        self._log.info(f"Booting session {session_name}")
 
+        from drunc.utils.configuration import find_configuration
         oks_conf = find_configuration(conf)
-        log = getLogger('_convert_oks_to_boot_request')
-        log.info(oks_conf)
 
         with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
             f.flush()
@@ -159,7 +159,7 @@ class ProcessManagerDriver(GRPCDriver):
                 from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+                self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
 {e}
 To debug it, close drunc and run the following command:
 
@@ -249,7 +249,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             return f'{ip}:{port_number}'
 
         def keyboard_interrupt_on_sigint(signal, frame):
-            log.warning("Interrupted")
+            self._log.warning("Interrupted")
             raise KeyboardInterrupt
 
         original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -260,14 +260,13 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
-                log.warning(f"""This shell didn't connect to the {top_controller_name}.
+                self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-""",
-                    extra={"markup": True}
+""", extra={"markup": True}
                 )
             else:
-                log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+                self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
         finally:
             signal.signal(signal.SIGINT, original_sigint_handler)
 

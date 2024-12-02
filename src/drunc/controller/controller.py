@@ -97,7 +97,9 @@ class Controller(ControllerServicer):
         self.session = session
         self.broadcast_service = None
 
-        self.logger = getLogger('Controller')
+        self.logger = getLogger('drunc.Controller')
+        self.logger.info(f'Initialising controller \'{name}\' with session \'{session}\'')
+
         db = conffwk.Configuration(configuration)
         self.session_configuration = ConfigurationWrapper(db._obj, db.get_dal(class_name="Session", uid=self.session))
         controller_conf = self.session_configuration.get('segment.controller')

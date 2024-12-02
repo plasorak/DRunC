@@ -161,3 +161,23 @@ def get_cla(db, session_uid, obj):
             return daq_application_construct_commandline_parameters(db, session_uid, obj.id)
 
     return obj.commandline_parameters
+
+
+def get_log_path(user:str, session_name:str, application_name:str, override_logs:bool, app_log_path:str = None, session_log_path:str = None):
+    import os
+    from drunc.utils.utils import now_str
+    pwd = os.getcwd()
+    log_path = None
+    if app_log_path: # if the user wants to write to a specific path, we never override
+        log_path = f'{app_log_path}/log_{user}_{session_name}_{application_name}_{now_str(True)}.txt'
+    elif session_log_path: # if the user wants the session to write to a specific path, we never override
+        log_path = f'{session_log_path}/log_{user}_{session_name}_{application_name}_{now_str(True)}.txt'
+    elif override_logs: # else we check for the override flag
+        log_path = f'{pwd}/log_{user}_{session_name}_{application_name}.txt'
+    else:
+        log_path = f'{pwd}/log_{user}_{session_name}_{application_name}_{now_str(True)}.txt'
+    return log_path
+
+
+def get_pm_conf_name_from_dir(pm_conf_path:str) -> str:
+    return pm_conf_path.split('/')[-1].split('.')[0]

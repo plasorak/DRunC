@@ -1,5 +1,6 @@
 import asyncio
 import click
+import getpass
 import grpc
 from logging import getLogger
 import os
@@ -11,23 +12,35 @@ from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_s
 from drunc.exceptions import DruncSetupException
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.process_manager.configuration import get_process_manager_configuration
-from drunc.process_manager.utils import get_process_manager
-from drunc.utils.utils import parent_death_pact, update_log_level, pid_info_str, log_levels
+from drunc.process_manager.utils import get_process_manager, get_log_path
+from drunc.utils.utils import parent_death_pact, update_log_level, pid_info_str, log_levels, log_levels, setup_logger
+
 
 _cleanup_coroutines = []
 
-def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None, generated_port=None):
+def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
+    appName = "process_manager"
+
+    from drunc.process_manager.utils import get_pm_conf_name_from_dir
+    pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
+
+    log_path = get_log_path(
+        user = user,
+        session_name = pmConfFileName,
+        application_name = appName,
+        override_logs = override_logs,
+        app_log_path = log_path
+    )
+    setup_logger(log_level, log_path)
+    log = getLogger("drunc.process_manager")
+
+    log.info("Running run_pm")
     if signal_handler is not None:
         signal_handler()
 
     parent_death_pact() # If the parent dies (for example unified shell), we die too
 
-    console = Console()
-    console.print(f'Using \'{pm_conf}\' as the ProcessManager configuration')
-
-    update_log_level(log_level)
-    logger = getLogger('run_pm')
-    logger.debug(pid_info_str())
+    log.debug(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
     pm = get_process_manager(pm_conf, name='process_manager')
 
@@ -45,32 +58,35 @@ def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None
 
         await server.start()
         hostname = socket.gethostname()
-        console.print(f'ProcessManager was started on {hostname}:{port}')
+        log.info(f'ProcessManager was started on {hostname}:{port}')
 
 
         async def server_shutdown():
-            console.print("Starting shutdown...")
+            log.warning("Starting shutdown...")
             # Shuts down the server with 5 seconds of grace period. During the
             # grace period, the server won't accept new connections and allow
             # existing RPCs to continue within the grace period.
             await server.stop(5)
-            pm._terminate_impl(None)
+            pm._terminate_impl()
 
         _cleanup_coroutines.append(server_shutdown())
         if ready_event is not None:
             ready_event.set()
-
         await server.wait_for_termination()
 
 
     try:
+        log.debug("Serving process manager")
         loop.run_until_complete(
             serve(pm_address)
         )
     except Exception as e:
+        log.error("Serving the ProcessManager received an Exception")
+        console = Console()
         console.print_exception(width=os.get_terminal_size()[0])
     finally:
         if _cleanup_coroutines:
+            log.info("Clearing coroutines")
             loop.run_until_complete(*_cleanup_coroutines)
         loop.close()
 
@@ -84,9 +100,20 @@ def run_pm(pm_conf, pm_address, log_level, ready_event=None, signal_handler=None
         log_levels.keys(),
         case_sensitive=False
     ),
-    default='INFO',
+    default='DEBUG',
     help='Set the log level'
 )
-def process_manager_cli(pm_conf:str, pm_port:int, log_level):
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
+@click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
+def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str):
+    from drunc.process_manager.configuration import get_process_manager_configuration
     pm_conf = get_process_manager_configuration(pm_conf)
-    run_pm(pm_conf, f'0.0.0.0:{pm_port}', log_level)
+    run_pm(
+        pm_conf = pm_conf,
+        pm_address = f'0.0.0.0:{pm_port}',
+        log_level = log_level,
+        override_logs = override_logs,
+        log_path = log_path,
+        user = user
+    )

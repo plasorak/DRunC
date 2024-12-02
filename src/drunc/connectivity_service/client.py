@@ -91,6 +91,8 @@ class ConnectivityServiceClient:
                 else:
                     sleep(0.2)
                     self.logger.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
+                    import time
+                    time.sleep(0.2)
 
             except (HTTPError, ConnectionError, ReadTimeout) as e:
                 self.logger.debug(e)
