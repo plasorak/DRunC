@@ -32,7 +32,7 @@ from drunc.controller.utils import get_status_message, get_detector_name, get_se
 import drunc.controller.exceptions as ctler_excpt
 from drunc.exceptions import DruncException
 from drunc.fsm.utils import convert_fsm_transition
-from drunc.process_manager.configuration import get_cla
+from drunc.process_manager.utils import get_cla
 from drunc.stateful import Stateful
 from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.grpc_utils import pack_to_any, unpack_any, unpack_request_data_to, pack_response

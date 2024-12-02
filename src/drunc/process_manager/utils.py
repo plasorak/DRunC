@@ -130,7 +130,6 @@ def get_rte_script():
     return script
 
 
-
 def get_process_manager(conf, **kwargs):
     console = Console()
     conf_parse = urlparse(conf)
@@ -147,10 +146,6 @@ def get_process_manager(conf, **kwargs):
                 return K8sProcessManager(conf_data, **kwargs)
             case _:
                 raise DruncSetupException(f'ProcessManager type {conf.get("type")} is unsupported!')
-
-
-
-
 
 
 def get_cla(db, session_uid, obj):
