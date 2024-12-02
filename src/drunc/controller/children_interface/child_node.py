@@ -7,7 +7,7 @@ from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 
 from drunc.controller.utils import get_detector_name
 from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.utils import ControlType
+from drunc.controller.children_interface.types import ControlType
 
 
 class ChildNode(abc.ABC):
@@ -49,12 +49,12 @@ class ChildNode(abc.ABC):
         descriptionType = None
         descriptionName = None
 
-        if hasattr(self.configuration.data, "application_name"): # Get the application name and type
-            descriptionType = self.configuration.dal.application_name
-            descriptionName = self.configuration.dal.id
-        elif hasattr(self.configuration.data, "controller") and hasattr(self.configuration.data.controller, "application_name"): # Get the controller name and type
-            descriptionType = self.configuration.data.controller.application_name
-            descriptionName = self.configuration.data.controller.id
+        if hasattr(self.configuration, "application_name"): # Get the application name and type
+            descriptionType = self.configuration.application_name
+            descriptionName = self.configuration.id
+        elif hasattr(self.configuration, "controller") and hasattr(self.configuration.controller, "application_name"): # Get the controller name and type
+            descriptionType = self.configuration.controller.application_name
+            descriptionName = self.configuration.controller.id
 
         d = Description(
             type = descriptionType,
