@@ -42,7 +42,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
     from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from rich.table import Table
 
-    t = Table(title=f'Status')
+    t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
     t.add_column('Name')
     t.add_column('Info')
     t.add_column('State')
@@ -345,7 +345,6 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     if not result: return
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from drunc.utils.grpc_utils import unpack_any
     from druncschema.controller_pb2 import FSMResponseFlag, FSMCommandResponse
 
