@@ -86,7 +86,7 @@ class SSHProcessManager(ProcessManager):
                 import signal
                 sequence = [
                     # signal.SIGINT, # In appfwk/daq_application, SIGQUIT makes the run marker false and quits the loop, killing the application. SIGINT not needed.
-                    signal.SIGQUIT, 
+                    signal.SIGQUIT,
                     signal.SIGKILL, # Kept as nuclear option
                 ]
                 for sig in sequence:
@@ -130,9 +130,9 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self.log.warning(f'{self.name} terminating')
+        self.log.info(f'{self.name} terminating')
         if self.process_store:
-            self.log.warning('Killing all the known processes before exiting')
+            self.log.info('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]
             return self.kill_processes(uuids)
         else:
@@ -248,7 +248,7 @@ class SSHProcessManager(ProcessManager):
                 from drunc.utils.utils import now_str
                 log_file = boot_request.process_description.process_logs_path
                 env_var = boot_request.process_description.env
-                
+
                 # Add EXIT trap and use it kill child processes on the ssh client side when the ssh connection is closed
                 cmd =f'echo "SSHPM: Starting process $$ on host $HOSTNAME as user $USER";'
 
@@ -407,7 +407,7 @@ class SSHProcessManager(ProcessManager):
         del self.process_store[uuid]
         del self.boot_request[uuid]
         del uuid
-        
+
         ret = self.__boot(same_uuid_br, same_uuid)
 
         del same_uuid_br
