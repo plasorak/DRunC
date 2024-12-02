@@ -83,62 +83,62 @@ class XxxTransition:
 
         from druncschema.controller_pb2 import Argument
 
-        for callback in self.sequence:
-            method = callback.method
-            s = signature(method)
+        # for callback in self.sequence:
+        #     method = callback.method
+        #     s = signature(method)
 
-            for pname, p in s.parameters.items():
+        #     for pname, p in s.parameters.items():
 
-                if pname in ["_input_data", "_context", "args", "kwargs"]:
-                    continue
+        #         if pname in ["_input_data", "_context", "args", "kwargs"]:
+        #             continue
 
-                if pname in all_the_parameter_names:
-                    raise DoubleArgument(f"Parameter {pname} is already in the list of parameters")
-                all_the_parameter_names.append(p)
+        #         if pname in all_the_parameter_names:
+        #             raise DoubleArgument(f"Parameter {pname} is already in the list of parameters")
+        #         all_the_parameter_names.append(p)
 
-                default_value = ''
+        #         default_value = ''
 
-                t = Argument.Type.INT
-                from druncschema.generic_pb2 import string_msg, float_msg, int_msg, bool_msg
-                from drunc.utils.grpc_utils import pack_to_any
+        #         t = Argument.Type.INT
+        #         from druncschema.generic_pb2 import string_msg, float_msg, int_msg, bool_msg
+        #         from drunc.utils.grpc_utils import pack_to_any
 
-                if p.annotation is str:
-                    t = Argument.Type.STRING
+        #         if p.annotation is str:
+        #             t = Argument.Type.STRING
 
-                    if p.default != Parameter.empty:
-                        default_value = pack_to_any(string_msg(value = p.default))
+        #             if p.default != Parameter.empty:
+        #                 default_value = pack_to_any(string_msg(value = p.default))
 
-                elif p.annotation is float:
-                    t = Argument.Type.FLOAT
+        #         elif p.annotation is float:
+        #             t = Argument.Type.FLOAT
 
-                    if p.default != Parameter.empty:
-                        default_value = pack_to_any(float_msg(value = p.default))
+        #             if p.default != Parameter.empty:
+        #                 default_value = pack_to_any(float_msg(value = p.default))
 
-                elif p.annotation is int:
-                    t = Argument.Type.INT
+        #         elif p.annotation is int:
+        #             t = Argument.Type.INT
 
-                    if p.default != Parameter.empty:
-                        default_value = pack_to_any(int_msg(value = p.default))
+        #             if p.default != Parameter.empty:
+        #                 default_value = pack_to_any(int_msg(value = p.default))
 
-                elif p.annotation is bool:
-                    t = Argument.Type.BOOL
+        #         elif p.annotation is bool:
+        #             t = Argument.Type.BOOL
 
-                    if p.default != Parameter.empty:
-                        default_value = pack_to_any(bool_msg(value = p.default))
-                else:
-                    raise UnhandledArgumentType(p.annotation)
+        #             if p.default != Parameter.empty:
+        #                 default_value = pack_to_any(bool_msg(value = p.default))
+        #         else:
+        #             raise UnhandledArgumentType(p.annotation)
 
-                a = Argument(
-                    name = p.name,
-                    presence = Argument.Presence.MANDATORY if p.default == Parameter.empty else Argument.Presence.OPTIONAL,
-                    type = t,
-                    help = '',
-                )
+        #         a = Argument(
+        #             name = p.name,
+        #             presence = Argument.Presence.MANDATORY if p.default == Parameter.empty else Argument.Presence.OPTIONAL,
+        #             type = t,
+        #             help = '',
+        #         )
 
-                if default_value:
-                    a.default_value.CopyFrom(default_value)
+        #         if default_value:
+        #             a.default_value.CopyFrom(default_value)
 
-                retr += [a]
+        #         retr += [a]
 
         return retr
 

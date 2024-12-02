@@ -186,10 +186,10 @@ def controller_setup(ctx, controller_address):
     return desc
 
 
-def search_fsm_command(command_name:str, command_list:[FSMTransition]):
-    for command in command_list:
-        if command_name == command.name:
-            return command
+def search_fsm_command(transition_name:str, transition_list:[FSMTransition]):
+    for transition in transition_list:
+        if transition_name == transition.name:
+            return transition
     return None
 
 class ArgumentException(DruncShellException):
@@ -248,43 +248,43 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
         if value:
             del arguments_left[aname]
 
-        match argument_desc.type:
+        # match argument_desc.type:
 
-            case Argument.Type.INT:
-                try:
-                    value = int(value)
-                except Exception as e:
-                    raise InvalidArgumentType(aname, value, atype) from e
-                value = int_msg(value=value)
-
-
-            case Argument.Type.FLOAT:
-                try:
-                    value = float(value)
-                except Exception as e:
-                    raise InvalidArgumentType(aname, value, atype) from e
-                value = float_msg(value=value)
+        #     case Argument.Type.INT:
+        #         try:
+        #             value = int(value)
+        #         except Exception as e:
+        #             raise InvalidArgumentType(aname, value, atype) from e
+        #         value = int_msg(value=value)
 
 
-            case Argument.Type.STRING:
-                value = string_msg(value=value)
+        #     case Argument.Type.FLOAT:
+        #         try:
+        #             value = float(value)
+        #         except Exception as e:
+        #             raise InvalidArgumentType(aname, value, atype) from e
+        #         value = float_msg(value=value)
 
 
-            case Argument.Type.BOOL:
-                bvalue = value#.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly']
-
-                try:
-                    value = bool_msg(value=bvalue)
-                except Exception as e:
-                    raise InvalidArgumentType(aname, value, atype) from e
+        #     case Argument.Type.STRING:
+        #         value = string_msg(value=value)
 
 
-            case _:
-                try:
-                    pretty_type = Argument.Type.Name(argument_desc.type)
-                except:
-                    pretty_type = argument_desc.type
-                raise UnhandledArgumentType(argument_desc.name,  pretty_type)
+        #     case Argument.Type.BOOL:
+        #         bvalue = value#.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly']
+
+        #         try:
+        #             value = bool_msg(value=bvalue)
+        #         except Exception as e:
+        #             raise InvalidArgumentType(aname, value, atype) from e
+
+
+        #     case _:
+        #         try:
+        #             pretty_type = Argument.Type.Name(argument_desc.type)
+        #         except:
+        #             pretty_type = argument_desc.type
+        raise UnhandledArgumentType(argument_desc.name,  "")
 
 
         out_dict[aname] = pack_to_any(value)
@@ -323,14 +323,14 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     fsm_description = obj.get_driver('controller').describe_fsm().data
 
 
-    command_desc = search_fsm_command(transition_name, fsm_description.commands)
+    transition_desc = search_fsm_command(transition_name, fsm_description.transitions)
 
-    if command_desc is None:
+    if transition_desc is None:
         obj.error(f'Command "{transition_name}" does not exist, or is not accessible right now')
         return
 
     try:
-        formated_args = validate_and_format_fsm_arguments(kwargs, command_desc.arguments)
+        formated_args = validate_and_format_fsm_arguments(kwargs, transition_desc.arguments)
         data = FSMTransition(
             command_name = transition_name,
             arguments = formated_args,

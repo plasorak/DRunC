@@ -18,12 +18,12 @@ from drunc.utils.grpc_utils import unpack_any
 def convert_fsm_transition(transitions):
     desc = FSMTransitionsDescription()
     for t in transitions:
-        desc.commands.append(
+        desc.transitions.append(
             FSMTransitionDescription(
-                name = t.id,
-                data_type = ['controller_pb2.FSMCommand'],
+                name = t.name,
+                data_type = ['controller_pb2.FSMTransition'],
                 help = None,
-                return_type = 'controller_pb2.FSMCommandResponse',
+                return_type = 'controller_pb2.FSMTransitionResponse',
                 arguments = t.arguments
             )
         )
@@ -48,17 +48,17 @@ def decode_fsm_arguments(arguments, arguments_format):
         if arg_value is None:
             arg_value = arg.default_value
 
-        match arg.type:
-            case Argument.Type.INT:
-                out_dict[arg.name] = unpack_any(arg_value, int_msg).value
-            case Argument.Type.FLOAT:
-                out_dict[arg.name] = unpack_any(arg_value, float_msg).value
-            case Argument.Type.STRING:
-                out_dict[arg.name] = unpack_any(arg_value, string_msg).value
-            case Argument.Type.BOOL:
-                out_dict[arg.name] = unpack_any(arg_value, bool_msg).value
-            case _:
-                raise fsme.UnhandledArgumentType(arg.type)
+        # match arg.type:
+        #     case Argument.Type.INT:
+        #         out_dict[arg.name] = unpack_any(arg_value, int_msg).value
+        #     case Argument.Type.FLOAT:
+        #         out_dict[arg.name] = unpack_any(arg_value, float_msg).value
+        #     case Argument.Type.STRING:
+        #         out_dict[arg.name] = unpack_any(arg_value, string_msg).value
+        #     case Argument.Type.BOOL:
+        #         out_dict[arg.name] = unpack_any(arg_value, bool_msg).value
+        #     case _:
+        raise fsme.UnhandledArgumentType(arg.type)
     l = logging.getLogger('decode_fsm_arguments')
     l.debug(f'Parsed FSM arguments: {out_dict}')
     return out_dict
