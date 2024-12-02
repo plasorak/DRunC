@@ -20,13 +20,13 @@ from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 from druncschema.token_pb2 import Token
 
 from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.children_interface.types import ControlType
 from drunc.controller.exceptions import ChildError
 from drunc.exceptions import DruncSetupException, DruncException
 from drunc.fsm import FSM
-from drunc.utils.utils import ControlType, get_new_port, print_traceback
+from drunc.utils.utils import get_new_port, print_traceback
 from drunc.utils.grpc_utils import pack_to_any
 from drunc.utils.flask_manager import FlaskManager
-from drunc.utils.configuration import ConfHandler
 
 
 class ResponseDispatcher(threading.Thread):
@@ -125,8 +125,8 @@ class ResponseListener:
 
     @classmethod
     def terminate(cls):
-        cls.queue.close()
-        cls.queue.join_thread()
+        # cls.queue.close()
+        # cls.queue.join_thread()
         if cls.manager:
             cls.manager.stop()
 
@@ -383,16 +383,8 @@ class StateRESTAPI:
             return self._errored
 
 
-class RESTAPIChildNodeConfHandler(ConfHandler):
-    def get_host_port(self):
-        for service in self.data.exposes_service:
-            if self.data.id+"_control" in service.id:
-                return self.data.runs_on.runs_on.id, service.port
-        raise DruncSetupException(f"REST API child node {self.data.id} does not expose a control service")
-
-
 class RESTAPIChildNode(ChildNode):
-    def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration, uri):
+    def __init__(self, name, configuration, fsm_configuration, uri):
         super(RESTAPIChildNode, self).__init__(
             name = name,
             node_type = ControlType.REST_API,
@@ -411,9 +403,9 @@ class RESTAPIChildNode(ChildNode):
         self.app_port = int(app_port)
 
         if self.app_port == 0:
-            raise DruncSetupException(f"Application {name} does not expose a control service in the configuration, or has not advertised itself to the application registry service, or the application registry service is not reachable.")
+            raise DruncSetupException(f"Application \'{name}\' does not expose a control service in the configuration, or has not advertised itself to the connectivity service, or the connectivity service is not reachable.")
 
-        proxy_host, proxy_port = getattr(self.configuration.data, "proxy", [None, None])
+        proxy_host, proxy_port = getattr(self.configuration, "proxy", [None, None])
         proxy_port = int(proxy_port) if proxy_port is not None else None
 
         self.commander = AppCommander(
