@@ -53,6 +53,7 @@ class ControllerActor:
 
         self._lock = Lock()
 
+
     def get_token(self) -> Token:
         return self._token
 
@@ -110,6 +111,8 @@ class Controller(ControllerServicer):
                 session = session,
                 configuration = self.configuration.get('broadcaster'),
             )
+        else:
+            self.broadcast_service = None
 
         self.stateful = Stateful(
             fsm_configuration = self.configuration.get('fsm'),
@@ -234,13 +237,17 @@ class Controller(ControllerServicer):
             if confmodel.component_disabled(self.configuration.db_obj, self.session, child.id):
                 continue
 
+            #def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
+
             children += [
                 get_child(
                     name = child.id,
                     cli = get_cla(self.configuration.db_obj, self.session, child),
                     configuration = child,
                     init_token = self.actor.get_token(),
+                    connectivity_service = self.connectivity_service,
                     fsm_configuration = self.configuration.get('fsm'),
+
                 )
             ]
 
@@ -252,9 +259,10 @@ class Controller(ControllerServicer):
 
             children += [
                 get_child(
-                    name = child.id,
+                    name = child.controller.id,
                     cli = get_cla(self.configuration.db_obj, self.session, segment.controller),
                     init_token = self.actor.get_token(),
+                    connectivity_service = self.connectivity_service,
                     configuration = child.controller,
                 )
             ]
@@ -265,7 +273,9 @@ class Controller(ControllerServicer):
     A couple of simple pass-through functions to the broadcasting service
     '''
     def broadcast(self, *args, **kwargs):
-        return self.broadcast_service.broadcast(*args, **kwargs)
+        if self.can_broadcast():
+            return self.broadcast_service.broadcast(*args, **kwargs)
+        return None
 
     def can_broadcast(self, *args, **kwargs):
         if self.broadcast_service:
@@ -273,13 +283,13 @@ class Controller(ControllerServicer):
         return False
 
     def describe_broadcast(self, *args, **kwargs):
-        return self.broadcast_service.describe_broadcast(*args, **kwargs)
+        return None# self.broadcast_service.describe_broadcast(*args, **kwargs)
 
     def interrupt_with_exception(self, *args, **kwargs):
-        return self.broadcast_service._interrupt_with_exception(*args, **kwargs)
+        return None#self.broadcast_service._interrupt_with_exception(*args, **kwargs)
 
     def async_interrupt_with_exception(self, *args, **kwargs):
-        return self.broadcast_service._async_interrupt_with_exception(*args, **kwargs)
+        return None#self.broadcast_service._async_interrupt_with_exception(*args, **kwargs)
 
 
     def construct_error_node_response(self, command_name:str, token:Token, cause:FSMResponseFlag) -> Response:
@@ -485,7 +495,7 @@ class Controller(ControllerServicer):
             type = 'controller',
             name = self.name,
             endpoint = self.uri,
-            info = get_detector_name(self.configuration),
+            info = get_detector_name(self.configuration.dal),
             session = self.session,
             commands = self.commands,
         )
