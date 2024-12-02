@@ -1,5 +1,6 @@
 from concurrent import futures
 import click
+import grpc
 import os
 from logging import getLogger
 import signal

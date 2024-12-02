@@ -9,7 +9,6 @@ class DummyAuthoriser:
         import logging
         self.log = logging.getLogger("drunc.authoriser.DummyAuthoriser")
         self.log.debug(f'DummyAuthoriser ready')
-        self.configuration = configuration_handler
         self.command_actions = {} # Dict[str, ActionType]
         self.system = system
 
