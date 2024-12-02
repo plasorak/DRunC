@@ -29,12 +29,12 @@ def get_status_message(stateful:Stateful):
 
 def get_detector_name(configuration) -> str:
     detector_name = None
-    if hasattr(configuration.data, "contains") and len(configuration.data.contains) > 0:
-        if len(configuration.data.contains) > 0:
-            log.debug(f"Application {configuration.data.id} has multiple contains, using the first one")
-        detector_name = configuration.data.contains[0].id.replace("-", "_").replace("_", " ")
+    if hasattr(configuration, "contains") and len(configuration.contains) > 0:
+        if len(configuration.contains) > 0:
+            log.debug(f"Application {configuration.id} has multiple contains, using the first one")
+        detector_name = configuration.contains[0].id.replace("-", "_").replace("_", " ")
     else:
-        log.debug(f"Application {configuration.data.id} has no \"contains\" relation, hence no detector")
+        log.debug(f"Application {configuration.id} has no \"contains\" relation, hence no detector")
     return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):

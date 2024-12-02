@@ -1,16 +1,27 @@
 import asyncio
-import tempfile
+import getpass
 
-from typing import Dict
+import json
+from logging import getLogger
+import os
+import tempfile
+import signal
+import socket
 
 from druncschema.request_response_pb2 import Request, Response, Description
 from druncschema.process_manager_pb2 import BootRequest, ProcessUUID, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.process_manager_pb2_grpc import ProcessManagerStub
 
+from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
+from drunc.controller.children_interface.utils import get_control_type_and_uri_from_connectivity_service
+from drunc.exceptions import DruncSetupException, DruncShellException
+from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps, collect_variables
+from drunc.process_manager.utils import get_rte_script
+from drunc.utils.configuration import find_configuration
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
-from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
+from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname, now_str, host_is_local
 
-from drunc.exceptions import DruncSetupException, DruncShellException
 
 class ProcessManagerDriver(GRPCDriver):
     controller_address = ''
@@ -25,7 +36,6 @@ class ProcessManagerDriver(GRPCDriver):
 
 
     def create_stub(self, channel):
-        from druncschema.process_manager_pb2_grpc import ProcessManagerStub
         return ProcessManagerStub(channel)
 
 
@@ -39,9 +49,6 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool
         ) -> BootRequest:
 
-        from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps
-        from drunc.process_manager.oks_parser import collect_variables
-
         env = {
             'DUNEDAQ_SESSION': session_name,
         }
@@ -54,10 +61,8 @@ class ProcessManagerDriver(GRPCDriver):
 
         apps = infra_apps+apps
 
-        import json
         self._log.debug(f"{json.dumps(apps, indent=4)}")
 
-        import os
         pwd = os.getcwd()
 
         session_log_path = session_dal.log_path
@@ -83,7 +88,6 @@ class ProcessManagerDriver(GRPCDriver):
                     args=[session_dal.rte_script]))
 
             else:
-                from drunc.process_manager.utils import get_rte_script
                 rte_script = get_rte_script()
                 if not rte_script:
                     raise DruncSetupException("No RTE script found.")
@@ -96,7 +100,6 @@ class ProcessManagerDriver(GRPCDriver):
                 exec=exe,
                 args=args))
 
-            from drunc.utils.utils import now_str
             if app_log_path == './':
                 app_log_path = pwd
 
@@ -109,8 +112,6 @@ class ProcessManagerDriver(GRPCDriver):
             else:
                 log_path = f'{pwd}/log_{user}_{session_name}_{name}_{now_str(True)}.txt'
 
-            import os, socket
-            from drunc.utils.utils import host_is_local
             if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
                 raise DruncShellException(f"Log path {log_path} does not exist.")
 
@@ -146,10 +147,7 @@ class ProcessManagerDriver(GRPCDriver):
         **kwargs
         ) -> ProcessInstance:
 
-        import conffwk
-        from drunc.utils.configuration import find_configuration
         oks_conf = find_configuration(conf)
-        from logging import getLogger
         log = getLogger('_convert_oks_to_boot_request')
         log.info(oks_conf)
 
@@ -170,6 +168,7 @@ To debug it, close drunc and run the following command:
 ''', extra={'markup': True})
                 return
 
+        import conffwk
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
         session_dal = db.get_dal(class_name="Session", uid=session_name)
 
@@ -192,17 +191,14 @@ To debug it, close drunc and run the following command:
         top_controller_name = session_dal.segment.controller.id
 
         def get_controller_address(session_dal, session_name):
-            from drunc.process_manager.oks_parser import collect_variables
             env = {}
             collect_variables(session_dal.environment, env)
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
 
-                from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
                 csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
 
-                from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
@@ -213,7 +209,6 @@ To debug it, close drunc and run the following command:
                         title = f'Looking for \'{top_controller_name}\' on the connectivity service...',
                     )
                 except ApplicationLookupUnsuccessful as e:
-                    import getpass
                     self._log.error(f'''
 Could not find \'{top_controller_name}\' on the connectivity service.
 
@@ -253,9 +248,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             ip = resolve_localhost_and_127_ip_to_network_ip(session_dal.segment.controller.runs_on.runs_on.id)
             return f'{ip}:{port_number}'
 
-        import signal
         def keyboard_interrupt_on_sigint(signal, frame):
-            from logging import getLogger
             log.warning("Interrupted")
             raise KeyboardInterrupt
 
@@ -280,7 +273,6 @@ To find the controller address, you can look up \'{top_controller_name}_control\
 
 
     async def dummy_boot(self, user:str, session_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:
-        import os
         pwd = os.getcwd()
 
         # Construct the list of commands to send to the dummy_boot process
