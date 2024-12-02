@@ -173,10 +173,6 @@ async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
         query = query,
     )
 
-    if not result: return
-
-    obj.print(result.data)
-
 
 @click.command('ps')
 @add_query_options(at_least_one=False, all_processes_by_default=True)

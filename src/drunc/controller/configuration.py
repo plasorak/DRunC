@@ -22,8 +22,9 @@ class ControllerConfHandler(ConfHandler):
             return segment
 
         for child_segment in segment.segments:
-            if ControllerConfHandler.find_segment(child_segment, id) is not None:
-                return child_segment
+            segment = ControllerConfHandler.find_segment(child_segment, id)
+            if segment is not None:
+                return segment
 
         return None
 
