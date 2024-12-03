@@ -10,6 +10,7 @@ CONSOLE_THEMES = Theme({
     "warning": "magenta",
     "danger": "bold red"
 })
+
 log_levels = {
     'CRITICAL': logging.CRITICAL,
     'ERROR'   : logging.ERROR,
