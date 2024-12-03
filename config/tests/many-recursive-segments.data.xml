@@ -69,6 +69,7 @@
  <file path="schema/confmodel/dunedaq.schema.xml"/>
  <file path="config/daqsystemtest/ccm.data.xml"/>
  <file path="config/daqsystemtest/hosts.data.xml"/>
+ <file path="fsm.data.xml"/>
 </include>
 
 <comments>
@@ -91,7 +92,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="fsmConf-test"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 <obj class="RCApplication" id="controller-1">
@@ -101,7 +102,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 <obj class="RCApplication" id="controller-2">
@@ -111,7 +112,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 <obj class="RCApplication" id="controller-3">
@@ -121,7 +122,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 
@@ -132,7 +133,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 
@@ -143,7 +144,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 <obj class="RCApplication" id="controller-6">
@@ -153,7 +154,7 @@
   <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
- <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+ <rel name="fsm" class="FSM" id="fsm-daq"/>
 </obj>
 
 <obj class="DetectorConfig" id="dummy-detector">

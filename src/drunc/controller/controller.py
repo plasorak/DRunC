@@ -120,7 +120,6 @@ class Controller(ControllerServicer):
         self.stateful = Stateful(
             fsm_configuration = self.configuration.get('fsm'),
             broadcaster = self.broadcast_service,
-
         )
 
         self.authoriser = DummyAuthoriser(
@@ -139,9 +138,9 @@ class Controller(ControllerServicer):
             self.logger.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
 
             self.connectivity_service = ConnectivityServiceClient(
-                    session = self.session,
-                    address = f'{connection_server}:{connection_port}',
-                )
+                session = self.session,
+                address = f'{connection_server}:{connection_port}',
+            )
 
 
         self.children_nodes = self.get_children()
