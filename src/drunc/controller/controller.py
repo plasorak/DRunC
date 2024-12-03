@@ -77,6 +77,7 @@ class Controller(ControllerServicer):
 
     def __init__(self, configuration, name:str, session:str, token:Token):
         super().__init__()
+
         self.name = name
         self.session = session
         self.broadcast_service = None
@@ -144,10 +145,10 @@ class Controller(ControllerServicer):
 
 
         for child in self.children_nodes:
-            response = child.get_status(token) 
-    
+            response = child.get_status(token)
+
             status = unpack_any(response.data, Status)
-            
+
             if status.in_error:
                 #self.state.to_error()  # Set the parent node's state to error
                 self.stateful_node.to_error()
@@ -313,7 +314,7 @@ class Controller(ControllerServicer):
     def terminate(self):
         self.running = False
 
-        if self.connectivity_service:
+        if hasattr(self, 'connectivity_service') and self.connectivity_service:
             if self.connectivity_service_thread:
                 self.connectivity_service_thread.join()
             self.logger.info('Unregistering from the connectivity service')
@@ -635,7 +636,7 @@ class Controller(ControllerServicer):
                 child_worst_response_flag = response_child.flag
                 continue
 
-            
+
             fsm_response = unpack_any(response_child.data, FSMCommandResponse)
 
             if fsm_response.flag != FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:
