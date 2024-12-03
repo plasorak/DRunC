@@ -17,8 +17,8 @@ from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
 from drunc.exceptions import DruncCommandException
 from drunc.process_manager.types import ProcessManagerTypes
 from drunc.process_manager.exceptions import BadQuery
-from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to, pack_to_any, pid_info_str
-
+from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to, pack_to_any
+from drunc.utils.utils import pid_info_str
 
 class ProcessManager(abc.ABC, ProcessManagerServicer):
 

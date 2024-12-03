@@ -13,7 +13,7 @@ from drunc.exceptions import DruncSetupException
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.process_manager.configuration import get_process_manager_configuration
 from drunc.process_manager.utils import get_process_manager, get_log_path
-from drunc.utils.utils import parent_death_pact, update_log_level, pid_info_str, log_levels, log_levels, setup_logger
+from drunc.utils.utils import parent_death_pact, pid_info_str, log_levels, setup_logger
 
 
 _cleanup_coroutines = []
