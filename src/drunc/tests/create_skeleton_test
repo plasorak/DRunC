@@ -2,10 +2,16 @@
 import os
 from pathlib import Path
 from rich import print
+from rich.prompt import Confirm
+
+color = 'green'
 
 drunc_srcs = (Path(os.path.abspath(__file__)) / ".." / "..").resolve()
+drunc_root_dir = str((drunc_srcs / ".." / ".." /'..').resolve())+"/"
 test_dir = (Path(os.path.abspath(__file__)) / "..").resolve()
-print(f"test_dir {test_dir}")
+
+print(f"Test directory is {str(test_dir).replace(drunc_root_dir, '')}")
+
 ignore_prefix_dirs = [drunc_srcs/"apps", drunc_srcs/"tests", drunc_srcs/"data", drunc_srcs/"apps"]
 ignore_prefix_dirs = list(map(str, ignore_prefix_dirs))
 ignore_dirs = ['__pycache__']
@@ -17,26 +23,51 @@ for root, directories, files in os.walk(drunc_srcs):
 
     if ignored_dir:
         continue
-    print(f"Processing {root}")
+    print(f"Processing [{color}]{root.replace(drunc_root_dir, '')}[/]")
 
     for fi in files:
         if not fi.endswith(".py") or fi == '__init__.py':
             continue
 
         if root == str(drunc_srcs):
-            test_root_dir = test_dir
+            test_root_dir = str(test_dir)
         else:
-            test_root_dir = test_dir / root.replace(str(drunc_srcs)+"/", "")
+            test_root_dir = str(test_dir / root.replace(str(drunc_srcs)+"/", ""))
 
-        if not test_root_dir.exists():
-            print(f"Creating {test_root_dir}, based on {root}")
+        if not os.path.exists(test_root_dir):
+            print(f"Creating [{color}]{test_root_dir.replace(drunc_root_dir, '')}[/], based on [{color}]{root}[/]")
             test_root_dir.mkdir(parents=True)
             init_file = test_root_dir/"__init__.py"
             init_file.touch()
 
-        test_file = test_root_dir / f"test_{fi}"
+        test_file = f'{test_root_dir}/test_{fi}'
 
-        if not test_file.exists():
-            print(f"Creating {test_file}, based on {fi}")
+        if not os.path.exists(test_file):
+            print(f"Creating [{color}]{test_file.replace(drunc_root_dir, '')}[/], based on [{color}]{fi}[/]")
             test_file.touch()
+
+
+for root, directories, files in os.walk(test_dir):
+    for fi in files:
+        if not fi.endswith(".py") or fi == '__init__.py' or not fi.startswith("test_"):
+            continue
+
+        drunc_dir = Path(str(root).replace(str("tests"), ""))
+        drunc_file = str(fi).replace("test_", "")
+        drunc_file_abs = str(drunc_srcs / drunc_dir / drunc_file)
+
+        if not os.path.exists(drunc_file_abs):
+            is_empty = os.stat(f'{root}/{fi}').st_size == 0
+
+            if is_empty:
+                response = Confirm.ask(
+                    f"[{color}]{root.replace(drunc_root_dir, '')}/{fi}[/] does not seem to have a corresponding file in drunc sources [{color}]{drunc_file_abs.replace(drunc_root_dir, '')}[/], and [bold]is empty[/]. Do you want to remove it?",
+                    default=False,
+                    case_sensitive=False,
+                )
+
+                if response:
+                    os.remove(f'{root}/{fi}')
+            else:
+                print(f"The file [{color}]{root.replace(drunc_root_dir, '')}/{fi}[/] does not seem to have a corresponding file in drunc sources [{color}]{drunc_file_abs.replace(drunc_root_dir, '')}[/], but is NOT empty, you may need to rename it. [bold]Not touching it[/].")
 
