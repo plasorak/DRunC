@@ -8,12 +8,9 @@ class NoTransitionOfName(FSMException):
         self.message = f'Transition "{transition_name}" does not exist'
         super(NoTransitionOfName, self).__init__(self.message)
 
-class DuplicateTransition(FSMException):
-    '''
-    If a transition has the same name as another
-    '''
-    def __init__(self, transition_name):
-        self.message = f'Transition "{transition_name}" is a duplicate'
+class CannotExecuteTransition(FSMException):
+    def __init__(self, state:str, transition_name:str):
+        self.message = f'Transition "{transition_name}" cannot be executed from {state}'
         super().__init__(self.message)
 
 class InvalidTransition(FSMException):

@@ -2,6 +2,7 @@ from confmodel import get_states
 from inspect import Parameter, signature
 from logging import getLogger
 import traceback
+from typing import Union
 
 from druncschema.controller_pb2 import Argument
 from druncschema.generic_pb2 import NullValue
@@ -18,7 +19,7 @@ class FSM:
 
         self.configuration = conf
 
-        self._log = getLogger('FSM')
+        self._log = getLogger('drunc.FSM')
 
         self.initial_state = self.configuration.dal.initial_state
 
@@ -75,30 +76,24 @@ class FSM:
 
 
     def get_all_states(self) -> [str]:
-        '''
-        grabs all the states
-        '''
         return self.states
 
 
     def get_all_transitions(self) -> [Transition]:
-        '''
-        grab all the transitions
-        '''
         return self.transitions
 
 
-    def get_destination_state(self, source_state:str, transition:Transition) -> str:
-        '''
-        Tells us where a particular transition will take us, given the source_state
-        '''
-        right_name = [t for t in self.transitions if t == transition]
-        for tr in right_name:
-            if self.can_execute_transition(source_state, transition):
-                if tr.destination == "":
-                    return source_state
-                else:
-                    return tr.destination
+    def get_destination_state(self, source_state:str, transition:Union[str,Transition]) -> str:
+        if isinstance(transition, str):
+            transition = self.get_transition_from_str(transition)
+
+        if self.can_execute_transition(source_state, transition):
+            if tr.destination == "":
+                return source_state
+            else:
+                return tr.destination
+
+        raise fsme.CannotExecuteTransition(source_state, transition.name)
 
 
     def get_executable_transitions(self, source_state:str) -> [Transition]:
@@ -110,39 +105,19 @@ class FSM:
                 self._log.debug(f'{debug_txt} Yes')
                 valid_transitions.append(tr)
             else:
-                self._log.debug(f'{debug_txt} No\n')
+                self._log.debug(f'{debug_txt} No')
 
         return valid_transitions
 
 
-    def get_transition(self, transition_name:str) -> bool:
-        transition = [t for t in self.transitions if t.name == transition_name]
-        if not transition:
+    def get_transition_from_str(self, transition_name:str) -> Transition:
+        transitions = [t for t in self.transitions if t.name.lower() == transition_name.lower()]
+        print(transitions)
+        if not transitions:
             fsme.NoTransitionOfName(transition_name)
-        return transition[0]
+
+        return transitions[0]
 
 
-    def can_execute_transition(self, source_state:str, transition:Transition) -> bool:
-        '''
-        Check that this transition is allowed given the source_state
-        '''
-        self._log.debug(f'can_execute_transition {str(transition.source)} {source_state}')
+    def can_execute_transition(self, source_state:str, transition:Union[str,Transition]) -> bool:
         return regex_match(transition.source, source_state)
-
-
-    def prepare_transition(self, transition:Transition, transition_data:dict, transition_args:dict, ctx:dict=None):
-        transition_data = self.pre_transition_sequences[transition].execute(
-            transition_data,
-            transition_args,
-            ctx
-        )
-        return transition_data
-
-
-    def finalise_transition(self, transition:Transition, transition_data:dict, transition_args:dict, ctx:dict=None):
-        transition_data = self.post_transition_sequences[transition].execute(
-            transition_data,
-            transition_args,
-            ctx
-        )
-        return transition_data

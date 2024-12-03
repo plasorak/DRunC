@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="ASCII"?>
+
+<!-- oks-data version 2.2 -->
+
+
+<!DOCTYPE oks-data [
+  <!ELEMENT oks-data (info, (include)?, (comments)?, (obj)+)>
+  <!ELEMENT info EMPTY>
+  <!ATTLIST info
+      name CDATA #IMPLIED
+      type CDATA #IMPLIED
+      num-of-items CDATA #REQUIRED
+      oks-format CDATA #FIXED "data"
+      oks-version CDATA #REQUIRED
+      created-by CDATA #IMPLIED
+      created-on CDATA #IMPLIED
+      creation-time CDATA #IMPLIED
+      last-modified-by CDATA #IMPLIED
+      last-modified-on CDATA #IMPLIED
+      last-modification-time CDATA #IMPLIED
+  >
+  <!ELEMENT include (file)*>
+  <!ELEMENT file EMPTY>
+  <!ATTLIST file
+      path CDATA #REQUIRED
+  >
+  <!ELEMENT comments (comment)*>
+  <!ELEMENT comment EMPTY>
+  <!ATTLIST comment
+      creation-time CDATA #REQUIRED
+      created-by CDATA #REQUIRED
+      created-on CDATA #REQUIRED
+      author CDATA #REQUIRED
+      text CDATA #REQUIRED
+  >
+  <!ELEMENT obj (attr | rel)*>
+  <!ATTLIST obj
+      class CDATA #REQUIRED
+      id CDATA #REQUIRED
+  >
+  <!ELEMENT attr (data)*>
+  <!ATTLIST attr
+      name CDATA #REQUIRED
+      type (bool|s8|u8|s16|u16|s32|u32|s64|u64|float|double|date|time|string|uid|enum|class|-) "-"
+      val CDATA ""
+  >
+  <!ELEMENT data EMPTY>
+  <!ATTLIST data
+      val CDATA #REQUIRED
+  >
+  <!ELEMENT rel (ref)*>
+  <!ATTLIST rel
+      name CDATA #REQUIRED
+      class CDATA ""
+      id CDATA ""
+  >
+  <!ELEMENT ref EMPTY>
+  <!ATTLIST ref
+      class CDATA #REQUIRED
+      id CDATA #REQUIRED
+  >
+]>
+
+<oks-data>
+
+<info name="" type="" num-of-items="43" oks-format="data" oks-version="862f2957270" created-by="gjc" created-on="thinkpad" creation-time="20231207T110859" last-modified-by="eflumerf" last-modified-on="ironvirt9.IRONDOMAIN.local" last-modification-time="20241023T204410"/>
+
+<include>
+ <file path="schema/confmodel/dunedaq.schema.xml"/>
+</include>
+
+<comments>
+ <comment creation-time="20240208T094131" created-by="eflumerf" created-on="ironvirt9.mshome.net" author="eflumerf" text="reformat"/>
+</comments>
+
+<obj class="FSM" id="fsm-daq">
+ <attr name="initial_state" type="string" val="initial"/>
+ <rel name="transitions">
+  <ref class="FSMTransition" id="conf"/>
+  <ref class="FSMTransition" id="start"/>
+  <ref class="FSMTransition" id="enable_triggers"/>
+  <ref class="FSMTransition" id="disable_triggers"/>
+  <ref class="FSMTransition" id="drain_dataflow"/>
+  <ref class="FSMTransition" id="stop_trigger_sources"/>
+  <ref class="FSMTransition" id="stop"/>
+  <ref class="FSMTransition" id="scrap"/>
+  <ref class="FSMTransition" id="change_rate"/>
+  <ref class="FSMTransitionSet" id="shutdown"/>
+  <ref class="FSMTransitionSet" id="start_run"/>
+  <ref class="FSMTransitionSet" id="stop_run"/>
+ </rel>
+</obj>
+
+<obj class="FSMTransitionSet" id="shutdown">
+ <rel name="sequence">
+  <ref class="FSMTransition" id="disable_triggers"/>
+  <ref class="FSMTransition" id="drain_dataflow"/>
+  <ref class="FSMTransition" id="stop_trigger_sources"/>
+  <ref class="FSMTransition" id="stop"/>
+  <ref class="FSMTransition" id="scrap"/>
+ </rel>
+</obj>
+
+<obj class="FSMTransitionSet" id="start_run">
+ <rel name="sequence">
+  <ref class="FSMTransition" id="conf"/>
+  <ref class="FSMTransition" id="start"/>
+  <ref class="FSMTransition" id="enable_triggers"/>
+ </rel>
+</obj>
+
+<obj class="FSMTransitionSet" id="stop_run">
+ <rel name="sequence">
+  <ref class="FSMTransition" id="disable_triggers"/>
+  <ref class="FSMTransition" id="drain_dataflow"/>
+  <ref class="FSMTransition" id="stop_trigger_sources"/>
+  <ref class="FSMTransition" id="stop"/>
+ </rel>
+</obj>
+
+<obj class="FSMTransition" id="change_rate">
+ <attr name="source" type="string" val="ready|running"/>
+ <attr name="rcif_schema" type="string" val="ChangeRateParams"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="conf">
+ <attr name="source" type="string" val="initial"/>
+ <attr name="dest" type="string" val="configured"/>
+ <attr name="n_retries" type="s8" val="-1"/>
+</obj>
+
+<obj class="FSMTransition" id="disable_triggers">
+ <attr name="source" type="string" val="running"/>
+ <attr name="dest" type="string" val="ready"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="drain_dataflow">
+ <attr name="source" type="string" val="ready"/>
+ <attr name="dest" type="string" val="dataflow_drained"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="enable_triggers">
+ <attr name="source" type="string" val="ready"/>
+ <attr name="dest" type="string" val="running"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="scrap">
+ <attr name="source" type="string" val="configured"/>
+ <attr name="dest" type="string" val="initial"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="start">
+ <attr name="source" type="string" val="configured"/>
+ <attr name="dest" type="string" val="ready"/>
+ <attr name="rcif_schema" type="string" val="StartParams"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="stop">
+ <attr name="source" type="string" val="trigger_sources_stopped"/>
+ <attr name="dest" type="string" val="configured"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+<obj class="FSMTransition" id="stop_trigger_sources">
+ <attr name="source" type="string" val="dataflow_drained"/>
+ <attr name="dest" type="string" val="trigger_sources_stopped"/>
+ <attr name="n_retries" type="s8" val="0"/>
+</obj>
+
+</oks-data>
