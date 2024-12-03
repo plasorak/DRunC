@@ -28,7 +28,7 @@ from drunc.connectivity_service.client import ConnectivityServiceClient
 from drunc.controller.children_interface.rest_api_child import ResponseListener
 from drunc.controller.children_interface.utils import get_child
 from drunc.controller.decorators import in_control
-from drunc.controller.utils import get_status_message, get_detector_name, get_segment_from_controller_id
+from drunc.controller.utils import get_status_message, get_detector_name, get_segment_from_controller_id, get_segment_lookup_timeout
 import drunc.controller.exceptions as ctler_excpt
 from drunc.exceptions import DruncException
 from drunc.fsm.utils import convert_fsm_transition
@@ -37,7 +37,6 @@ from drunc.stateful import Stateful
 from drunc.utils.configuration import ConfigurationWrapper
 from drunc.utils.grpc_utils import pack_to_any, unpack_any, unpack_request_data_to, pack_response
 from drunc.utils.utils import print_traceback
-
 
 
 class ControllerActor:
@@ -144,8 +143,8 @@ class Controller(ControllerServicer):
                     address = f'{connection_server}:{connection_port}',
                 )
 
-        self.children_nodes = self.get_children()
 
+        self.children_nodes = self.get_children()
 
         for child in self.children_nodes:
             response = child.get_status(token)
@@ -153,16 +152,10 @@ class Controller(ControllerServicer):
             status = unpack_any(response.data, Status)
 
             if status.in_error:
-                #self.state.to_error()  # Set the parent node's state to error
-                self.stateful_node.to_error()
+                self.stateful.to_error()
 
+            child.propagate_command('take_control', None, self.actor.get_token())
 
-        for child in self.children_nodes:
-            if child is None:
-                self.logger.info("Child is None")
-            else:
-                self.logger.info(child)
-                child.propagate_command('take_control', None, self.actor.get_token())
 
         # TODO, probably need to think of a better way to do this?
         # Maybe I should "bind" the commands to their methods, and have something looping over this list to generate the gRPC functions
@@ -250,12 +243,16 @@ class Controller(ControllerServicer):
         if segment is None:
             raise ctler_excpt.NoSegmentFound(f'The controller \'{self.name}\' does not seem to be part of any segment')
 
+        timeout = get_segment_lookup_timeout(
+            segment,
+            base_timeout = 60,
+        )
+        self.logger.debug(f'get_children: connectivity service lookup timeout={timeout}')
+
         for child in segment.applications:
 
             if confmodel.component_disabled(self.configuration.db_obj, self.session, child.id):
                 continue
-
-            #def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
 
             children += [
                 get_child(
@@ -265,7 +262,7 @@ class Controller(ControllerServicer):
                     init_token = self.actor.get_token(),
                     connectivity_service = self.connectivity_service,
                     fsm_configuration = self.configuration.get('fsm'),
-
+                    timeout = 60, # timeout for apps is always 60s
                 )
             ]
 
@@ -282,6 +279,7 @@ class Controller(ControllerServicer):
                     init_token = self.actor.get_token(),
                     connectivity_service = self.connectivity_service,
                     configuration = child.controller,
+                    timeout = timeout,
                 )
             ]
 

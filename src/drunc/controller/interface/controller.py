@@ -11,7 +11,7 @@ from druncschema.token_pb2 import Token
 
 from drunc.controller.controller import Controller
 from drunc.utils.configuration import parse_conf_url, OKSKey
-from drunc.utils.utils import print_traceback, resolve_localhost_and_127_ip_to_network_ip, log_levels,  update_log_level, validate_command_facility, log_levels, setup_logger, validate_command_facility
+from drunc.utils.utils import print_traceback, resolve_localhost_and_127_ip_to_network_ip, log_levels, validate_command_facility, log_levels, setup_logger, validate_command_facility
 
 @click.command()
 @click.argument('configuration', type=str)
@@ -37,8 +37,6 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         configuration = configuration,
         token = token,
     )
-
-    #if name == 'ru-controller': exit()
 
     def serve(listen_addr:str) -> None:
 

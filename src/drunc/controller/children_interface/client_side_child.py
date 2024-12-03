@@ -88,8 +88,7 @@ class ClientSideChild(ChildNode):
         self.fsm_configuration = fsm_configuration
 
         if fsm_configuration:
-            fsmch = FSMConfHandler(fsm_configuration)
-            self.fsm = FSM(conf=fsmch)
+            self.fsm = FSM(self.fsm_configuration)
 
     def __str__(self):
         return f"'{self.name}' is in error state (type {self.node_type})"
