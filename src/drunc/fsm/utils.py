@@ -48,7 +48,7 @@ def decode_fsm_arguments(arguments, arguments_format):
                 out_dict[arg.name] = unpack_any(arg_value, bool_msg).value
             case _:
                 raise fsme.UnhandledArgumentType(arg.type)
-    import logging
-    l = logging.getLogger('decode_fsm_arguments')
+    from drunc.utils.utils import get_logger
+    l = get_logger('decode_fsm_arguments')
     l.debug(f'Parsed FSM arguments: {out_dict}')
     return out_dict

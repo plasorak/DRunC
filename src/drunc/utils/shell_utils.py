@@ -44,8 +44,8 @@ class DecodedResponse:
 
 class GRPCDriver:
     def __init__(self, name:str, address:str, token:Token, aio_channel=False):
-        import logging
-        self._log = logging.getLogger(name)
+        from drunc.utils.utils import get_logger
+        self._log = get_logger(name)
         import grpc
         from druncschema.token_pb2 import Token
 
@@ -231,8 +231,8 @@ class ShellContext:
     def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
         from rich.console import Console
         self._console = Console()
-        from logging import getLogger
-        self._log = getLogger(name)
+        from drunc.utils.utils import get_logger
+        self._log = get_logger(name)
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 

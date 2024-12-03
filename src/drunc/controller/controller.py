@@ -24,8 +24,8 @@ from typing import Optional, List
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
-        from logging import getLogger
-        self.logger = getLogger("ControllerActor")
+        from drunc.utils.utils import get_logger
+        self.logger = get_logger("ControllerActor")
 
         self._token = Token(
             token="",
@@ -82,8 +82,8 @@ class Controller(ControllerServicer):
         self.session = session
         self.broadcast_service = None
 
-        from logging import getLogger
-        self.logger = getLogger('Controller')
+        from drunc.utils.utils import get_logger
+        self.logger = get_logger('Controller')
         self.logger.info(f'Initialising controller \'{name}\' with session \'{session}\'')
         self.configuration = configuration
 

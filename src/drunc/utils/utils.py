@@ -46,8 +46,7 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
     #     import sys
     #     sys.traceback # FIX THISNOW
 
-
-def setup_logger(log_level:str, log_path:str = None):
+def setup_root_logger(log_level:str, log_path:str = None):
     import os
     if log_path and os.path.isfile(log_path):
         os.remove(log_path)
@@ -88,13 +87,12 @@ def setup_logger(log_level:str, log_path:str = None):
         format="%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
         datefmt="[%X]",
         handlers=[
-            #logging.StreamHandler(),
             RichHandler(
                 console=Console(width=width),
                 rich_tracebacks=False,
                 show_path=False,
                 tracebacks_width=width
-            ) # Make this True, and everything crashes on exceptions (no clue why)
+            )
         ]
     )
     if (log_path):
@@ -106,6 +104,27 @@ def setup_logger(log_level:str, log_path:str = None):
         )
         fileHandler.setFormatter(fileHandlerFormatter)
         logger.addHandler(fileHandler)
+
+def get_logger(log_name:str, log_level:str = "INFO", log_path:str = None):
+    if log_name == "":
+        from drunc.exception import DruncSetupException
+        raise DruncSetupException("This was an attempt to set up the root logger, this should be corrected to command `setup_root_logger`.")
+    import os
+    if log_path and os.path.isfile(log_path):
+        os.remove(log_path)
+    log_level = log_levels[log_level]
+    logger = logging.getLogger('drunc.' + log_name)
+    logger.setLevel(log_level)
+    if (log_path):
+        fileHandler = logging.FileHandler(filename = log_path)
+        fileHandler.setLevel(log_level)
+        fileHandlerFormatter = logging.Formatter(
+            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+            datefmt="[%X]"
+        )
+        fileHandler.setFormatter(fileHandlerFormatter)
+        logger.addHandler(fileHandler)
+    return logger
 
 def get_new_port():
     import socket
@@ -296,7 +315,7 @@ def http_get(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
 
     from requests import get
-    log = logging.getLogger("http_get")
+    log = get_logger("http_get")
 
     log.debug(f"GETTING {address} {data}")
     if as_json:
@@ -364,7 +383,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
     uris = []
     from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
-    logger = logging.getLogger('get_control_type_and_uri_from_connectivity_service')
+    logger = get_logger('get_control_type_and_uri_from_connectivity_service')
     import time
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 

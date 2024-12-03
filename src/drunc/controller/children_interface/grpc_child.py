@@ -23,8 +23,8 @@ class gRPCChildNode(ChildNode):
             configuration  = configuration
         )
 
-        from logging import getLogger
-        self.log = getLogger(f'{self.name}-grpc-child')
+        from drunc.utils.utils import get_logger
+        self.log = get_logger(f'{self.name}-grpc-child')
 
         host, port = uri.split(":")
         port = int(port)

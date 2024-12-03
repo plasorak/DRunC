@@ -2,9 +2,8 @@ from drunc.controller.stateful_node import StatefulNode
 from druncschema.request_response_pb2 import Response, ResponseFlag, Request
 from druncschema.token_pb2 import Token
 from drunc.utils.grpc_utils import pack_to_any
-
-import logging
-log = logging.getLogger('controller_utils')
+from drunc.utils.utils import get_logger
+log = get_logger('controller_utils')
 
 def get_status_message(stateful:StatefulNode):
     from druncschema.controller_pb2 import Status
@@ -33,8 +32,8 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
     import grpc
     from google.protobuf import any_pb2
 
-    import logging
-    log = logging.getLogger("send_command")
+    from drunc.utils.utils import get_logger
+    log = get_logger("send_command")
 
     # Grab the command from the controller stub in the context
     # Add the token to the data (which can be of any protobuf type)

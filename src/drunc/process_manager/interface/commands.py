@@ -3,11 +3,11 @@ import getpass
 import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
-from drunc.process_manager.interface.cli_argument import add_query_options
+from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
+from drunc.utils.utils import get_logger
 
 from druncschema.process_manager_pb2 import ProcessQuery, ProcessInstanceList
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')
@@ -25,7 +25,7 @@ async def boot(
     log_level:str,
     override_logs:bool,
     ) -> None:
-    log = logging.getLogger("process_manager_interface")
+    log = get_logger("process_manager_interface", log_level)
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -59,7 +59,7 @@ async def boot(
 @click.pass_obj
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
-    log = logging.getLogger("process_manager_interface")
+    log = get_logger("process_manager_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(

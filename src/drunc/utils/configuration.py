@@ -42,8 +42,8 @@ class ConfigurationNotFound(DruncSetupException):
         super().__init__(f'The configuration \'{requested_path}\' is not in $DUNEDAQ_DB_PATH, perhaps you forgot to \'dbt-workarea-env && dbt-build\'?')
 
 def find_configuration(path:str) -> str:
-    import logging
-    log = logging.getLogger('find_configuration')
+    from drunc.utils.utils import get_logger
+    log = get_logger('find_configuration')
     import os
     from drunc.utils.utils import expand_path
     expanded_path = expand_path(path, turn_to_abs_path=False)
@@ -84,9 +84,9 @@ class OKSKey:
 
 class ConfHandler:
     def __init__(self, data=None, type=ConfTypes.PyObject, oks_key:OKSKey=None, *args, **kwargs):
-        from logging import getLogger
+        from drunc.utils.utils import get_logger
         self.class_name = self.__class__.__name__
-        self.log = getLogger(f'drunc.{self.class_name}')
+        self.log = get_logger(f'drunc.{self.class_name}')
         self.initial_type = type
         self.initial_data = data
         self.root_id = 0

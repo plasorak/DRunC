@@ -34,8 +34,8 @@ def unpack_request_data_to(data_type=None, pass_token=False):
 
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         def unpack_request(obj, request):
-            from logging import getLogger
-            log = getLogger('unpack_request_data_to_decorator')
+            from drunc.utils.utils import get_logger
+            log = get_logger('unpack_request_data_to_decorator')
             log.debug('Entering')
 
             ret = None
@@ -81,8 +81,8 @@ def async_unpack_request_data_to(data_type=None, pass_token=False):
 
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def unpack_request(obj, request):
-            from logging import getLogger
-            log = getLogger('unpack_request_data_to_decorator')
+            from drunc.utils.utils import get_logger
+            log = get_logger('unpack_request_data_to_decorator')
             log.debug('Entering')
 
             log.debug('Executing wrapped function')
@@ -127,8 +127,8 @@ def pack_response(cmd, with_children_responses=False):
 
     @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
     def pack_response(obj, *arg, **kwargs):
-        from logging import getLogger
-        log = getLogger('pack_response_decorator')
+        from drunc.utils.utils import get_logger
+        log = get_logger('pack_response_decorator')
         log.debug('Entering')
 
         from druncschema.request_response_pb2 import Response
@@ -170,8 +170,8 @@ def async_pack_response(cmd, with_children_responses=False):
 
     @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
     async def pack_response(obj, *arg, **kwargs):
-        from logging import getLogger
-        log = getLogger('pack_response_decorator')
+        from drunc.utils.utils import get_logger
+        log = get_logger('pack_response_decorator')
         log.debug('Entering')
 
         log.debug('Executing wrapped function')

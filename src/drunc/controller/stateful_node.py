@@ -93,8 +93,8 @@ class StatefulNode(abc.ABC):
 
         self.__fsm = FSM(fsm_configuration)
 
-        from logging import getLogger
-        self.logger = getLogger('StatefulNode')
+        from drunc.utils.utils import get_logger
+        self.logger = get_logger('StatefulNode')
 
         self.__operational_state = OperationalState(
             broadcast_on_change = self.broadcast,

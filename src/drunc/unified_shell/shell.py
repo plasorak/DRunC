@@ -25,10 +25,9 @@ def unified_shell(
     log_level:str,
     override_logs:bool,
 ) -> None:
-    from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
-    setup_logger(log_level)
-    from logging import getLogger
-    log = getLogger('unified_shell')
+    from drunc.utils.utils import setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
+    setup_root_logger(log_level)
+    log = get_logger('unified_shell', log_level)
     log.debug(pid_info_str())
     url_process_manager = urlparse(process_manager)
     external_pm = True
@@ -156,10 +155,10 @@ def unified_shell(
     )
 
     from drunc.fsm.configuration import FSMConfHandler
-    fsm_logger = getLogger("FSM")
+    fsm_logger = get_logger("FSM")
     fsm_log_level = fsm_logger.level
     fsm_logger.setLevel("ERROR")
-    fsm_conf_logger = getLogger("FSMConfHandler")
+    fsm_conf_logger = get_logger("FSMConfHandler")
     fsm_conf_log_level = fsm_conf_logger.level
     fsm_conf_logger.setLevel("ERROR")
 

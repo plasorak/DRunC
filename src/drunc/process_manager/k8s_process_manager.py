@@ -1,15 +1,15 @@
 
+from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
 from druncschema.request_response_pb2 import Response
-from druncschema.authoriser_pb2 import ActionType, SystemType
 
-from drunc.process_manager.process_manager import ProcessManager
-from drunc.exceptions import DruncCommandException, DruncException
-from drunc.k8s_exceptions import DruncK8sNamespaceAlreadyExists
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.broadcast.server.decorators import broadcasted
+from drunc.exceptions import DruncCommandException, DruncException
+from drunc.k8s_exceptions import DruncK8sNamespaceAlreadyExists
+from drunc.process_manager.process_manager import ProcessManager
 from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
-
+from drunc.utils.utils import get_logger
 
 
 class K8sProcessManager(ProcessManager):
@@ -27,7 +27,7 @@ class K8sProcessManager(ProcessManager):
         from kubernetes import client, config
 
         import logging
-        self._log = logging.getLogger('k8s-process-manager')
+        self._log = get_logger('k8s-process-manager')
         config.load_kube_config()
 
         self._k8s_client = client

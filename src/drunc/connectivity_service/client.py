@@ -17,8 +17,8 @@ class ApplicationUpdateUnsuccessful(DruncException):
 class ConnectivityServiceClient:
     def __init__(self, session:str, address:str):
         self.session = session
-        from logging import getLogger
-        self.logger = getLogger('ConnectivityServiceClient')
+        from drunc.utils.utils import get_logger
+        self.logger = get_logger('ConnectivityServiceClient')
 
         if address.startswith('http://') or address.startswith('https://'):
             self.address = address

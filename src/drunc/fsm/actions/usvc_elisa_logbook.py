@@ -17,8 +17,8 @@ class ElisaLogbook(FSMAction):
         self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
         self.timeout = 5
 
-        import logging
-        self._log = logging.getLogger('microservice')
+        from drunc.utils.utils import get_logger
+        self._log = get_logger('microservice')
 
     def post_start(self, _input_data:dict, _context, elisa_post:str='', **kwargs):
         from drunc.fsm.exceptions import CannotSendElisaMessage

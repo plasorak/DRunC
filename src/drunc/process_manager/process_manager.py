@@ -10,7 +10,7 @@ from drunc.exceptions import DruncCommandException
 from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
-from drunc.utils.utils import setup_logger, pid_info_str
+from drunc.utils.utils import get_logger, pid_info_str
 
 import abc
 import os
@@ -26,7 +26,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
-        self.log = logging.getLogger("drunc.process_manager")
+        self.log = get_logger("process_manager")
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
 
@@ -487,8 +487,8 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     @staticmethod
     def get(conf, **kwargs):
-        from logging import getLogger
-        log = getLogger("ProcessManager_get")
+        from drunc.utils.utils import get_logger
+        log = get_logger("ProcessManager_get")
 
         if conf.data.type == ProcessManagerTypes.SSH:
             log.info(f'Starting \'SSHProcessManager\'')

@@ -81,8 +81,8 @@ class ClientSideChild(ChildNode):
             configuration = configuration
         )
 
-        from logging import getLogger
-        self.log = getLogger(f'{name}-client-side')
+        from drunc.utils.utils import get_logger
+        self.log = get_logger(f'{name}-client-side')
 
         self.state = ClientSideState()
 

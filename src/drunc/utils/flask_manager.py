@@ -2,7 +2,6 @@ import threading
 import time
 from typing import NoReturn
 from multiprocessing import Process
-import logging
 import gunicorn.app.base
 
 class GunicornStandaloneApplication(gunicorn.app.base.BaseApplication):
@@ -65,7 +64,8 @@ class FlaskManager(threading.Thread):
 
     def __init__(self, name, app, port, workers=1, host='0.0.0.0'):
         super(FlaskManager, self).__init__(daemon = True)
-        self.log = logging.getLogger(f"{name}-flaskmanager")
+        from drunc.utils.utils import get_logger
+        self.log = get_logger(f"{name}-flaskmanager")
         self.name = name
         self.app = app
         self.prod_app = None

@@ -8,8 +8,8 @@ from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 # The Rolls Royce of the authoriser systems
 class DummyAuthoriser:
     def __init__(self, system:SystemType, configuration_handler:DummyAuthoriserConfHandler=None):
-        import logging
-        self.log = logging.getLogger("Controller")
+        from drunc.utils.utils import get_logger
+        self.log = get_logger("Controller", "DEBUG")
         self.log.debug(f'DummyAuthoriser ready')
         self.configuration = configuration_handler
         self.command_actions = {} # Dict[str, ActionType]

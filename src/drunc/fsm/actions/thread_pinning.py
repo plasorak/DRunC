@@ -9,8 +9,8 @@ class ThreadPinning(FSMAction):
         super().__init__(
             name = "thread-pinning"
         )
-        import logging
-        self.log = logging.getLogger("thread-pinning")
+        from drunc.utils.utils import get_logger
+        self.log = get_logger("thread-pinning")
         self.conf_dict = {p.name: p.value for p in configuration.parameters}
 
     def pin_thread(self, thread_pinning_file, configuration, session):

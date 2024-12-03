@@ -6,7 +6,7 @@ import logging
 import getpass
 from rich.console import Console
 from rich.logging import RichHandler
-from drunc.utils.utils import log_levels, setup_logger
+from drunc.utils.utils import log_levels, setup_root_logger, get_logger
 from drunc.process_manager.utils import get_log_path
 _cleanup_coroutines = []
 
@@ -23,8 +23,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         override_logs = override_logs,
         app_log_path = log_path
     )
-    setup_logger(log_level, log_path)
-    log = logging.getLogger("drunc.process_manager")
+    log = get_logger("process_manager", log_level, log_path)
 
     log.info("Running run_pm")
     if signal_handler is not None:

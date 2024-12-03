@@ -28,8 +28,8 @@ class PreOrPostTransitionSequence:
         self.prefix = pre_or_post
 
         self.sequence = []
-        from logging import getLogger
-        self._log = getLogger("PreOrPostTransitionSequence")
+        from drunc.utils.utils import get_logger
+        self._log = get_logger("PreOrPostTransitionSequence")
 
     def add_callback(self, action, mandatory=True):
         method = getattr(action, f'{self.prefix}_{self.transition.name}')
@@ -160,8 +160,8 @@ class FSM:
 
         self.configuration = conf
 
-        from logging import getLogger
-        self._log = getLogger('FSM')
+        from drunc.utils.utils import get_logger
+        self._log = get_logger('FSM')
 
         self.initial_state = self.configuration.get_initial_state()
         self.states = self.configuration.get_states()
