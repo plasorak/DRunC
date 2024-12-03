@@ -80,8 +80,7 @@ class ChildNode(abc.ABC):
 
 
     @staticmethod
-
-    def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs): 
+    def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
 
         from drunc.utils.configuration import ConfTypes
         import logging
@@ -96,18 +95,12 @@ class ChildNode(abc.ABC):
                 ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=timeout)
             except ApplicationLookupUnsuccessful:
                 log.error(f"Could not find the application \'{name}\' in the connectivity service")
-                ctype = ControlType.Direct
-                node_in_error = True
-               
 
         if ctype == ControlType.Unknown:
             ctype, uri = get_control_type_and_uri_from_cli(cli)
-            node_in_error = True
-
 
         if uri is None or ctype == ControlType.Unknown:
             log.error(f"Could not understand how to talk to \'{name}\'")
-            #raise DruncSetupException(f"Could not understand how to talk to \'{name}\'")
             node_in_error = True
             ctype = ControlType.Direct
 
@@ -136,11 +129,11 @@ class ChildNode(abc.ABC):
                     # init_token = init_token, # No authentication for RESTAPI
                     **kwargs,
                 )
-            
+
             case ControlType.Direct:
                 from drunc.controller.children_interface.client_side_child import ClientSideChild
 
-                node = ClientSideChild( 
+                node = ClientSideChild(
                     name = name,
                     **kwargs,
                 )
