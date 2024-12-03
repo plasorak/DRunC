@@ -86,7 +86,7 @@ class ConfHandler:
     def __init__(self, data=None, type=ConfTypes.PyObject, oks_key:OKSKey=None, *args, **kwargs):
         from logging import getLogger
         self.class_name = self.__class__.__name__
-        self.log = getLogger(self.class_name)
+        self.log = getLogger(f'drunc.{self.class_name}')
         self.initial_type = type
         self.initial_data = data
         self.root_id = 0
