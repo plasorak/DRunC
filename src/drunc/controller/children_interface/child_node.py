@@ -1,6 +1,7 @@
 import abc
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType, get_control_type_and_uri_from_connectivity_service, get_control_type_and_uri_from_cli
+import logging
 from drunc.utils.grpc_utils import pack_to_any
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Response, ResponseFlag, Description
@@ -79,6 +80,7 @@ class ChildNode(abc.ABC):
 
 
     @staticmethod
+
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs): 
 
         from drunc.utils.configuration import ConfTypes

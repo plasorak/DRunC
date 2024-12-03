@@ -11,9 +11,9 @@ from drunc.utils.utils import log_levels, validate_command_facility
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.pass_context
 def controller_shell(ctx, controller_address:str, log_level:str) -> None:
-    from drunc.utils.utils import update_log_level
+    from drunc.utils.utils import setup_logger
 
-    update_log_level(log_level)
+    setup_logger(log_level)
 
     ctx.obj.reset(
         address = controller_address,

@@ -1,5 +1,6 @@
 import click
 import getpass
+import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
 from drunc.process_manager.interface.context import ProcessManagerContext
@@ -32,6 +33,7 @@ async def boot(
     ) -> None:
 
 
+    log = logging.getLogger("unified_shell_interface")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -43,20 +45,20 @@ async def boot(
         )
         async for result in results:
             if not result: break
-            obj.print(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
         return
 
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
-        obj.print(f'Controller endpoint is \'{controller_address}\'')
-        obj.print(f'Connecting this shell to it...')
+        log.info(f'Controller endpoint is \'{controller_address}\'')
+        log.info(f'Connecting this shell to it...')
         obj.set_controller_driver(controller_address)
         from drunc.controller.interface.shell_utils import controller_setup
         controller_setup(obj, controller_address)
 
     else:
-        obj.error(f'Could not understand where the controller is!')
+        log.error(f'Could not understand where the controller is!')
         return
 
 

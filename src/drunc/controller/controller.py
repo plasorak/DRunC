@@ -83,7 +83,7 @@ class Controller(ControllerServicer):
 
         from logging import getLogger
         self.logger = getLogger('Controller')
-
+        self.logger.info(f'Initialising controller \'{name}\' with session \'{session}\'')
         self.configuration = configuration
 
         from drunc.broadcast.server.configuration import BroadcastSenderConfHandler

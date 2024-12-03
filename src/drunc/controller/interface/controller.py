@@ -1,6 +1,6 @@
 import click
 import signal
-from drunc.utils.utils import log_levels,  update_log_level, validate_command_facility
+from drunc.utils.utils import log_levels, setup_logger, validate_command_facility
 import os
 import logging
 
@@ -15,7 +15,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
     from rich.console import Console
     console = Console()
 
-    update_log_level(log_level)
+    setup_logger(log_level)
     from logging import getLogger
     log = getLogger('controller_cli')
     from drunc.controller.controller import Controller

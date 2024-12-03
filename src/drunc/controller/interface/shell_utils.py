@@ -42,7 +42,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
     from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from rich.table import Table
 
-    t = Table(title=f'Status')
+    t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
     t.add_column('Name')
     t.add_column('Info')
     t.add_column('State')
@@ -150,30 +150,30 @@ def controller_setup(ctx, controller_address):
     if stored_exception is not None:
         raise stored_exception
 
-    ctx.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
+    log.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
     if desc.HasField('broadcast'):
         ctx.start_listening_controller(desc.broadcast)
 
-    ctx.print('Connected to the controller')
+    log.debug('Connected to the controller')
 
     # children = ctx.get_driver('controller').ls().data
     # ctx.print(f'{desc.name}.{desc.session}\'s children :family:: {children.text}')
 
-    ctx.info(f'Taking control of the controller as {ctx.get_token()}')
+    log.debug(f'Taking control of the controller as {ctx.get_token()}')
     try:
         ret = ctx.get_driver('controller').take_control()
         from druncschema.request_response_pb2 import ResponseFlag
 
         if ret.flag == ResponseFlag.EXECUTED_SUCCESSFULLY:
-            ctx.info('You are in control.')
+            log.debug('You are in control.')
             ctx.took_control = True
         else:
-            ctx.warn(f'You are NOT in control.')
+            log.debug(f'You are NOT in control.')
             ctx.took_control = False
 
 
     except Exception as e:
-        ctx.warn('You are NOT in control.')
+        log.error('You are NOT in control.')
         ctx.took_control = False
         raise e
 
@@ -345,7 +345,6 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     if not result: return
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from drunc.utils.grpc_utils import unpack_any
     from druncschema.controller_pb2 import FSMResponseFlag, FSMCommandResponse
 

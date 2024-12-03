@@ -6,14 +6,16 @@ from drunc.utils.utils import validate_command_facility
 import pathlib
 from drunc.process_manager.interface.cli_argument import validate_conf_string
 from urllib.parse import urlparse
-from rich import print as rprint
+# from rich import print as rprint
 import logging
+import getpass
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.argument('process-manager', type=str, nargs=1)
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -21,21 +23,18 @@ def unified_shell(
     boot_configuration:str,
     session_name:str,
     log_level:str,
+    override_logs:bool,
 ) -> None:
-
-    from drunc.utils.utils import update_log_level, pid_info_str, ignore_sigint_sighandler
-    update_log_level(log_level)
+    from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
+    setup_logger(log_level)
     from logging import getLogger
-    logger = getLogger('unified_shell')
-    logger.debug(pid_info_str())
-
-
-
+    log = getLogger('unified_shell')
+    log.debug(pid_info_str())
     url_process_manager = urlparse(process_manager)
     external_pm = True
 
     if url_process_manager.scheme != 'grpc': # slightly hacky to see if the process manager is an address
-        rprint(f"Spawning a process manager with configuration [green]{process_manager}[/green]")
+        log.debug(f"Spawning a process manager with configuration [green]{process_manager}[/green]")
         external_pm = False
         # Check if process_manager is a packaged config
         from drunc.process_manager.configuration import get_process_manager_configuration
@@ -51,6 +50,7 @@ def unified_shell(
             kwargs = {
                 "pm_conf": process_manager,
                 "pm_address": "localhost:0",
+                "override_logs": override_logs,
                 "log_level": log_level,
                 "ready_event": ready_event,
                 "signal_handler": ignore_sigint_sighandler,
@@ -58,7 +58,7 @@ def unified_shell(
                 "generated_port": port,
             },
         )
-        ctx.obj.print(f'Starting process manager with configuration {process_manager}')
+        log.info(f'Starting process manager with configuration {process_manager}')
         ctx.obj.pm_process.start()
 
 
@@ -76,7 +76,7 @@ def unified_shell(
         process_manager_address = f'localhost:{port.value}'
 
     else: # user provided an address
-        rprint(f"Connecting to process manager at [green]{process_manager}[/green]")
+        log.info(f"Connecting to process manager at [green]{process_manager}[/green]")
         process_manager_address = process_manager.replace('grpc://', '') # remove the grpc scheme
 
     ctx.obj.reset(
