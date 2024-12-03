@@ -6,6 +6,7 @@ from typing import Dict
 from druncschema.request_response_pb2 import Request, Response, Description
 from druncschema.process_manager_pb2 import BootRequest, ProcessUUID, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
 
+from drunc.controller.utils import get_segment_lookup_timeout
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
 from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
@@ -17,7 +18,7 @@ class ProcessManagerDriver(GRPCDriver):
 
     def __init__(self, address:str, token, **kwargs):
         super(ProcessManagerDriver, self).__init__(
-            name = 'process_manager_driver',
+            name = 'drunc.process_manager_driver',
             address = address,
             token = token,
             **kwargs
@@ -201,13 +202,15 @@ To debug it, close drunc and run the following command:
 
                 from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
+                    timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
+                    self._log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
                         name = top_controller_name,
-                        timeout = 60,
+                        timeout = timeout,
                         retry_wait = 1,
                         progress_bar = True,
-                        title = f'Looking for \'{top_controller_name}\' on the connectivity service...',
+                        title = f'Looking for [green]{top_controller_name}[/] on the connectivity service...',
                     )
                 except ApplicationLookupUnsuccessful as e:
                     import getpass
