@@ -101,3 +101,21 @@ def get_segment_from_controller_id(segment_configuration, controller_id):
             return segment
 
     return None
+
+def get_segment_lookup_timeout(segment_conf, base_timeout=60):
+
+    def recurse_segment(segment, recursion_count:int=1) -> int:
+        if segment.segments == []:
+            return recursion_count
+
+        max_recursion = 0
+        for child_segment in segment.segments:
+            child_recursion_count = recurse_segment(child_segment, recursion_count+1)
+            if child_recursion_count > max_recursion:
+                max_recursion = child_recursion_count
+        return max_recursion
+
+    recursion_count = recurse_segment(segment_conf, 1)
+    return base_timeout * recursion_count
+
+

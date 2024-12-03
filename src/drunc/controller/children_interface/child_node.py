@@ -5,9 +5,9 @@ import logging
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 
+from drunc.controller.children_interface.types import ControlType
 from drunc.controller.utils import get_detector_name
 from drunc.utils.grpc_utils import pack_to_any
-from drunc.controller.children_interface.types import ControlType
 
 
 class ChildNode(abc.ABC):
@@ -49,18 +49,19 @@ class ChildNode(abc.ABC):
         descriptionType = None
         descriptionName = None
 
-        if hasattr(self.configuration, "application_name"): # Get the application name and type
-            descriptionType = self.configuration.application_name
-            descriptionName = self.configuration.id
-        elif hasattr(self.configuration, "controller") and hasattr(self.configuration.controller, "application_name"): # Get the controller name and type
-            descriptionType = self.configuration.controller.application_name
-            descriptionName = self.configuration.controller.id
+        if self.configuration is not None:
+            if hasattr(self.configuration, "application_name"): # Get the application name and type
+                descriptionType = self.configuration.application_name
+                descriptionName = self.configuration.id
+            elif hasattr(self.configuration, "controller") and hasattr(self.configuration.controller, "application_name"): # Get the controller name and type
+                descriptionType = self.configuration.controller.application_name
+                descriptionName = self.configuration.controller.id
 
         d = Description(
             type = descriptionType,
             name = descriptionName,
             endpoint = self.get_endpoint(),
-            info = get_detector_name(self.configuration),
+            info = get_detector_name(self.configuration) if self.configuration is not None else None,
             session = os.getenv("DUNEDAQ_SESSION"),
             commands = None,
             broadcast = None,
@@ -74,5 +75,3 @@ class ChildNode(abc.ABC):
             children = None
         )
         return resp
-
-

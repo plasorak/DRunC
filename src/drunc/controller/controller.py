@@ -39,6 +39,7 @@ from drunc.utils.grpc_utils import pack_to_any, unpack_any, unpack_request_data_
 from drunc.utils.utils import print_traceback
 
 
+
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
         self.logger = getLogger("ControllerActor")
@@ -93,6 +94,7 @@ class Controller(ControllerServicer):
 
     def __init__(self, configuration, name:str, session:str, token:Token):
         super().__init__()
+
         self.name = name
         self.session = session
         self.broadcast_service = None
@@ -144,9 +146,23 @@ class Controller(ControllerServicer):
 
         self.children_nodes = self.get_children()
 
+
         for child in self.children_nodes:
-            self.logger.info(child)
-            child.propagate_command('take_control', None, self.actor.get_token())
+            response = child.get_status(token)
+
+            status = unpack_any(response.data, Status)
+
+            if status.in_error:
+                #self.state.to_error()  # Set the parent node's state to error
+                self.stateful_node.to_error()
+
+
+        for child in self.children_nodes:
+            if child is None:
+                self.logger.info("Child is None")
+            else:
+                self.logger.info(child)
+                child.propagate_command('take_control', None, self.actor.get_token())
 
         # TODO, probably need to think of a better way to do this?
         # Maybe I should "bind" the commands to their methods, and have something looping over this list to generate the gRPC functions
@@ -344,7 +360,7 @@ class Controller(ControllerServicer):
     def terminate(self):
         self.running = False
 
-        if self.connectivity_service:
+        if hasattr(self, 'connectivity_service') and self.connectivity_service:
             if self.connectivity_service_thread:
                 self.connectivity_service_thread.join()
             self.logger.info('Unregistering from the connectivity service')
@@ -496,8 +512,8 @@ class Controller(ControllerServicer):
         d = Description(
             type = 'controller',
             name = self.name,
-            endpoint = self.uri,
             info = get_detector_name(self.configuration.dal),
+            endpoint = self.uri if self.uri is not None else "unknown",
             session = self.session,
             commands = self.commands,
         )

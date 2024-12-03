@@ -1,13 +1,12 @@
 # https://github.com/DUNE-DAQ/drunc/issues/309
 
 from drunc.controller.configuration import ControllerConfHandler
-from drunc.tests.issues.issue_fixtures import load_test_config
+from drunc.tests.fixtures.configuration import load_test_config
 
 def test_issue309(load_test_config):
     from drunc.utils.configuration import parse_conf_url, OKSKey
     import os
-    print(f"{os.getenv('DUNEDAQ_DB_PATH')=}")
-    conf_path, conf_type = parse_conf_url(f'oksconflibs://issue309.data.xml')
+    conf_path, conf_type = parse_conf_url(f'oksconflibs://many_recursive_segments.data.xml')
     controller_id = "controller-3"
     controller_configuration = ControllerConfHandler(
         type = conf_type,

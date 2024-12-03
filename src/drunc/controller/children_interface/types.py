@@ -4,4 +4,6 @@ class ControlType(Enum):
     Unknown = 0
     gRPC = 1
     REST_API = 2
+    Direct = 3
+
 

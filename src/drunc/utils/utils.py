@@ -8,6 +8,7 @@ CONSOLE_THEMES = Theme({
     "warning": "magenta",
     "danger": "bold red"
 })
+
 log_levels = {
     'CRITICAL': logging.CRITICAL,
     'ERROR'   : logging.ERROR,
@@ -335,3 +336,4 @@ def http_delete(address, data, as_json=True, ignore_errors=False, **post_kwargs)
 
     if not ignore_errors:
         r.raise_for_status()
+

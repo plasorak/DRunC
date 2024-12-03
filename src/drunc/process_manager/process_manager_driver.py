@@ -14,6 +14,7 @@ from druncschema.process_manager_pb2_grpc import ProcessManagerStub
 
 from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
 from drunc.controller.children_interface.utils import get_control_type_and_uri_from_connectivity_service
+from drunc.controller.utils import get_segment_lookup_timeout
 from drunc.exceptions import DruncSetupException, DruncShellException
 from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps, collect_variables
 from drunc.process_manager.utils import get_rte_script
@@ -28,7 +29,7 @@ class ProcessManagerDriver(GRPCDriver):
 
     def __init__(self, address:str, token, **kwargs):
         super(ProcessManagerDriver, self).__init__(
-            name = 'process_manager_driver',
+            name = 'drunc.process_manager_driver',
             address = address,
             token = token,
             **kwargs
@@ -200,13 +201,15 @@ To debug it, close drunc and run the following command:
                 csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
 
                 try:
+                    timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
+                    self._log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
                         name = top_controller_name,
-                        timeout = 60,
+                        timeout = timeout,
                         retry_wait = 1,
                         progress_bar = True,
-                        title = f'Looking for \'{top_controller_name}\' on the connectivity service...',
+                        title = f'Looking for [green]{top_controller_name}[/] on the connectivity service...',
                     )
                 except ApplicationLookupUnsuccessful as e:
                     self._log.error(f'''

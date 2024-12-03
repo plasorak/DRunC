@@ -10,10 +10,10 @@ from drunc.controller.children_interface.types import ControlType
 from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip
 
 
-def get_control_type_and_uri_from_cli(CLAs:list[str]) -> (ControlType, str):
+def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
     for CLA in CLAs:
         if   CLA.startswith("rest://"): return ControlType.REST_API, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("rest://", ""))
-        elif CLA.startswith("grpc://"): return ControlType.gRPC    , resolve_localhost_and_127_ip_to_network_ip(CLA.replace("grpc://", ""))
+        elif CLA.startswith("grpc://"): return ControlType.gRPC, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("grpc://", ""))
 
     raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
 
@@ -28,15 +28,10 @@ def get_control_type_and_uri_from_connectivity_service(
 ) -> tuple[ControlType, str]:
 
     uris = []
-    logger = getLogger('drunc.get_control_type_and_uri_from_connectivity_service')
-    logger.info(f"""
-{connectivity_service=}
-{name=}
-{timeout=}
-{retry_wait=}
-{progress_bar=}
-{title=}
-""")
+    from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
+    logger = getLogger('get_control_type_and_uri_from_connectivity_service')
+    import time
+    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
     with Progress(
         SpinnerColumn(),
@@ -51,7 +46,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
         while time.time() - start < timeout:
             progress.update(task, completed=time.time() - start)
-            logger.info(f"Trying to resolve \'{name}_control\'")
+
             try:
                 uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
                 if len(uris) == 0:
@@ -61,7 +56,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
             except ApplicationLookupUnsuccessful as e:
                 el = time.time() - start
-                logger.info(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
+                logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
                 time.sleep(retry_wait)
 
 
@@ -74,27 +69,48 @@ def get_control_type_and_uri_from_connectivity_service(
     return get_control_type_and_uri_from_cli([uri])
 
 
-def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
-    log = getLogger("drunc.get_child")
+
+def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
+
+    log = getLogger("drunc.controller.get_child")
 
     ctype = ControlType.Unknown
     uri = None
+    node_in_error = False
+
     if connectivity_service:
-        log.info(f'Trying to get control type and URI from the connectivity service, for child {name}')
-        ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=60)
+        try:
+            ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=timeout)
+        except ApplicationLookupUnsuccessful as alu:
+            log.error(f"Could not find the application \'{name}\' in the connectivity service: {alu}")
 
     if ctype == ControlType.Unknown:
-        log.info(f'Trying to get control type and URI from command line, for child {name}')
-        ctype, uri = get_control_type_and_uri_from_cli(cli)
+        try:
+            ctype, uri = get_control_type_and_uri_from_cli(cli)
+        except DruncSetupException as e:
+            log.error(f"Could not understand how to talk to the application \'{name}\' from its CLI: {e}")
 
-    if uri is None or ctype == ControlType.Unknown:
+
+    address = None
+    port = 0
+    if uri is not None:
+        try:
+            address, port = uri.split(":")
+            port = int(port)
+        except ValueError as e:
+            log.debug(f"Could not split the URI {uri} into address and port: {e}")
+
+
+    if ctype == ControlType.Unknown or address is None or port == 0:
         log.error(f"Could not understand how to talk to \'{name}\'")
-        raise DruncSetupException(f"Could not understand how to talk to \'{name}\'")
+        node_in_error = True
+        ctype = ControlType.Direct
 
     log.info(f"Child {name} is of type {ctype} and has the URI {uri}")
 
     match ctype:
         case ControlType.gRPC:
+            from drunc.controller.children_interface.grpc_child import gRPCChildNode, gRCPChildConfHandler
 
             return gRPCChildNode(
                 configuration = configuration,
@@ -106,15 +122,26 @@ def get_child(name:str, cli, configuration, init_token=None, connectivity_servic
 
 
         case ControlType.REST_API:
+            from drunc.controller.children_interface.rest_api_child import RESTAPIChildNode,RESTAPIChildNodeConfHandler
 
             return RESTAPIChildNode(
                 configuration = configuration,
                 name = name,
                 uri = uri,
-                # init_token = init_token, # No authentication for RESTAPI
                 **kwargs,
             )
+
+        case ControlType.Direct:
+            from drunc.controller.children_interface.client_side_child import ClientSideChild
+
+            node = ClientSideChild(
+                name = name,
+                **kwargs,
+            )
+            if node_in_error:
+                node.state.to_error()
+
+            return node
+
         case _:
-
             raise ChildInterfaceTechnologyUnknown(ctype, name)
-

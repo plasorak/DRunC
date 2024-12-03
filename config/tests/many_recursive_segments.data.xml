@@ -78,30 +78,17 @@
  <comment creation-time="20240918T124331" created-by="maroda" created-on="np04-srv-015.cern.ch" author="maroda" text="change local session opmon URI"/>
 </comments>
 
-<obj class="Service" id="controller-0_control">
+<obj class="Service" id="controller_control">
  <attr name="protocol" type="string" val="grpc"/>
  <attr name="port" type="u16" val="0"/>
 </obj>
 
-<obj class="Service" id="controller-1_control">
- <attr name="protocol" type="string" val="grpc"/>
- <attr name="port" type="u16" val="0"/>
-</obj>
-
-<obj class="Service" id="controller-2_control">
- <attr name="protocol" type="string" val="grpc"/>
- <attr name="port" type="u16" val="0"/>
-</obj>
-<obj class="Service" id="controller-3_control">
- <attr name="protocol" type="string" val="grpc"/>
- <attr name="port" type="u16" val="0"/>
-</obj>
 
 <obj class="RCApplication" id="controller-0">
  <attr name="application_name" type="string" val="drunc-controller"/>
  <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
  <rel name="exposes_service">
-  <ref class="Service" id="controller-0_control"/>
+  <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
  <rel name="fsm" class="FSMconfiguration" id="fsmConf-test"/>
@@ -111,7 +98,7 @@
  <attr name="application_name" type="string" val="drunc-controller"/>
  <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
  <rel name="exposes_service">
-  <ref class="Service" id="controller-1_control"/>
+  <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
  <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
@@ -121,7 +108,7 @@
  <attr name="application_name" type="string" val="drunc-controller"/>
  <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
  <rel name="exposes_service">
-  <ref class="Service" id="controller-2_control"/>
+  <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
  <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
@@ -131,7 +118,39 @@
  <attr name="application_name" type="string" val="drunc-controller"/>
  <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
  <rel name="exposes_service">
-  <ref class="Service" id="controller-3_control"/>
+  <ref class="Service" id="controller_control"/>
+ </rel>
+ <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
+ <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+</obj>
+
+
+<obj class="RCApplication" id="controller-4">
+ <attr name="application_name" type="string" val="drunc-controller"/>
+ <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
+ <rel name="exposes_service">
+  <ref class="Service" id="controller_control"/>
+ </rel>
+ <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
+ <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+</obj>
+
+
+<obj class="RCApplication" id="controller-5">
+ <attr name="application_name" type="string" val="drunc-controller"/>
+ <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
+ <rel name="exposes_service">
+  <ref class="Service" id="controller_control"/>
+ </rel>
+ <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
+ <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
+</obj>
+
+<obj class="RCApplication" id="controller-6">
+ <attr name="application_name" type="string" val="drunc-controller"/>
+ <rel name="runs_on" class="VirtualHost" id="vlocalhost"/>
+ <rel name="exposes_service">
+  <ref class="Service" id="controller_control"/>
  </rel>
  <rel name="opmon_conf" class="OpMonConf" id="slow-all-monitoring"/>
  <rel name="fsm" class="FSMconfiguration" id="FSMconfiguration_noAction"/>
@@ -154,6 +173,7 @@
 <obj class="Segment" id="segment-1">
  <rel name="segments">
   <ref class="Segment" id="segment-2"/>
+  <ref class="Segment" id="segment-4"/>
  </rel>
  <rel name="controller" class="RCApplication" id="controller-1"/>
 </obj>
@@ -167,6 +187,24 @@
 
 <obj class="Segment" id="segment-3">
  <rel name="controller" class="RCApplication" id="controller-3"/>
+</obj>
+
+<obj class="Segment" id="segment-4">
+ <rel name="segments">
+  <ref class="Segment" id="segment-5"/>
+ </rel>
+ <rel name="controller" class="RCApplication" id="controller-4"/>
+</obj>
+
+<obj class="Segment" id="segment-5">
+ <rel name="segments">
+  <ref class="Segment" id="segment-6"/>
+ </rel>
+ <rel name="controller" class="RCApplication" id="controller-5"/>
+</obj>
+
+<obj class="Segment" id="segment-6">
+ <rel name="controller" class="RCApplication" id="controller-6"/>
 </obj>
 
 <obj class="Session" id="deep-segments-config">
