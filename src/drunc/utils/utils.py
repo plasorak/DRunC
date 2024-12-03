@@ -342,6 +342,7 @@ class ControlType(Enum):
     Unknown = 0
     gRPC = 1
     REST_API = 2
+    Direct = 3
 
 
 def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
