@@ -10,7 +10,7 @@ from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
 from druncschema.generic_pb2 import PlainText, Stacktrace
 from druncschema.token_pb2 import Token
 
-  
+
 
 class ClientSideState:
 
@@ -71,20 +71,21 @@ class ClientSideState:
     def in_error(self):
         with self._state_lock:
             return self._errored
-       
+
+
 class ClientSideChild(ChildNode):
     def __init__(self, name, node_type: ControlType = ControlType.Direct, fsm_configuration:FSMConfHandler = None, configuration = None): #
         super().__init__(
             name = name,
             node_type = node_type,
-            configuration  = configuration
+            configuration = configuration
         )
 
         from logging import getLogger
         self.log = getLogger(f'{name}-client-side')
 
         self.state = ClientSideState()
-        
+
         self.fsm_configuration = fsm_configuration
 
         if fsm_configuration:
@@ -115,7 +116,7 @@ class ClientSideChild(ChildNode):
             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
             children = [],
         )
-    
+
     def propagate_command(self, command:str, data, token:Token) -> Response:
         if command == 'exclude':
             self.state.exclude()
@@ -181,7 +182,7 @@ class ClientSideChild(ChildNode):
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)
         self.state.executing_command_mark()
-       
+
         response_data = pack_to_any(
             PlainText(
                 text = 'successful'

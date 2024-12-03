@@ -344,22 +344,20 @@ class RESTAPIChildNode(ClientSideChild):
     def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration:FSMConfHandler, uri):
         super().__init__(
             name = name,
-            node_type = ControlType.REST_API, 
-            configuration  = configuration
+            node_type = ControlType.REST_API,
+            configuration = configuration,
+            fsm_configuration = fsm_configuration,
         )
 
         from logging import getLogger
         self.log = getLogger(f'{name}-rest-api-child')
 
         self.response_listener = ResponseListener.get()
-        
-        self.fsm_configuration = fsm_configuration
 
         from drunc.fsm.core import FSM
         if fsm_configuration:
             fsmch = FSMConfHandler(fsm_configuration)
             self.fsm = FSM(conf=fsmch)
-
 
         import socket
         response_listener_host = socket.gethostname()
@@ -384,9 +382,9 @@ class RESTAPIChildNode(ClientSideChild):
             proxy_port = proxy_port,
         )
 
-        self.response_listener.register(self.name, self.commander)        
+        self.response_listener.register(self.name, self.commander)
 
-    
+
     def __str__(self):
         return f'\'{self.name}@{self.app_host}:{self.app_port}\' (type {self.node_type})'
 
