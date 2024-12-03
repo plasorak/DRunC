@@ -93,13 +93,27 @@ class ChildNode(abc.ABC):
         if connectivity_service:
             try:
                 ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=timeout)
-            except ApplicationLookupUnsuccessful:
-                log.error(f"Could not find the application \'{name}\' in the connectivity service")
+            except ApplicationLookupUnsuccessful as alu:
+                log.error(f"Could not find the application \'{name}\' in the connectivity service: {alu}")
 
         if ctype == ControlType.Unknown:
-            ctype, uri = get_control_type_and_uri_from_cli(cli)
+            try:
+                ctype, uri = get_control_type_and_uri_from_cli(cli)
+            except DruncSetupException as e:
+                log.error(f"Could not understand how to talk to the application \'{name}\' from its CLI: {e}")
 
-        if uri is None or ctype == ControlType.Unknown:
+
+        address = None
+        port = 0
+        if uri is not None:
+            try:
+                address, port = uri.split(":")
+                port = int(port)
+            except ValueError as e:
+                log.debug(f"Could not split the URI {uri} into address and port: {e}")
+
+
+        if ctype == ControlType.Unknown or address is None or port == 0:
             log.error(f"Could not understand how to talk to \'{name}\'")
             node_in_error = True
             ctype = ControlType.Direct
