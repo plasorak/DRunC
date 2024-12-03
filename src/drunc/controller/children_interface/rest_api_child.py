@@ -1,7 +1,9 @@
 from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType
 from drunc.utils.grpc_utils import pack_to_any
+from druncschema.controller_pb2 import Status
 from druncschema.generic_pb2 import PlainText, Stacktrace
 from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
@@ -324,65 +326,7 @@ class AppCommander:
 This is a very simple FSM, because it doesn't exist on the server side (appfwk),
 and hence cannot be figured from there
 '''
-class StateRESTAPI:
 
-    def __init__(self, initial_state='initial'):
-        # We'll wrap all these in a mutex for good measure
-        from threading import Lock
-        self._state_lock = Lock()
-        self._executing_command = False
-        self._assumed_operational_state = initial_state
-        self._included = True
-        self._errored = False
-
-
-    def executing_command_mark(self):
-        with self._state_lock:
-            self._executing_command = True
-
-    def end_command_execution_mark(self):
-        with self._state_lock:
-            self._executing_command = False
-
-    def new_operational_state(self, new_state):
-        with self._state_lock:
-            self._assumed_operational_state = new_state
-
-    def get_operational_state(self):
-        with self._state_lock:
-            return self._assumed_operational_state
-
-    def get_executing_command(self):
-        with self._state_lock:
-            return self._executing_command
-
-    def include(self):
-        with self._state_lock:
-            self._included = True
-
-    def exclude(self):
-        with self._state_lock:
-            self._included = False
-
-    def included(self):
-        with self._state_lock:
-            return self._included
-
-    def excluded(self):
-        with self._state_lock:
-            return not self._included
-
-    def to_error(self):
-        with self._state_lock:
-            self._errored = True
-
-    def fix_error(self):
-        with self._state_lock:
-            self._errored = False
-
-    def in_error(self):
-        with self._state_lock:
-            return self._errored
 
 from drunc.utils.configuration import ConfHandler
 
@@ -395,12 +339,14 @@ class RESTAPIChildNodeConfHandler(ConfHandler):
 
 from drunc.fsm.configuration import FSMConfHandler
 
-class RESTAPIChildNode(ChildNode):
+
+class RESTAPIChildNode(ClientSideChild):
     def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration:FSMConfHandler, uri):
-        super(RESTAPIChildNode, self).__init__(
+        super().__init__(
             name = name,
-            node_type = ControlType.REST_API, 
-            configuration  = configuration
+            node_type = ControlType.REST_API,
+            configuration = configuration,
+            fsm_configuration = fsm_configuration,
         )
 
         from logging import getLogger
@@ -408,7 +354,10 @@ class RESTAPIChildNode(ChildNode):
 
         self.response_listener = ResponseListener.get()
 
-        self.fsm_configuration = fsm_configuration
+        from drunc.fsm.core import FSM
+        if fsm_configuration:
+            fsmch = FSMConfHandler(fsm_configuration)
+            self.fsm = FSM(conf=fsmch)
 
         import socket
         response_listener_host = socket.gethostname()
@@ -433,101 +382,91 @@ class RESTAPIChildNode(ChildNode):
             proxy_port = proxy_port,
         )
 
-        from drunc.fsm.core import FSM
-        from drunc.fsm.configuration import FSMConfHandler
-        fsmch = FSMConfHandler(fsm_configuration)
-
-        self.fsm = FSM(conf=fsmch)
-
         self.response_listener.register(self.name, self.commander)
 
-        self.state = StateRESTAPI()
 
     def __str__(self):
         return f'\'{self.name}@{self.app_host}:{self.app_port}\' (type {self.node_type})'
 
-    def terminate(self):
-        pass
+    # def terminate(self):
+    #     pass
 
     def get_endpoint(self):
         return f'rest://{self.app_host}:{self.app_port}'
 
-    def get_status(self, token):
-        from druncschema.controller_pb2 import Status
-        from druncschema.request_response_pb2 import Response, ResponseFlag
-        from drunc.utils.grpc_utils import pack_to_any
+    # def get_status(self, token):
 
-        status = Status(
-            state = self.state.get_operational_state(),
-            sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',
-            in_error = self.state.in_error() or not self.commander.ping(), # meh
-            included = self.state.included(),
-        )
-        return Response(
-            name = self.name,
-            token = None,
-            data = pack_to_any(status),
-            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = [],
-        )
+    #     status = Status(
+    #         state = self.state.get_operational_state(),
+    #         sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',
+    #         in_error = self.state.in_error() or not self.commander.ping(), # meh
+    #         included = self.state.included(),
+    #     )
+    #     return Response(
+    #         name = self.name,
+    #         token = None,
+    #         data = pack_to_any(status),
+    #         flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #         children = [],
+    #     )
 
-    def propagate_command(self, command:str, data, token:Token) -> Response:
-        if command == 'exclude':
-            self.state.exclude()
-            return Response(
-                name = self.name,
-                token = token,
-                data = pack_to_any(
-                    PlainText(
-                        text=f"\'{self.name}\' excluded"
-                    )
-                ),
-                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-                children = []
-            )
-        elif command == 'include':
-            self.state.include()
-            return Response(
-                name = self.name,
-                token = token,
-                data = pack_to_any(
-                    PlainText(
-                        text=f"\'{self.name}\' included"
-                    )
-                ),
-                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-                children = []
-            )
+    # def propagate_command(self, command:str, data, token:Token) -> Response:
+    #     if command == 'exclude':
+    #         self.state.exclude()
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 PlainText(
+    #                     text=f"\'{self.name}\' excluded"
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
+    #     elif command == 'include':
+    #         self.state.include()
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 PlainText(
+    #                     text=f"\'{self.name}\' included"
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
 
-        if self.state.excluded():
-            return Response(
-                name = self.name,
-                token = token,
-                data = pack_to_any(
-                    FSMCommandResponse(
-                        flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
-                        command_name = data.command_name,
-                        data = None
-                    )
-                ),
-                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-                children = []
-            )
+    #     if self.state.excluded():
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 FSMCommandResponse(
+    #                     flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
+    #                     command_name = data.command_name,
+    #                     data = None
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
 
-        # here lies the mother of all the problems
-        if command == 'execute_fsm_command':
-            return self.propagate_fsm_command(command, data, token)
-        elif command == 'describe':
-            return self.describe(token)
-        else:
-            self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
-            return Response(
-                name = self.name,
-                token = token,
-                data = None,
-                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
-                children = []
-            )
+    #     # here lies the mother of all the problems
+    #     if command == 'execute_fsm_command':
+    #         return self.propagate_fsm_command(command, data, token)
+    #     elif command == 'describe':
+    #         return self.describe(token)
+    #     else:
+    #         self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = None,
+    #             flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+    #             children = []
+    #         )
 
     def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
         from drunc.exceptions import DruncException

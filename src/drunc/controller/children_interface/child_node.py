@@ -6,6 +6,7 @@ from drunc.utils.grpc_utils import pack_to_any
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 import os
+from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
 
 class ChildInterfaceTechnologyUnknown(DruncSetupException):
     def __init__(self, t, name):
@@ -49,19 +50,20 @@ class ChildNode(abc.ABC):
         descriptionType = None
         descriptionName = None
 
-        if hasattr(self.configuration.data, "application_name"): # Get the application name and type
-            descriptionType = self.configuration.data.application_name
-            descriptionName = self.configuration.data.id
-        elif hasattr(self.configuration.data, "controller") and hasattr(self.configuration.data.controller, "application_name"): # Get the controller name and type
-            descriptionType = self.configuration.data.controller.application_name
-            descriptionName = self.configuration.data.controller.id
+        if self.configuration is not None:
+            if hasattr(self.configuration.data, "application_name"): # Get the application name and type
+                descriptionType = self.configuration.data.application_name
+                descriptionName = self.configuration.data.id
+            elif hasattr(self.configuration.data, "controller") and hasattr(self.configuration.data.controller, "application_name"): # Get the controller name and type
+                descriptionType = self.configuration.data.controller.application_name
+                descriptionName = self.configuration.data.controller.id
 
         from drunc.controller.utils import get_detector_name
         d = Description(
             type = descriptionType,
             name = descriptionName,
             endpoint = self.get_endpoint(),
-            info = get_detector_name(self.configuration),
+            info = get_detector_name(self.configuration) if self.configuration is not None else None,
             session = os.getenv("DUNEDAQ_SESSION"),
             commands = None,
             broadcast = None,
@@ -78,23 +80,43 @@ class ChildNode(abc.ABC):
 
 
     @staticmethod
-    def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, **kwargs):
-        log = logging.getLogger("ChildNode.get_child")
+    def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
 
         from drunc.utils.configuration import ConfTypes
-        log.info(f"Setting up child '{name}'")
+        import logging
+        log = logging.getLogger("ChildNode.get_child")
 
         ctype = ControlType.Unknown
         uri = None
+        node_in_error = False
+
         if connectivity_service:
-            ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=60)
+            try:
+                ctype, uri = get_control_type_and_uri_from_connectivity_service(connectivity_service, name, timeout=timeout)
+            except ApplicationLookupUnsuccessful as alu:
+                log.error(f"Could not find the application \'{name}\' in the connectivity service: {alu}")
 
         if ctype == ControlType.Unknown:
-            ctype, uri = get_control_type_and_uri_from_cli(cli)
+            try:
+                ctype, uri = get_control_type_and_uri_from_cli(cli)
+            except DruncSetupException as e:
+                log.error(f"Could not understand how to talk to the application \'{name}\' from its CLI: {e}")
 
-        if uri is None or ctype == ControlType.Unknown:
+
+        address = None
+        port = 0
+        if uri is not None:
+            try:
+                address, port = uri.split(":")
+                port = int(port)
+            except ValueError as e:
+                log.debug(f"Could not split the URI {uri} into address and port: {e}")
+
+
+        if ctype == ControlType.Unknown or address is None or port == 0:
             log.error(f"Could not understand how to talk to \'{name}\'")
-            raise DruncSetupException(f"Could not understand how to talk to \'{name}\'")
+            node_in_error = True
+            ctype = ControlType.Direct
 
         log.info(f"Child {name} is of type {ctype} and has the URI {uri}")
 
@@ -121,6 +143,19 @@ class ChildNode(abc.ABC):
                     # init_token = init_token, # No authentication for RESTAPI
                     **kwargs,
                 )
+
+            case ControlType.Direct:
+                from drunc.controller.children_interface.client_side_child import ClientSideChild
+
+                node = ClientSideChild(
+                    name = name,
+                    **kwargs,
+                )
+                if node_in_error:
+                    node.state.to_error()
+
+                return node
+
             case _:
                 raise ChildInterfaceTechnologyUnknown(ctype, name)
 

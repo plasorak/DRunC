@@ -1,5 +1,6 @@
 from drunc.utils.configuration import ConfHandler
 from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.utils import get_segment_lookup_timeout
 
 class ControllerConfData: # the bastardised OKS
     def __init__(self):
@@ -50,9 +51,14 @@ class ControllerConfHandler(ConfHandler):
     def get_children(self, init_token, without_excluded=False, connectivity_service=None):
 
         enabled_only = not without_excluded
+        timeout = get_segment_lookup_timeout(
+            self.data, # the current segment
+            base_timeout = 60,
+        )
 
+        self.log.debug(f'get_children: connectivity service lookup timeout={timeout}')
         if self.children != []:
-            return self.get_children
+            return self.get_children(init_token, without_excluded, connectivity_service)
 
         session = None
 
@@ -82,6 +88,7 @@ class ControllerConfHandler(ConfHandler):
                 name = segment.controller.id,
                 configuration = segment,
                 connectivity_service = connectivity_service,
+                timeout = timeout
             )
             self.children.append(new_node)
 
@@ -100,6 +107,7 @@ class ControllerConfHandler(ConfHandler):
                 configuration = app,
                 fsm_configuration = self.data.controller.fsm,
                 connectivity_service = connectivity_service,
+                timeout = 60
             )
             self.children.append(new_node)
 

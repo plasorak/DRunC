@@ -198,7 +198,7 @@ class SSHProcessManager(ProcessManager):
         if exec:
             exit_code = exec.exit_code
         end_str = f"Process \'{name}\' (session: \'{session}\', user: \'{user}\') process exited with exit code {exit_code}"
-        self.log.debug(end_str)
+        self.log.info(end_str)
         if exec:
             self.log.debug(name+str(exec))
 
