@@ -48,13 +48,17 @@ class ControllerConfHandler(ConfHandler):
             self.this_host = socket.gethostname()
 
 
-    def get_children(self, init_token, without_excluded=False, connectivity_service=None, call_count=1):
+    def get_children(self, init_token, without_excluded=False, connectivity_service=None):
 
         enabled_only = not without_excluded
-        timeout = get_segment_lookup_timeout(call_count)
+        timeout = get_segment_lookup_timeout(
+            self.data, # the current segment
+            base_timeout = 60,
+        )
 
+        self.log.debug(f'get_children: connectivity service lookup timeout={timeout}')
         if self.children != []:
-            return self.get_children(init_token, without_excluded, connectivity_service, call_count+1)
+            return self.get_children(init_token, without_excluded, connectivity_service)
 
         session = None
 
