@@ -366,33 +366,33 @@ def get_control_type_and_uri_from_connectivity_service(
     from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
     logger = logging.getLogger('get_control_type_and_uri_from_connectivity_service')
     import time
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
+    # from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TimeRemainingColumn(),
-        TimeElapsedColumn()
-    ) as progress:
+    # with Progress(
+    #     SpinnerColumn(),
+    #     TextColumn("[progress.description]{task.description}"),
+    #     BarColumn(),
+    #     TimeRemainingColumn(),
+    #     TimeElapsedColumn()
+    # ) as progress:
 
-        task = progress.add_task(f'[yellow]{title}', total=timeout, visible=progress_bar)
-        start = time.time()
+        # task = progress.add_task(f'[yellow]{title}', total=timeout, visible=progress_bar)
+    start = time.time()
 
-        while time.time() - start < timeout:
-            progress.update(task, completed=time.time() - start)
+    while time.time() - start < timeout:
+        # progress.update(task, completed=time.time() - start)
 
-            try:
-                uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
-                if len(uris) == 0:
-                    raise ApplicationLookupUnsuccessful
-                else:
-                    break
+        try:
+            uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
+            if len(uris) == 0:
+                raise ApplicationLookupUnsuccessful
+            else:
+                break
 
-            except ApplicationLookupUnsuccessful as e:
-                el = time.time() - start
-                logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
-                time.sleep(retry_wait)
+        except ApplicationLookupUnsuccessful as e:
+            el = time.time() - start
+            logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
+            time.sleep(retry_wait)
 
 
 

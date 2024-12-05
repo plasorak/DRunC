@@ -1,6 +1,7 @@
 from drunc.utils.configuration import ConfHandler
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.utils import get_segment_lookup_timeout
+import threading
 
 class ControllerConfData: # the bastardised OKS
     def __init__(self):
@@ -57,10 +58,12 @@ class ControllerConfHandler(ConfHandler):
         )
 
         self.log.debug(f'get_children: connectivity service lookup timeout={timeout}')
-        if self.children != []:
-            return self.get_children(init_token, without_excluded, connectivity_service)
+        #if self.children != []:
+        #    return self.get_children(init_token, without_excluded, connectivity_service)
 
         session = None
+        self.children = []
+
 
         try:
             import confmodel
@@ -74,12 +77,10 @@ class ControllerConfHandler(ConfHandler):
 
         self.log.debug(f'looping over children\n{self.data.segments}')
 
-        for segment in self.data.segments:
-            self.log.debug(segment)
-
+        def process_segment(segment):
             if enabled_only:
                 if confmodel.component_disabled(self.db._obj, session.id, segment.id):
-                    continue
+                    return
 
             from drunc.process_manager.configuration import get_cla
             new_node = ChildNode.get_child(
@@ -90,14 +91,13 @@ class ControllerConfHandler(ConfHandler):
                 connectivity_service = connectivity_service,
                 timeout = timeout
             )
-            self.children.append(new_node)
-
-        for app in self.data.applications:
-            self.log.debug(app)
-
+            if new_node:
+                self.children.append(new_node)
+            
+        def process_application(app):
             if enabled_only:
                 if confmodel.component_disabled(self.db._obj, session.id, app.id):
-                    continue
+                    return
 
             from drunc.process_manager.configuration import get_cla
 
@@ -109,6 +109,39 @@ class ControllerConfHandler(ConfHandler):
                 connectivity_service = connectivity_service,
                 timeout = 60
             )
-            self.children.append(new_node)
+            if new_node:
+                self.children.append(new_node)
+            
+        # with ThreadPoolExecutor() as executor:
+        #     segment_futures = [executor.submit(process_segment, segment) for segment in self.data.segments]
+        #     application_futures = [executor.submit(process_application, app) for app in self.data.applications]
+
+        # # Collect results as they complete
+        # for future in segment_futures + application_futures:
+        #     try:
+        #         result = future.result()
+        #         if result is not None:
+        #             self.children.append(result)
+        #     except Exception as e:
+        #         self.log.error(f"Error processing child: {e}")
+
+
+        threads = []
+
+        for segment in self.data.segments:
+            self.log.debug(segment)
+            t = threading.Thread(target=process_segment, args=(segment,))
+            threads.append(t)
+            t.start()
+
+        for app in self.data.applications:
+            self.log.debug(app)
+            t = threading.Thread(target=process_application, args=(app,))
+            threads.append(t)
+            t.start()
+
+        for t in threads:
+            t.join()
+        
 
         return self.children
