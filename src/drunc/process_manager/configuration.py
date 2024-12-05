@@ -17,6 +17,9 @@ class ProcessManagerConfData:
 
 
 class ProcessManagerConfHandler(ConfHandler):
+    def __init__(self, log_path:str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.log_path = log_path
 
     def _parse_dict(self, data):
         new_data = ProcessManagerConfData()

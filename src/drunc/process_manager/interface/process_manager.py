@@ -45,6 +45,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     from drunc.process_manager.configuration import ProcessManagerConfHandler
     conf_path, conf_type = parse_conf_url(pm_conf)
     pmch = ProcessManagerConfHandler(
+        log_path = log_path,
         type = conf_type,
         data = conf_path
     )

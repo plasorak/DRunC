@@ -18,7 +18,7 @@ class ProcessManagerDriver(GRPCDriver):
 
     def __init__(self, address:str, token, **kwargs):
         super(ProcessManagerDriver, self).__init__(
-            name = 'process_manager_driver',
+            name = 'process_manager.driver',
             address = address,
             token = token,
             rich_handler = True,

@@ -33,7 +33,7 @@ async def boot(
     ) -> None:
 
     from drunc.utils.utils import get_logger
-    log = get_logger("unified_shell_interface")
+    log = get_logger("unified_shell.boot")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(

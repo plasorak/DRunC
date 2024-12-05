@@ -87,18 +87,21 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if not rich_log_level:
         rich_log_level = logging.getLogger('drunc').getEffectiveLevel()
 
-    if log_file_path and os.path.isfile(log_file_path):
-        os.remove(log_file_path)
-
     logger_name = 'drunc.' + logger_name
     if logger_name in logging.Logger.manager.loggerDict:
         logger = logging.getLogger(logger_name)
         logger.debug(f"Logger {logger_name} already exists, not overwriting properties")
         return logger
 
+    if log_file_path and os.path.isfile(log_file_path):
+        os.remove(log_file_path)
+
     logger = logging.getLogger(logger_name)
     while logger.hasHandlers():
-        logger.removeHandler(logger.handlers[0])
+        if len(logger.handlers) > 0:
+            logger.removeHandler(logger.handlers[0])
+        else:
+            break
     logger.setLevel(logging.getLogger('drunc').getEffectiveLevel())
 
     if log_file_path:

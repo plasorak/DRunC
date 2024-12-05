@@ -235,7 +235,7 @@ class ShellContext:
         from rich.console import Console
         self._console = Console()
         from drunc.utils.utils import get_logger
-        self._log = get_logger(name)
+        self._log = get_logger(f"{name}.shell")
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 
