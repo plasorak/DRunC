@@ -27,7 +27,7 @@ def unified_shell(
 ) -> None:
     from drunc.utils.utils import setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
     setup_root_logger(log_level)
-    log = get_logger('unified_shell', log_level)
+    log = get_logger('unified_shell', rich_handler = True)
     log.debug(pid_info_str())
     url_process_manager = urlparse(process_manager)
     external_pm = True

@@ -9,7 +9,7 @@ from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 class DummyAuthoriser:
     def __init__(self, system:SystemType, configuration_handler:DummyAuthoriserConfHandler=None):
         from drunc.utils.utils import get_logger
-        self.log = get_logger("Controller", "DEBUG")
+        self.log = get_logger("Controller")
         self.log.debug(f'DummyAuthoriser ready')
         self.configuration = configuration_handler
         self.command_actions = {} # Dict[str, ActionType]

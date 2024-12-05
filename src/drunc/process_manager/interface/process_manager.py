@@ -23,7 +23,11 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         override_logs = override_logs,
         app_log_path = log_path
     )
-    log = get_logger("process_manager", log_level, log_path)
+    log = get_logger(
+        logger_name = "process_manager", 
+        log_file_path = log_path,
+        rich_handler = True
+    )
 
     log.info("Running run_pm")
     if signal_handler is not None:

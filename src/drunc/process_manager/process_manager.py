@@ -26,7 +26,9 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
-        self.log = get_logger("process_manager")
+        self.log = get_logger(
+            logger_name = "process_manager"
+        )
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
 
@@ -199,7 +201,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
     def terminate(self) -> Response:
-        self.log.info(f"{self.name} terminating")
+        self.log.debug(f"{self.name} terminating")
         try:
             resp = self._terminate_impl()
             return Response(
@@ -230,7 +232,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def restart(self, q:ProcessQuery)-> Response:
-        self.log.info(f"{self.name} running restart")
+        self.log.debug(f"{self.name} running restart")
         try:
             resp = self._restart_impl(q)
             return Response(
@@ -262,7 +264,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
     def kill(self, q:ProcessQuery) -> Response:
-        self.log.info(f"{self.name} running kill")
+        self.log.debug(f"{self.name} running kill")
         try:
             resp = self._kill_impl(q)
             return Response(
@@ -488,7 +490,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     @staticmethod
     def get(conf, **kwargs):
         from drunc.utils.utils import get_logger
-        log = get_logger("ProcessManager_get")
+        log = get_logger("ProcessManager_get", rich_handler = True)
 
         if conf.data.type == ProcessManagerTypes.SSH:
             log.info(f'Starting \'SSHProcessManager\'')

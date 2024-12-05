@@ -47,7 +47,7 @@ def async_authentified_and_authorised(action, system):
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def check_token(obj, request):
             from drunc.utils.utils import get_logger
-            log = get_logger('authentified_and_authorised_decorator', "DEBUG")
+            log = get_logger('authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
                 yield Response(

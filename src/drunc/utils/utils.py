@@ -1,8 +1,12 @@
 import logging
+import os
+import sys
 from rich.theme import Theme
 from enum import Enum
 from drunc.connectivity_service.client import ConnectivityServiceClient
 from drunc.exceptions import DruncSetupException
+from rich.logging import RichHandler
+from rich.console import Console
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 CONSOLE_THEMES = Theme({
@@ -46,21 +50,19 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
     #     import sys
     #     sys.traceback # FIX THISNOW
 
-def setup_root_logger(log_level:str, log_path:str = None):
-    import os
-    if log_path and os.path.isfile(log_path):
-        os.remove(log_path)
+def setup_root_logger(stream_log_level:str):
+    if stream_log_level not in log_levels.keys():
+        raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
 
-    log_level = log_levels[log_level]
-    # Update log level for root logger
     logger = logging.getLogger('drunc')
-    logger.setLevel(log_level)
+    stream_log_level = log_levels[stream_log_level]
+    logger.setLevel(stream_log_level)
     for handler in logger.handlers:
-        handler.setLevel(log_level)
+        handler.setLevel(stream_log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
     import sh
-    sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
+    sh_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
     sh_command_logger = logging.getLogger(sh.__name__)
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
@@ -68,63 +70,69 @@ def setup_root_logger(log_level:str, log_path:str = None):
 
     # And kafka
     import kafka
-    kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
+    kafka_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
     kafka_command_logger = logging.getLogger(kafka.__name__)
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-    from rich.logging import RichHandler
-    from rich.console import Console
-    import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 150
+def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, rich_handler:bool = False, rich_log_level:str = None):
+    if logger_name == "":
+        raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
+    if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
+        raise DruncSetupException("Process manager setup requires a log path.")
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-        datefmt="[%X]",
-        handlers=[
-            RichHandler(
-                console=Console(width=width),
-                rich_tracebacks=False,
-                show_path=False,
-                tracebacks_width=width
-            )
-        ]
-    )
-    if (log_path):
-        fileHandler = logging.FileHandler(filename = log_path)
-        fileHandler.setLevel(log_level)
-        fileHandlerFormatter = logging.Formatter(
-            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-            datefmt="[%X]"
-        )
-        fileHandler.setFormatter(fileHandlerFormatter)
-        logger.addHandler(fileHandler)
+    if not log_file_log_level:
+        log_file_log_level = logging.getLogger('drunc').getEffectiveLevel()
+    if not rich_log_level:
+        rich_log_level = logging.getLogger('drunc').getEffectiveLevel()
 
-def get_logger(log_name:str, log_level:str = "INFO", log_path:str = None):
-    if log_name == "":
-        from drunc.exception import DruncSetupException
-        raise DruncSetupException("This was an attempt to set up the root logger, this should be corrected to command `setup_root_logger`.")
-    import os
-    if log_path and os.path.isfile(log_path):
-        os.remove(log_path)
-    log_level = log_levels[log_level]
-    logger = logging.getLogger('drunc.' + log_name)
-    logger.setLevel(log_level)
-    if (log_path):
-        fileHandler = logging.FileHandler(filename = log_path)
-        fileHandler.setLevel(log_level)
-        fileHandlerFormatter = logging.Formatter(
-            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-            datefmt="[%X]"
-        )
-        fileHandler.setFormatter(fileHandlerFormatter)
+    if log_file_path and os.path.isfile(log_file_path):
+        os.remove(log_file_path)
+
+    logger_name = 'drunc.' + logger_name
+    if logger_name in logging.Logger.manager.loggerDict:
+        logger = logging.getLogger(logger_name)
+        logger.debug(f"Logger {logger_name} already exists, not overwriting properties")
+        return logger
+
+    logger = logging.getLogger(logger_name)
+    while logger.hasHandlers():
+        logger.removeHandler(logger.handlers[0])
+    logger.setLevel(logging.getLogger('drunc').getEffectiveLevel())
+
+    if log_file_path:
+        fileHandler = logging.FileHandler(filename = log_file_path)
+        fileHandler.setLevel(log_file_log_level)
+        fileHandler.setFormatter(_get_default_logging_format())
         logger.addHandler(fileHandler)
+    
+    if rich_handler:
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 150
+        stdHandler = RichHandler(
+            console=Console(width=width),
+            rich_tracebacks=False,
+            show_path=False,
+            tracebacks_width=width
+        )
+    else:
+        stdHandler = logging.StreamHandler()
+
+    stdHandler.setLevel(rich_log_level)
+    stdHandler.setFormatter(_get_default_logging_format())
+    logger.addHandler(stdHandler)
+
     return logger
+
+def _get_default_logging_format():
+    return logging.Formatter(
+        fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        datefmt = "[%X]",
+        validate = True
+    )
 
 def get_new_port():
     import socket
