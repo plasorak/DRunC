@@ -27,7 +27,7 @@ class K8sProcessManager(ProcessManager):
         from kubernetes import client, config
 
         import logging
-        self._log = get_logger('k8s-process-manager')
+        self.log = get_logger('k8s-process-manager')
         config.load_kube_config()
 
         self._k8s_client = client
@@ -54,10 +54,10 @@ class K8sProcessManager(ProcessManager):
 
         if namespace_list_str:
             namespace_list_str = "\n - "+namespace_list_str
-            self._log.info(f"Active namespaces created by drunc:{namespace_list_str}")
+            self.log.info(f"Active namespaces created by drunc:{namespace_list_str}")
 
         else:
-            self._log.info(f"No active namespace created by drunc")
+            self.log.info(f"No active namespace created by drunc")
 
 
     def is_alive(self, podname, session):
@@ -84,11 +84,11 @@ class K8sProcessManager(ProcessManager):
 
         if obj_type == 'namespace':
             self._core_v1_api.patch_namespace(obj_name, body)
-            self._log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{obj_name}\" session")
+            self.log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{obj_name}\" session")
         elif obj_type == 'pod':
             session = self._get_pod_namespace(obj_name)
             self._core_v1_api.patch_namespaced_pod(obj_name, session, body)
-            self._log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{session}.{obj_name}\"")
+            self.log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{session}.{obj_name}\"")
         else:
             raise DruncException(f'Cannot add label to object type: {obj_type}')
 
@@ -113,7 +113,7 @@ class K8sProcessManager(ProcessManager):
         ns_names = [ns.metadata.name for ns in ns_list.items]
 
         if not session in ns_names:
-            self._log.info(f"Creating \"{session}\" session")
+            self.log.info(f"Creating \"{session}\" session")
             namespace_manifest = {
                 "apiVersion": "v1",
                 "kind": "Namespace",
@@ -205,10 +205,10 @@ class K8sProcessManager(ProcessManager):
         )
         try:
             self._core_v1_api.create_namespaced_pod(session, pod)
-            self._log.info(f"Creating \"{session}.{podname}\"")
+            self.log.info(f"Creating \"{session}.{podname}\"")
             self._add_creator_label(podname, 'pod')
         except Exception as e:
-            self._log.error(f"Couldn't create pod with name: \"{session}.{podname}\": {e}")
+            self.log.error(f"Couldn't create pod with name: \"{session}.{podname}\": {e}")
             raise e
 
 
@@ -287,7 +287,7 @@ class K8sProcessManager(ProcessManager):
         )
         deletion_timestamps = [pod.metadata.deletion_timestamp for pod in pods.items]
         if not pods.items or all(timestamp is not None for timestamp in deletion_timestamps):
-            self._log.info(f"Killing empty \"{session}\" session")
+            self.log.info(f"Killing empty \"{session}\" session")
             self._core_v1_api.delete_namespace(session)
 
             ns_list = self._core_v1_api.list_namespace(
@@ -302,7 +302,7 @@ class K8sProcessManager(ProcessManager):
                 )
                 namespaces = [ns.metadata.name for ns in ns_list.items]
             else:
-                self._log.info(f"\"{session}\" session has been killed")
+                self.log.info(f"\"{session}\" session has been killed")
                 pass
         else:
             pass
@@ -326,7 +326,7 @@ class K8sProcessManager(ProcessManager):
 
     def _terminate(self):
 
-        self._log.info('Terminating')
+        self.log.info('Terminating')
 
 
 
@@ -371,7 +371,7 @@ class K8sProcessManager(ProcessManager):
         print(exec_and_args)
         self._create_pod(podnames, session, env_vars=env_vars_list, commands=exec_and_args)
         self._add_label(podnames, 'pod', 'uuid', uuid)
-        self._log.info(f'\"{session}.{podnames}\":{uuid} booted')
+        self.log.info(f'\"{session}.{podnames}\":{uuid} booted')
 
         pods = self._core_v1_api.list_namespaced_pod(session)
         pod_names = [pod.metadata.name for pod in pods.items]
@@ -413,7 +413,7 @@ class K8sProcessManager(ProcessManager):
         for uuid in self._get_process_uid(query):
             podname = self.boot_request[uuid].process_description.metadata.name
             session = self.boot_request[uuid].process_description.metadata.session
-            self._log.info(f'Restarting \"{session}.{podname}\":{uuid}')
+            self.log.info(f'Restarting \"{session}.{podname}\":{uuid}')
 
             self._kill_pod(podname, session)
 
@@ -448,7 +448,7 @@ class K8sProcessManager(ProcessManager):
     @pack_response # 4th step
     def flush(self, query:ProcessQuery) -> Response:
         ret=[]
-        self._log.info(f'Flushing dead processes')
+        self.log.info(f'Flushing dead processes')
         for uuid in self._get_process_uid(query):
             podname = self.boot_request[uuid].process_description.metadata.name
             session = self.boot_request[uuid].process_description.metadata.session
@@ -456,9 +456,9 @@ class K8sProcessManager(ProcessManager):
             if not self.is_alive(podname, session):
                 return_code = self._return_code(podname, session)
                 ret.append(self._get_pi(uuid, podname, session, return_code))
-                self._log.info(f'Flushing \"{session}.{podname}\":{uuid}')
+                self.log.info(f'Flushing \"{session}.{podname}\":{uuid}')
                 del self.boot_request[uuid]
-                self._log.info(f'\"{session}.{podname}\":{uuid} flushed')
+                self.log.info(f'\"{session}.{podname}\":{uuid} flushed')
                 del uuid
                 self._kill_pod(podname, session)
 
@@ -478,11 +478,11 @@ class K8sProcessManager(ProcessManager):
             podname = self.boot_request[uuid].process_description.metadata.name
             session = self.boot_request[uuid].process_description.metadata.session
 
-            self._log.info(f'Killing \"{session}.{podname}\":{uuid}')
+            self.log.info(f'Killing \"{session}.{podname}\":{uuid}')
 
             self._kill_pod(podname, session)
 
-            self._log.info(f'\"{session}.{podname}\":{uuid} killed')
+            self.log.info(f'\"{session}.{podname}\":{uuid} killed')
 
 
             return_code = self._return_code(podname, session)

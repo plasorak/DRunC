@@ -29,7 +29,7 @@ class PreOrPostTransitionSequence:
 
         self.sequence = []
         from drunc.utils.utils import get_logger
-        self._log = get_logger("PreOrPostTransitionSequence")
+        self.log = get_logger("PreOrPostTransitionSequence")
 
     def add_callback(self, action, mandatory=True):
         method = getattr(action, f'{self.prefix}_{self.transition.name}')
@@ -50,7 +50,7 @@ class PreOrPostTransitionSequence:
 
 
     def execute(self, transition_data, transition_args, ctx=None):
-        self._log.debug(f'{transition_data=}, {transition_args=}')
+        self.log.debug(f'{transition_data=}, {transition_args=}')
         import json
         if not transition_data:
             transition_data = '{}'
@@ -63,10 +63,10 @@ class PreOrPostTransitionSequence:
         for callback in self.sequence:
             from drunc.exceptions import DruncException
             try:
-                self._log.debug(f'data before callback: {input_data}')
-                self._log.info(f'executing the callback: {callback.method.__name__} from {callback.method.__module__}')
+                self.log.debug(f'data before callback: {input_data}')
+                self.log.info(f'executing the callback: {callback.method.__name__} from {callback.method.__module__}')
                 input_data = callback.method(_input_data=input_data, _context=ctx, **transition_args)
-                self._log.debug(f'data after callback: {input_data}')
+                self.log.debug(f'data after callback: {input_data}')
                 from drunc.fsm.exceptions import InvalidDataReturnByFSMAction
                 try:
                     import json
@@ -76,11 +76,11 @@ class PreOrPostTransitionSequence:
 
             except DruncException as e:
                 import traceback
-                self._log.error(traceback.format_exc())
+                self.log.error(traceback.format_exc())
                 if callback.mandatory:
                     raise e
 
-        self._log.debug(f'data returned: {input_data}')
+        self.log.debug(f'data returned: {input_data}')
 
         return json.dumps(input_data)
 
@@ -161,7 +161,7 @@ class FSM:
         self.configuration = conf
 
         from drunc.utils.utils import get_logger
-        self._log = get_logger('FSM')
+        self.log = get_logger('FSM')
 
         self.initial_state = self.configuration.get_initial_state()
         self.states = self.configuration.get_states()
@@ -174,12 +174,12 @@ class FSM:
         self.pre_transition_sequences = self.configuration.get_pre_transitions_sequences()
         self.post_transition_sequences = self.configuration.get_post_transitions_sequences()
 
-        self._log.info(f'Initial state is "{self.initial_state}"')
-        self._log.info('Allowed transitions are:')
+        self.log.info(f'Initial state is "{self.initial_state}"')
+        self.log.info('Allowed transitions are:')
         for t in self.transitions:
-            self._log.info(str(t))
-            self._log.info(f'Pre transition: {self.pre_transition_sequences[t]}')
-            self._log.info(f'Post transition: {self.post_transition_sequences[t]}')
+            self.log.info(str(t))
+            self.log.info(f'Pre transition: {self.pre_transition_sequences[t]}')
+            self.log.info(f'Post transition: {self.post_transition_sequences[t]}')
 
     def _enusure_unique_transition(self, transitions):
         a_set = set()
@@ -219,10 +219,10 @@ class FSM:
         for tr in self.transitions:
             debug_txt = f'Testing if transition {str(tr)} is executable from state "{source_state}"...'
             if self.can_execute_transition(source_state, tr):
-                self._log.debug(f'{debug_txt} Yes')
+                self.log.debug(f'{debug_txt} Yes')
                 valid_transitions.append(tr)
             else:
-                self._log.debug(f'{debug_txt} No\n')
+                self.log.debug(f'{debug_txt} No\n')
 
         return valid_transitions
 
@@ -239,7 +239,7 @@ class FSM:
         Check that this transition is allowed given the source_state
         '''
         from drunc.utils.utils import regex_match
-        self._log.debug(f'can_execute_transition {str(transition.source)} {source_state}')
+        self.log.debug(f'can_execute_transition {str(transition.source)} {source_state}')
         return regex_match(transition.source, source_state)
 
 

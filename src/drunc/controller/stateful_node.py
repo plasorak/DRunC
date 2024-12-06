@@ -94,7 +94,7 @@ class StatefulNode(abc.ABC):
         self.__fsm = FSM(fsm_configuration)
 
         from drunc.utils.utils import get_logger
-        self.logger = get_logger('StatefulNode')
+        self.log = get_logger('StatefulNode')
 
         self.__operational_state = OperationalState(
             broadcast_on_change = self.broadcast,
@@ -157,7 +157,7 @@ class StatefulNode(abc.ABC):
         return self.__in_error.value
 
     def can_transition(self, transition):
-        self.logger.debug(f'{self.__operational_state.value} == {self.__operational_sub_state.value} ?')
+        self.log.debug(f'{self.__operational_state.value} == {self.__operational_sub_state.value} ?')
         if self.__operational_state.value != self.__operational_sub_state.value:
             return False
         return self.__fsm.can_execute_transition(self.get_node_operational_state(), transition)

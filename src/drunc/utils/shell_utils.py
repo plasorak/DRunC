@@ -45,7 +45,7 @@ class DecodedResponse:
 class GRPCDriver:
     def __init__(self, name:str, address:str, token:Token, aio_channel=False, rich_handler = False):
         from drunc.utils.utils import get_logger
-        self._log = get_logger(
+        self.log = get_logger(
             name, 
             rich_handler = rich_handler
         )
@@ -96,10 +96,10 @@ class GRPCDriver:
         # else:
         #     text = interrupt_if_unreachable_server(error)
         #     if text:
-        #         self._log.error(text)
+        #         self.log.error(text)
 
         # if hasattr(error, 'details'): #ARGG asyncio gRPC so different from synchronous one!!
-        #     self._log.error(error.details())
+        #     self.log.error(error.details())
 
         #     # of course, right now asyncio servers are not able to reply with a stacktrace (yet)
         #     # we just throw the client-side error and call it a day for now
@@ -123,7 +123,7 @@ class GRPCDriver:
                 try:
                     dr.children.append(self.handle_response(c_response, command, outformat))
                 except DruncServerSideError as e:
-                    self._log.error(f"Exception thrown from child: {e}")
+                    self.log.error(f"Exception thrown from child: {e}")
             return dr
 
         else:
@@ -132,13 +132,13 @@ class GRPCDriver:
             if response.flag in [
                 ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
             ]:
-                self._log.debug(text())
+                self.log.debug(text())
             elif response.flag in [
                 ResponseFlag.NOT_EXECUTED_NOT_IN_CONTROL,
             ]:
-                self._log.warn(text())
+                self.log.warn(text())
             else:
-                self._log.error(text("failed"))
+                self.log.error(text("failed"))
 
             if not response.HasField("data"): return None
             from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
@@ -173,7 +173,7 @@ class GRPCDriver:
                 try:
                     dr.children.append(self.handle_response(c_response, command, outformat))
                 except DruncServerSideError as e:
-                    self._log.error(f"Exception thrown from child: {e}")
+                    self.log.error(f"Exception thrown from child: {e}")
             return dr
 
             # raise DruncServerSideError(error_txt, stack_txt, server_response=dr)
@@ -235,7 +235,7 @@ class ShellContext:
         from rich.console import Console
         self._console = Console()
         from drunc.utils.utils import get_logger
-        self._log = get_logger(f"{name}.shell")
+        self.log = get_logger(f"{name}.shell")
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 
@@ -276,7 +276,7 @@ class ShellContext:
                 raise DruncShellException(f'More than one driver in this context')
             return list(self._drivers.values())[0]
         except KeyError:
-            self._log.error(f'Controller-specific commands cannot be sent until the session is booted')
+            self.log.error(f'Controller-specific commands cannot be sent until the session is booted')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
 
     def get_token(self) -> Token:
@@ -289,19 +289,19 @@ class ShellContext:
         self._console.rule(*args, **kwargs)
 
     def info(self, *args, **kwargs) -> None:
-        self._log.info(*args, **kwargs)
+        self.log.info(*args, **kwargs)
 
     def warn(self, *args, **kwargs) -> None:
-        self._log.warn(*args, **kwargs)
+        self.log.warn(*args, **kwargs)
 
     def error(self, *args, **kwargs) -> None:
-        self._log.error(*args, **kwargs)
+        self.log.error(*args, **kwargs)
 
     def debug(self, *args, **kwargs) -> None:
-        self._log.debug(*args, **kwargs)
+        self.log.debug(*args, **kwargs)
 
     def critical(self, *args, **kwargs) -> None:
-        self._log.critical(*args, **kwargs)
+        self.log.critical(*args, **kwargs)
 
 
     def print_status_summary(self) -> None:

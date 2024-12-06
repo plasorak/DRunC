@@ -18,7 +18,7 @@ class UsvcProvidedRunNumber(FSMAction):
         self.timeout = 0.5
 
         from drunc.utils.utils import get_logger
-        self._log = get_logger('microservice')
+        self.log = get_logger('microservice')
 
     def pre_start(self, _input_data:dict, _context, run_type:str="TEST", disable_data_storage:bool=False, trigger_rate:float=0., **kwargs):
         from drunc.fsm.actions.utils import validate_run_type
@@ -38,15 +38,15 @@ class UsvcProvidedRunNumber(FSMAction):
             req.raise_for_status()
         except requests.HTTPError as exc:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotGetRunNumber(error) from exc
         except requests.ConnectionError as exc:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotGetRunNumber(error) from exc
         except requests.Timeout as exc:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotGetRunNumber(error) from exc
 
         self.run = req.json()[0][0][0]

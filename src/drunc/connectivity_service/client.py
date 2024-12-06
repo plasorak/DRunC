@@ -18,7 +18,7 @@ class ConnectivityServiceClient:
     def __init__(self, session:str, address:str):
         self.session = session
         from drunc.utils.utils import get_logger
-        self.logger = get_logger('ConnectivityServiceClient')
+        self.log = get_logger('ConnectivityServiceClient')
 
         if address.startswith('http://') or address.startswith('https://'):
             self.address = address
@@ -39,7 +39,7 @@ class ConnectivityServiceClient:
         }
         for i in range(50):
             try:
-                self.logger.debug(f'Retracting \'{uid}\' on the connectivity service, attempt {i+1}')
+                self.log.debug(f'Retracting \'{uid}\' on the connectivity service, attempt {i+1}')
 
                 r = http_post(
                     self.address+"/retract",
@@ -53,7 +53,7 @@ class ConnectivityServiceClient:
                 )
 
                 if r.status_code == 404:
-                    self.logger.warning(f'Connection \'{uid}\' not found on the application registry')
+                    self.log.warning(f'Connection \'{uid}\' not found on the application registry')
                     break
 
                 r.raise_for_status()
@@ -73,7 +73,7 @@ class ConnectivityServiceClient:
         }
         for i in range(50):
             try:
-                self.logger.debug(f'Looking up \'{uid_regex}\' on the connectivity service, attempt {i+1}')
+                self.log.debug(f'Looking up \'{uid_regex}\' on the connectivity service, attempt {i+1}')
                 response = http_post(
                     self.address + "/getconnection/" + self.session,
                     data = data,
@@ -89,17 +89,17 @@ class ConnectivityServiceClient:
                 if content:
                     return content
                 else:
-                    self.logger.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
+                    self.log.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
                     import time
                     time.sleep(0.2)
 
             except (HTTPError, ConnectionError, ReadTimeout) as e:
-                self.logger.debug(e)
+                self.log.debug(e)
                 from time import sleep
                 sleep(0.2)
                 continue
 
-        self.logger.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
+        self.log.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
         raise ApplicationLookupUnsuccessful
 
 
@@ -107,7 +107,7 @@ class ConnectivityServiceClient:
         from drunc.utils.utils import http_post
         for i in range(50):
             try:
-                self.logger.debug(f'Publishing \'{uid}\' on the connectivity service, attempt {i+1}')
+                self.log.debug(f'Publishing \'{uid}\' on the connectivity service, attempt {i+1}')
 
                 http_post(
                     self.address+"/publish",

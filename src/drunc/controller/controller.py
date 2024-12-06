@@ -25,7 +25,7 @@ from typing import Optional, List
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
         from drunc.utils.utils import get_logger
-        self.logger = get_logger("ControllerActor")
+        self.log = get_logger("ControllerActor")
 
         self._token = Token(
             token="",
@@ -83,8 +83,8 @@ class Controller(ControllerServicer):
         self.broadcast_service = None
 
         from drunc.utils.utils import get_logger
-        self.logger = get_logger('Controller')
-        self.logger.info(f'Initialising controller \'{name}\' with session \'{session}\'')
+        self.log = get_logger('Controller')
+        self.log.info(f'Initialising controller \'{name}\' with session \'{session}\'')
         self.configuration = configuration
 
         from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
@@ -130,7 +130,7 @@ class Controller(ControllerServicer):
             import os
             connection_server = self.configuration.session.connectivity_service.host
             connection_port   = self.configuration.session.connectivity_service.service.port
-            self.logger.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
+            self.log.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
 
             from drunc.connectivity_service.client import ConnectivityServiceClient
             self.connectivity_service = ConnectivityServiceClient(
@@ -156,9 +156,9 @@ class Controller(ControllerServicer):
 
         for child in self.children_nodes:
             if child is None:
-                self.logger.info("Child is None")
+                self.log.info("Child is None")
             else:
-                self.logger.info(child)
+                self.log.info(child)
                 child.propagate_command('take_control', None, self.actor.get_token())
 
         from druncschema.request_response_pb2 import CommandDescription
@@ -282,7 +282,7 @@ class Controller(ControllerServicer):
         if not self.connectivity_service:
             return
 
-        self.logger.info(f'Registering {self.name} to the connectivity service at {address}')
+        self.log.info(f'Registering {self.name} to the connectivity service at {address}')
 
         from threading import Thread
         self.running = True
@@ -317,7 +317,7 @@ class Controller(ControllerServicer):
         if hasattr(self, 'connectivity_service') and self.connectivity_service:
             if self.connectivity_service_thread:
                 self.connectivity_service_thread.join()
-            self.logger.info('Unregistering from the connectivity service')
+            self.log.info('Unregistering from the connectivity service')
             self.connectivity_service.retract(self.name+"_control")
 
         if self.can_broadcast():
@@ -326,9 +326,9 @@ class Controller(ControllerServicer):
                 message = 'over_and_out',
             )
 
-        self.logger.info('Stopping children')
+        self.log.info('Stopping children')
         for child in self.children_nodes:
-            self.logger.debug(f'Stopping {child.name}')
+            self.log.debug(f'Stopping {child.name}')
             child.terminate()
         self.children_nodes = []
 
@@ -338,14 +338,14 @@ class Controller(ControllerServicer):
             ResponseListener.get().terminate()
 
         import threading
-        self.logger.debug("Threading threads")
+        self.log.debug("Threading threads")
         for t in threading.enumerate():
-            self.logger.debug(f'{t.getName()} TID: {t.native_id} is_alive: {t.is_alive}')
+            self.log.debug(f'{t.getName()} TID: {t.native_id} is_alive: {t.is_alive}')
 
         from multiprocessing import Manager
         with Manager() as manager:
-            self.logger.debug("Multiprocess threads")
-            self.logger.debug(manager.list())
+            self.log.debug("Multiprocess threads")
+            self.log.debug(manager.list())
 
 
     def __del__(self):
@@ -387,7 +387,7 @@ class Controller(ControllerServicer):
                     )
 
             except Exception as e: # Catch all, we are in a thread and want to do something sensible when an exception is thrown
-                self.logger.error(f"Something wrong happened while sending the command to {child.name}: Error raised: {str(e)}")
+                self.log.error(f"Something wrong happened while sending the command to {child.name}: Error raised: {str(e)}")
                 from drunc.utils.utils import print_traceback
                 print_traceback()
                 from drunc.exceptions import DruncException
@@ -419,7 +419,7 @@ class Controller(ControllerServicer):
 
         threads = []
         for child in node_to_execute:
-            self.logger.debug(f'Propagating to {child.name}')
+            self.log.debug(f'Propagating to {child.name}')
             t = Thread(
                 target = propagate_to_child,
                 kwargs = {
@@ -566,7 +566,7 @@ class Controller(ControllerServicer):
             )
 
         if not self.stateful_node.node_is_included():
-            self.logger.error(f"Node is not included, not executing command {fsm_command.command_name}.")
+            self.log.error(f"Node is not included, not executing command {fsm_command.command_name}.")
             fsm_result = FSMCommandResponse(
                 flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
                 command_name = fsm_command.command_name,
@@ -583,10 +583,10 @@ class Controller(ControllerServicer):
 
         transition = self.stateful_node.get_fsm_transition(fsm_command.command_name)
 
-        self.logger.debug(f'The transition requested is "{str(transition)}"')
+        self.log.debug(f'The transition requested is "{str(transition)}"')
 
         if not self.stateful_node.can_transition(transition):
-            self.logger.error(f'Cannot \"{transition.name}\" as this is an invalid command in state \"{self.stateful_node.node_operational_state()}\"')
+            self.log.error(f'Cannot \"{transition.name}\" as this is an invalid command in state \"{self.stateful_node.node_operational_state()}\"')
 
             fsm_result = FSMCommandResponse(
                 flag = FSMResponseFlag.FSM_INVALID_TRANSITION,
@@ -601,7 +601,7 @@ class Controller(ControllerServicer):
                 children = [],
             )
 
-        self.logger.debug(f'FSM command data: {fsm_command}')
+        self.log.debug(f'FSM command data: {fsm_command}')
 
         fsm_args = self.stateful_node.decode_fsm_arguments(fsm_command)
 

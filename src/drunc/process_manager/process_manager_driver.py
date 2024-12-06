@@ -56,7 +56,7 @@ class ProcessManagerDriver(GRPCDriver):
         apps = infra_apps+apps
 
         import json
-        self._log.debug(f"{json.dumps(apps, indent=4)}")
+        self.log.debug(f"{json.dumps(apps, indent=4)}")
 
         import os
         pwd = os.getcwd()
@@ -75,7 +75,7 @@ class ProcessManagerDriver(GRPCDriver):
             env['DUNE_DAQ_BASE_RELEASE'] = os.getenv("DUNE_DAQ_BASE_RELEASE")
             env['SPACK_RELEASES_DIR'] = os.getenv("SPACK_RELEASES_DIR")
             tree_id = app['tree_id']
-            self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
+            self.log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
             if session_dal.rte_script:
@@ -116,7 +116,7 @@ class ProcessManagerDriver(GRPCDriver):
             if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
                 raise DruncShellException(f"Log path {log_path} does not exist.")
 
-            self._log.debug(f'{name}\'s env:\n{env}')
+            self.log.debug(f'{name}\'s env:\n{env}')
             breq =  BootRequest(
                 process_description = ProcessDescription(
                     metadata = ProcessMetadata(
@@ -135,7 +135,7 @@ class ProcessManagerDriver(GRPCDriver):
                     allowed_hosts = [host]
                 )
             )
-            self._log.debug(f"{breq=}\n\n")
+            self.log.debug(f"{breq=}\n\n")
             yield breq
 
     async def boot(
@@ -147,7 +147,7 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
-        self._log.info(f"Booting session {session_name}")
+        self.log.info(f"Booting session {session_name}")
         import conffwk
         from drunc.utils.configuration import find_configuration
         oks_conf = find_configuration(conf)
@@ -160,7 +160,7 @@ class ProcessManagerDriver(GRPCDriver):
                 from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+                self.log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
 {e}
 To debug it, close drunc and run the following command:
 
@@ -204,7 +204,7 @@ To debug it, close drunc and run the following command:
                 from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
                     timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
-                    self._log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
+                    self.log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
                         name = top_controller_name,
@@ -215,7 +215,7 @@ To debug it, close drunc and run the following command:
                     )
                 except ApplicationLookupUnsuccessful as e:
                     import getpass
-                    self._log.error(f'''
+                    self.log.error(f'''
 Could not find \'{top_controller_name}\' on the connectivity service.
 
 Two possibilities:
@@ -256,7 +256,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
 
         import signal
         def keyboard_interrupt_on_sigint(signal, frame):
-            self._log.warning("Interrupted")
+            self.log.warning("Interrupted")
             raise KeyboardInterrupt
 
         original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -267,13 +267,13 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
-                self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
+                self.log.warning(f"""This shell didn't connect to the {top_controller_name}.
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
 """, extra={"markup": True}
                 )
             else:
-                self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+                self.log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
         finally:
             signal.signal(signal.SIGINT, original_sigint_handler)
 
@@ -306,7 +306,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
                     allowed_hosts = ["localhost"]
                 )
             )
-            self._log.debug(f"{breq=}\n\n")
+            self.log.debug(f"{breq=}\n\n")
 
             yield await self.send_command_aio(
                 'boot',
