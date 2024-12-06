@@ -7,13 +7,11 @@ import getpass
 from rich.console import Console
 from rich.logging import RichHandler
 from drunc.utils.utils import log_levels, setup_root_logger, get_logger
-from drunc.process_manager.utils import get_log_path
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 _cleanup_coroutines = []
 
 def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
     appName = "process_manager"
-
-    from drunc.process_manager.utils import get_pm_conf_name_from_dir
     pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
 
     log_path = get_log_path(
@@ -87,7 +85,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
 
 
     try:
-        log.debug("Serving process manager")
+        log.debug("Serving process_manager")
         loop.run_until_complete(
             serve(pm_address)
         )

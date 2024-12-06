@@ -130,7 +130,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self.log.info(f'{self.name} terminating')
+        self.log.info(f'Terminating')
         if self.process_store:
             self.log.info('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]
@@ -142,7 +142,7 @@ class SSHProcessManager(ProcessManager):
 
 
     async def _logs_impl(self, log_request:LogRequest) -> LogLine:
-        self.log.debug(f'{self.name} retrieving logs for {log_request.query}')
+        self.log.debug(f'Retrieving logs for {log_request.query}')
         uid = self._ensure_one_process(self._get_process_uid(log_request.query))
         logfile = self.boot_request[uid].process_description.process_logs_path
         # https://stackoverflow.com/questions/7167008/efficiently-finding-the-last-line-in-a-text-file
@@ -221,7 +221,7 @@ class SSHProcessManager(ProcessManager):
         self.watchers.append(t)
 
     def __boot(self, boot_request:BootRequest, uuid:str) -> ProcessInstance:
-        self.log.debug(f'{self.name} booting session \'{boot_request.process_description.metadata}\'')
+        self.log.debug(f'{self.name} booting \'{boot_request.process_description.metadata.name}\' from session \'{boot_request.process_description.metadata.session}\'')
         import os
         platform = os.uname().sysname.lower()
         macos = ("darwin" in platform)

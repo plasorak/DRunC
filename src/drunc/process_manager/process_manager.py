@@ -27,10 +27,12 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
         self.log = get_logger(
-            logger_name = "process_manager"
+            logger_name = name
         )
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
+        self.log.error(f"{configuration.data.type=}")
+        self.log.error(f"{type(configuration.data.type)=}")
 
         self.configuration = configuration
         self.name = name

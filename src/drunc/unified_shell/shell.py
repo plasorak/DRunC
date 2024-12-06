@@ -5,6 +5,7 @@ import os
 from drunc.utils.utils import validate_command_facility
 import pathlib
 from drunc.process_manager.interface.cli_argument import validate_conf_string
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from urllib.parse import urlparse
 # from rich import print as rprint
 import logging
@@ -16,6 +17,7 @@ import getpass
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -24,6 +26,7 @@ def unified_shell(
     session_name:str,
     log_level:str,
     override_logs:bool,
+    log_path:str
 ) -> None:
     from drunc.utils.utils import setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
     setup_root_logger(log_level)
@@ -44,6 +47,18 @@ def unified_shell(
         ready_event = mp.Event()
         port = mp.Value('i', 0)
 
+        pm_log_path = get_log_path(
+            user = getpass.getuser(),
+            session_name = get_pm_conf_name_from_dir(process_manager),
+            application_name = "process_manager",
+            override_logs = override_logs,
+            app_log_path = log_path
+        )
+        log = get_logger(
+            logger_name = "process_manager", 
+            log_file_path = pm_log_path,
+            rich_handler = True
+        )
         ctx.obj.pm_process = mp.Process(
             target = run_pm,
             kwargs = {

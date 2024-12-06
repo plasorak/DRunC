@@ -109,6 +109,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         fileHandler.setLevel(log_file_log_level)
         fileHandler.setFormatter(_get_default_logging_format())
         logger.addHandler(fileHandler)
+        logger.debug(f"Added file handler to {logger_name}")
     
     if rich_handler:
         try:
@@ -121,13 +122,18 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             show_path=False,
             tracebacks_width=width
         )
+    elif any(type(handler) == RichHandler for handler in logger.parent.handlers):
+        stdHandler = None
     else:
         stdHandler = logging.StreamHandler()
 
-    stdHandler.setLevel(rich_log_level)
-    stdHandler.setFormatter(_get_default_logging_format())
-    logger.addHandler(stdHandler)
+    if stdHandler:
+        stdHandler.setLevel(rich_log_level)
+        stdHandler.setFormatter(_get_default_logging_format())
+        logger.addHandler(stdHandler)
+        logger.debug(f"Added appropriate stream handler to {logger_name}")
 
+    logger.debug(f"Finished setting up logger {logger_name}")
     return logger
 
 def _get_default_logging_format():

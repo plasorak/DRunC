@@ -2,9 +2,10 @@ import click
 import getpass
 import logging
 
-from drunc.utils.utils import run_coroutine, log_levels
+from drunc.utils.utils import run_coroutine, log_levels, get_logger
 from drunc.process_manager.interface.context import ProcessManagerContext
 from drunc.process_manager.interface.cli_argument import validate_conf_string
+from drunc.utils.shell_utils import InterruptedCommand
 
 @click.command('boot')
 @click.option(
@@ -32,9 +33,7 @@ async def boot(
     override_logs:bool,
     ) -> None:
 
-    from drunc.utils.utils import get_logger
     log = get_logger("unified_shell.boot")
-    from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
             conf = obj.boot_configuration,
