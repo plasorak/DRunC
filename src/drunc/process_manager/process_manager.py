@@ -27,7 +27,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
         self.log = get_logger(
-            logger_name = f"{name}.{configuration.data.type.name}"
+            logger_name = f"{name}"
         )
         self.log.debug(pid_info_str())
         self.log.debug("Initialized ProcessManager")
@@ -490,14 +490,14 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     @staticmethod
     def get(conf, **kwargs):
         from drunc.utils.utils import get_logger
-        log = get_logger("ProcessManager_get", rich_handler = True)
+        log = get_logger("process_manager", rich_handler = True)
 
         if conf.data.type == ProcessManagerTypes.SSH:
-            log.info(f'Starting \'SSHProcessManager\'')
+            log.info(f'Starting [green]SSH process_manager[/green]', extra={'markup': True})
             from drunc.process_manager.ssh_process_manager import SSHProcessManager
             return SSHProcessManager(conf, **kwargs)
         elif conf.data.type == ProcessManagerTypes.K8s:
-            log.info(f'Starting \'K8sProcessManager\'')
+            log.info(f'Starting [green]K8s process_manager[/green]', extra={'markup': True})
             from drunc.process_manager.k8s_process_manager import K8sProcessManager
             return K8sProcessManager(conf, **kwargs)
         else:

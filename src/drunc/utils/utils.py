@@ -89,13 +89,11 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         raise DruncSetupException("The root logger has not been initialized, exiting.")
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
         raise DruncSetupException("process_manager setup requires a log path.")
-    # if logger_name == "process_manager" and not rich_handler:
-    #     raise DruncSetupException("process_manager requires a rich handler.")
 
     if not log_file_log_level:
-        log_file_log_level = logging.getLogger('drunc').getEffectiveLevel()
+        log_file_log_level = logging.getLogger('drunc').level
     if not rich_log_level:
-        rich_log_level = logging.getLogger('drunc').getEffectiveLevel()
+        rich_log_level = logging.getLogger('drunc').level
 
     logger_name = 'drunc.' + logger_name
     if logger_name in logging.Logger.manager.loggerDict:
@@ -103,6 +101,8 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         logger.debug(f"Logger {logger_name} already exists, not overwriting properties")
         return logger
 
+    if logger_name == "process_manager" and not rich_handler:
+        raise DruncSetupException("process_manager requires a rich handler.")
     if log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 

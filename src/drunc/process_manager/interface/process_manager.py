@@ -27,7 +27,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         rich_handler = True
     )
 
-    log.info("Running run_pm")
+    log.debug("Running [green]run_pm[/green]", extra={'markup': True})
     if signal_handler is not None:
         signal_handler()
 
@@ -67,8 +67,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         await server.start()
         import socket
         hostname = socket.gethostname()
-        log.info(f'ProcessManager was started on {hostname}:{port}')
-
+        log.info(f'process_manager communicating through address [bold green]{hostname}:{port}[/bold green]', extra={'markup': True}) # bold as part of the address was already formatting, couldn't figure out why
 
         async def server_shutdown():
             log.warning("Starting shutdown...")
