@@ -112,20 +112,7 @@ class ControllerConfHandler(ConfHandler):
             if new_node:
                 self.children.append(new_node)
             
-        # with ThreadPoolExecutor() as executor:
-        #     segment_futures = [executor.submit(process_segment, segment) for segment in self.data.segments]
-        #     application_futures = [executor.submit(process_application, app) for app in self.data.applications]
-
-        # # Collect results as they complete
-        # for future in segment_futures + application_futures:
-        #     try:
-        #         result = future.result()
-        #         if result is not None:
-        #             self.children.append(result)
-        #     except Exception as e:
-        #         self.log.error(f"Error processing child: {e}")
-
-
+        # threading the children look up    
         threads = []
 
         for segment in self.data.segments:
