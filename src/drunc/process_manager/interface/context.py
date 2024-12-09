@@ -15,6 +15,7 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         )
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
+        self.log.debug("Creating process_manager drivers")
         if not self.address:
             return {}
 
@@ -50,5 +51,6 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         rprint(f':ear: Listening to the Process Manager at {self.address}')
 
     def terminate(self):
+        self.log.debug("Terminating")
         if self.status_receiver:
             self.status_receiver.stop()

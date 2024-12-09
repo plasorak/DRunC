@@ -26,7 +26,7 @@ async def boot(
     override_logs:bool,
     ) -> None:
     log = get_logger("process_manager.boot", log_level)
-    log.debug(f"process_manager booting session {session_name} with boot configuration {boot_configuration}, requested by user {user}")
+    log.debug(f"Booting session {session_name} with boot configuration {boot_configuration}, requested by user {user}")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -61,7 +61,7 @@ async def boot(
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
     log = get_logger("process_manager.dummy_boot")
-    log.debug(f"process_manager running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleep} times, requested by user {user}")
+    log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleep} times, requested by user {user}")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(
@@ -83,7 +83,7 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
 @run_coroutine
 async def terminate(obj:ProcessManagerContext) -> None:
     log = get_logger("process_manager.terminate")
-    log.debug("process_manager running terminate")
+    log.debug("Terminating")
     result = await obj.get_driver('process_manager').terminate()
     if not result: return
 
@@ -96,7 +96,7 @@ async def terminate(obj:ProcessManagerContext) -> None:
 @run_coroutine
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.kill")
-    log.debug(f"process_manager running kill with query {query}")
+    log.debug(f"Killing with query {query}")
     result = await obj.get_driver('process_manager').kill(
         query = query,
     )
@@ -132,7 +132,7 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @run_coroutine
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
     log = get_logger("process_manager.logs")
-    log.debug(f"process_manager running logs with query {query}")
+    log.debug(f"Running logs with query {query}")
     from druncschema.process_manager_pb2 import LogRequest, LogLine
 
     log_req = LogRequest(
@@ -180,7 +180,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 @run_coroutine
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.restart")
-    log.debug(f"process_manager running restart with query {query}")
+    log.debug(f"Restarting with query {query}")
     result = await obj.get_driver('process_manager').restart(
         query = query,
     )
@@ -193,7 +193,7 @@ async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @run_coroutine
 async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) -> None:
     log = get_logger("process_manager.ps")
-    log.debug(f"process_manager running ps with query {query}")
+    log.debug(f"Running ps with query {query}")
     results = await obj.get_driver('process_manager').ps(
         query=query,
     )

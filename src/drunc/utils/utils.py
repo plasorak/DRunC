@@ -53,6 +53,10 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
 def setup_root_logger(stream_log_level:str):
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+    if "drunc" in logging.Logger.manager.loggerDict:
+        logger = logging.getLogger('drunc')
+        logger.info("'drunc' logger already exists, skipping setup")
+        return logger
 
     logger = logging.getLogger('drunc')
     stream_log_level = log_levels[stream_log_level]
@@ -80,7 +84,9 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
-        raise DruncSetupException("Process manager setup requires a log path.")
+        raise DruncSetupException("process_manager setup requires a log path.")
+    # if logger_name == "process_manager" and not rich_handler:
+    #     raise DruncSetupException("process_manager requires a rich handler.")
 
     if not log_file_log_level:
         log_file_log_level = logging.getLogger('drunc').getEffectiveLevel()
