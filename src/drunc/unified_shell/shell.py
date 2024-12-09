@@ -111,7 +111,6 @@ def unified_shell(
         address_pm = process_manager_address,
     )
 
-    unified_shell_log.error(f"{logging.root=}")
     desc = None
     try:
         unified_shell_log.debug("Runnning describe")
