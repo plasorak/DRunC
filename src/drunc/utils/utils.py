@@ -410,10 +410,10 @@ def get_control_type_and_uri_from_connectivity_service(
                     break
 
             except ApplicationLookupUnsuccessful as e:
-                el = time.time() - start
+                elapsed = time.time() - start
                 logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                 time.sleep(retry_wait)
-                elapsed = time.time() - start
+                
 
 
     if len(uris) != 1:
