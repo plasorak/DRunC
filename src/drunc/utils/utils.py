@@ -395,7 +395,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
                 except ApplicationLookupUnsuccessful as e:
                     elapsed = time.time() - start
-                    logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
+                    logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                     time.sleep(retry_wait)
 
             progress.update(task, completed=timeout)
@@ -411,7 +411,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
             except ApplicationLookupUnsuccessful as e:
                 el = time.time() - start
-                logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
+                logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                 time.sleep(retry_wait)
                 elapsed = time.time() - start
 
