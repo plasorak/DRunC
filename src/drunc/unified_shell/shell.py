@@ -122,16 +122,15 @@ def unified_shell(
         ctx.obj.critical(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) #RETURNTOME - remove all the shellcontext console prints, we reserve everything for logging.
         if not external_pm and not ctx.obj.pm_process.is_alive():
             ctx.obj.critical(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
-        if logging.DEBUG == logging.root.level:
-            raise e # prints the exception to the terminal, there must be a better way to do this.
-        else:
-            exit()
+        unified_shell_log.exception(e) # prints the exception to the terminal, there must be a better way to do this.
+        exit()
 
     ctx.obj.boot_configuration = find_configuration(boot_configuration)
     ctx.obj.session_name = session_name
 
     unified_shell_log.debug(f'{process_manager_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
     unified_shell_log.info(f"process_manager listening...")
+
     if desc.HasField('broadcast'):
         ctx.obj.start_listening_pm(
             broadcaster_conf = desc.broadcast,
@@ -160,7 +159,6 @@ def unified_shell(
     # Not particularly proud of this...
     # We instantiate a stateful node which has the same configuration as the one from this session
     # Let's do this
-
     db = conffwk.Configuration(f"oksconflibs:{ctx.obj.boot_configuration}")
     session_dal = db.get_dal(class_name="Session", uid=session_name)
 

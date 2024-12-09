@@ -128,7 +128,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             width = 150
         stdHandler = RichHandler(
             console=Console(width=width),
-            rich_tracebacks=False,
+            rich_tracebacks=True,
             show_path=False,
             tracebacks_width=width
         )
