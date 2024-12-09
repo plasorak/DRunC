@@ -1,15 +1,14 @@
-import click
-import click_shell
-from drunc.utils.utils import log_levels
-import os
-from drunc.utils.utils import validate_command_facility
-import pathlib
 from drunc.process_manager.interface.cli_argument import validate_conf_string
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
-from urllib.parse import urlparse
+from drunc.utils.utils import validate_command_facility, log_levels
 # from rich import print as rprint
-import logging
+import click
+import click_shell
 import getpass
+import logging
+import os
+import pathlib
+from urllib.parse import urlparse
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
@@ -30,13 +29,26 @@ def unified_shell(
 ) -> None:
     from drunc.utils.utils import setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
     setup_root_logger(log_level)
-    log = get_logger('unified_shell', rich_handler = True)
-    log.debug(pid_info_str())
+    unified_shell_log = get_logger('unified_shell', rich_handler = True)
+    unified_shell_log.debug(pid_info_str())
     url_process_manager = urlparse(process_manager)
     external_pm = True
 
+    pm_log_path = get_log_path(
+        user = getpass.getuser(),
+        session_name = get_pm_conf_name_from_dir(process_manager),
+        application_name = "process_manager",
+        override_logs = override_logs,
+        app_log_path = log_path
+    )
+    process_manager_log = get_logger(
+        logger_name = "process_manager", 
+        log_file_path = pm_log_path,
+        rich_handler = True
+    )
+
     if url_process_manager.scheme != 'grpc': # slightly hacky to see if the process manager is an address
-        log.debug(f"Spawning a process manager with configuration [green]{process_manager}[/green]")
+        unified_shell_log.info(f"Spawning a process manager with configuration [green]{process_manager}[/green]")
         external_pm = False
         # Check if process_manager is a packaged config
         from drunc.process_manager.configuration import get_process_manager_configuration
@@ -47,18 +59,8 @@ def unified_shell(
         ready_event = mp.Event()
         port = mp.Value('i', 0)
 
-        pm_log_path = get_log_path(
-            user = getpass.getuser(),
-            session_name = get_pm_conf_name_from_dir(process_manager),
-            application_name = "process_manager",
-            override_logs = override_logs,
-            app_log_path = log_path
-        )
-        log = get_logger(
-            logger_name = "process_manager", 
-            log_file_path = pm_log_path,
-            rich_handler = True
-        )
+        unified_shell_log.info("Started process_manager logger")
+        process_manager_log.info("Started process_manager logger")
         ctx.obj.pm_process = mp.Process(
             target = run_pm,
             kwargs = {
@@ -72,7 +74,7 @@ def unified_shell(
                 "generated_port": port,
             },
         )
-        log.info(f'Starting process manager with configuration {process_manager}')
+        unified_shell_log.info(f'Starting process manager with configuration {process_manager}')
         ctx.obj.pm_process.start()
 
 
@@ -90,8 +92,9 @@ def unified_shell(
         process_manager_address = f'localhost:{port.value}'
 
     else: # user provided an address
-        log.info(f"Connecting to process manager at [green]{process_manager}[/green]")
         process_manager_address = process_manager.replace('grpc://', '') # remove the grpc scheme
+        unified_shell_log.info(f"Connecting to process manager at [green]{process_manager}[/green] at address [green]{process_manager_address}[/green]")
+        process_manager_log.info(f"Unified shell connected to the process_manager")
 
     ctx.obj.reset(
         address_pm = process_manager_address,
@@ -100,6 +103,7 @@ def unified_shell(
     desc = None
 
     try:
+        unified_shell_log.debug("Runnning describe")
         import asyncio
         desc = asyncio.get_event_loop().run_until_complete(
             ctx.obj.get_driver().describe()

@@ -50,13 +50,13 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
     #     import sys
     #     sys.traceback # FIX THISNOW
 
-def setup_root_logger(stream_log_level:str):
+def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
     if "drunc" in logging.Logger.manager.loggerDict:
         logger = logging.getLogger('drunc')
         logger.info("'drunc' logger already exists, skipping setup")
-        return logger
+        return
 
     logger = logging.getLogger('drunc')
     stream_log_level = log_levels[stream_log_level]
