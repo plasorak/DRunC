@@ -1,6 +1,8 @@
 
 def main():
+    from drunc.utils.utils import setup_root_logger
     from drunc.unified_shell.context import UnifiedShellContext
+    setup_root_logger("ERROR")
     context = UnifiedShellContext()
 
     try:

@@ -54,8 +54,10 @@ def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
     if "drunc" in logging.Logger.manager.loggerDict:
-        logger = logging.getLogger('drunc')
-        logger.info("'drunc' logger already exists, skipping setup")
+        drunc_root_logger = logging.getLogger('drunc')
+        if drunc_root_logger.getEffectiveLevel() == log_levels["ERROR"]:
+            drunc_root_logger.setLevel(stream_log_level)
+        drunc_root_logger.info("'drunc' logger already exists, skipping setup")
         return
 
     logger = logging.getLogger('drunc')
@@ -83,6 +85,8 @@ def setup_root_logger(stream_log_level:str) -> None:
 def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, rich_handler:bool = False, rich_log_level:str = None):
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
+    if "drunc" not in logging.Logger.manager.loggerDict:
+        raise DruncSetupException("The root logger has not been initialized, exiting.")
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
         raise DruncSetupException("process_manager setup requires a log path.")
     # if logger_name == "process_manager" and not rich_handler:
