@@ -67,7 +67,7 @@ def unified_shell(
 
     unified_shell_log.debug("Setting up process_manager shell logger")
     if process_manager_url.scheme != 'grpc': # slightly hacky to see if the process manager is an address
-        unified_shell_log.debug(f"Spawning process_manager with configuration [green]{process_manager}[/green]", extra={'markup': True})
+        unified_shell_log.debug(f"Spawning process_manager with configuration {process_manager}")
         external_pm = False
         # Check if process_manager is a packaged config
         process_manager_conf_file = get_process_manager_configuration(process_manager)
@@ -91,7 +91,6 @@ def unified_shell(
         )
         unified_shell_log.info(f'Started process_manager with configuration [green]{process_manager}[/green]', extra={'markup': True})
         ctx.obj.pm_process.start()
-
 
         for _ in range(100):
             if ready_event.is_set():
@@ -119,9 +118,9 @@ def unified_shell(
         )
         desc = desc.data
     except Exception as e:
-        ctx.obj.critical(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) #RETURNTOME - remove all the shellcontext console prints, we reserve everything for logging.
+        unified_shell_log.error(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) #RETURNTOME - remove all the shellcontext console prints, we reserve everything for logging.
         if not external_pm and not ctx.obj.pm_process.is_alive():
-            ctx.obj.critical(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
+            unified_shell_log.error(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
         unified_shell_log.exception(e) # prints the exception to the terminal, there must be a better way to do this.
         exit()
 

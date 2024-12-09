@@ -102,8 +102,6 @@ def get_process_manager_configuration(process_manager_conf_filename:str) -> str:
         if process_manager_conf_filename in packaged_configurations:
             process_manager_conf_filename = 'file://' + str(path('drunc.data.process_manager', '')) + '/' + process_manager_conf_filename
         else:
-            rprint(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{packaged_configurations}[/green]")
+            rprint(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{'[/green], [green]'.join(packaged_configurations)}[/green].")
             exit()
-            #from drunc.exceptions import DruncShellException
-            #raise DruncShellException(f"Configuration {process_manager} is not found in the package. The packaged configurations are {packaged_configurations}")
     return process_manager_conf_filename

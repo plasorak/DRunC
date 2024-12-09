@@ -61,7 +61,7 @@ async def boot(
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
     log = get_logger("process_manager.dummy_boot")
-    log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleep} times, requested by user {user}")
+    log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleeps} times, requested by user {user}")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(

@@ -21,7 +21,6 @@ class ProcessManagerDriver(GRPCDriver):
             name = 'process_manager.driver',
             address = address,
             token = token,
-            rich_handler = True,
             **kwargs
         )
         self.log.debug(f"set up process_manager.driver")
@@ -147,7 +146,7 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
-        self.log.info(f"Booting session {session_name}")
+        self.log.info(f"Booting session [green]{session_name}[/green]", extra={"markup": True})
         import conffwk
         from drunc.utils.configuration import find_configuration
         oks_conf = find_configuration(conf)

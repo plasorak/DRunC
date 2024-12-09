@@ -130,7 +130,8 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             console=Console(width=width),
             rich_tracebacks=True,
             show_path=False,
-            tracebacks_width=width
+            tracebacks_width=width,
+            markup=True
         )
     elif any(type(handler) == RichHandler for handler in logger.parent.handlers):
         stdHandler = None

@@ -43,12 +43,9 @@ class DecodedResponse:
 
 
 class GRPCDriver:
-    def __init__(self, name:str, address:str, token:Token, aio_channel=False, rich_handler = False):
+    def __init__(self, name:str, address:str, token:Token, aio_channel=False):
         from drunc.utils.utils import get_logger
-        self.log = get_logger(
-            name, 
-            rich_handler = rich_handler
-        )
+        self.log = get_logger(name)
         import grpc
         from druncschema.token_pb2 import Token
 
