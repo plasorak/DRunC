@@ -1,5 +1,5 @@
 import pytest
-
+import logging
 
 def test_get_random_string():
     from drunc.utils.utils import get_random_string
