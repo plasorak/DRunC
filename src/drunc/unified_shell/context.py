@@ -1,28 +1,31 @@
 from drunc.utils.shell_utils import ShellContext, GRPCDriver, add_traceback_flag
+from drunc.utils.utils import get_logger
 from druncschema.token_pb2 import Token
 from typing import Mapping
 
 class UnifiedShellContext(ShellContext): # boilerplatefest
-    status_receiver_pm = None
-    status_receiver_controller = None
-    took_control = False
-    pm_process = None
-    address_pm = ''
-    address_controller = ''
-    boot_configuration = ''
-    session_name = ''
+    def __init__(self):
+        self.status_receiver_pm = None
+        self.status_receiver_controller = None
+        self.took_control = False
+        self.pm_process = None
+        self.address_pm = ''
+        self.address_controller = ''
+        self.boot_configuration = ''
+        self.session_name = ''
+        super(UnifiedShellContext, self).__init__()
 
     def reset(self, address_pm:str=''):
         self.address_pm = address_pm
+        self.log = get_logger("unified_shell", rich_handler = True)
         super(UnifiedShellContext, self)._reset(
-            name = 'unified',
+            name = 'unified_shell',
             token_args = {},
             driver_args = {},
         )
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
         ret = {}
-
         if self.address_pm != '':
             from drunc.process_manager.process_manager_driver import ProcessManagerDriver
             ret['process_manager'] = ProcessManagerDriver(
@@ -62,6 +65,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         from drunc.broadcast.client.broadcast_handler import BroadcastHandler
         from drunc.broadcast.client.configuration import BroadcastClientConfHandler
         from drunc.utils.configuration import ConfTypes
+        # self.log.error("Started liostending toj pm")
         bcch = BroadcastClientConfHandler(
             type = ConfTypes.ProtobufAny,
             data = broadcaster_conf,

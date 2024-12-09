@@ -1,6 +1,7 @@
 import abc
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Request
+from drunc.utils.utils import get_logger, setup_root_logger
 from typing import Mapping
 from drunc.exceptions import DruncShellException
 
@@ -231,12 +232,12 @@ class ShellContext:
     def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
         from rich.console import Console
         self._console = Console()
-        from drunc.utils.utils import get_logger
-        self.log = get_logger(f"{name}.shell")
+        self.log = get_logger(f"{name}.shell_context")
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 
     def __init__(self, *args, **kwargs):
+        setup_root_logger("NOTSET")
         try:
             self.reset(*args, **kwargs)
         except Exception as e:

@@ -53,14 +53,13 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
 def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+    drunc_root_logger = logging.getLogger('drunc')
     if "drunc" in logging.Logger.manager.loggerDict:
-        drunc_root_logger = logging.getLogger('drunc')
-        if drunc_root_logger.getEffectiveLevel() == log_levels["ERROR"]:
+        if drunc_root_logger.level == log_levels["NOTSET"]:
             drunc_root_logger.setLevel(stream_log_level)
         drunc_root_logger.info("'drunc' logger already exists, skipping setup")
         return
 
-    logger = logging.getLogger('drunc')
     stream_log_level = log_levels[stream_log_level]
     logger.setLevel(stream_log_level)
     for handler in logger.handlers:
@@ -90,29 +89,40 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
         raise DruncSetupException("process_manager setup requires a log path.")
 
+    root_logger_level = logging.getLogger('drunc').level
     if not log_file_log_level:
-        log_file_log_level = logging.getLogger('drunc').level
+        log_file_log_level = root_logger_level
     if not rich_log_level:
-        rich_log_level = logging.getLogger('drunc').level
+        rich_log_level = root_logger_level
 
     logger_name = 'drunc.' + logger_name
+    logger = logging.getLogger(logger_name)
     if logger_name in logging.Logger.manager.loggerDict:
-        logger = logging.getLogger(logger_name)
-        logger.debug(f"Logger {logger_name} already exists, not overwriting properties")
-        return logger
+        if logger.level == log_levels["NOTSET"]:
+            logger.setLevel(logging.getLogger('drunc').level)
+            for handler in logger.handlers:
+                if type(handler)==RichHandler:
+                    handler.setLevel(rich_log_level)
+                elif type(handler)==logging.FileHandler:
+                    handler.setLevel(log_file_log_level)
+                else:
+                    raise DruncSetupException(f"Unrecognised hanlder type {type(handler)}")
+                    exit(1)
+        else:
+            logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
+            return logger
 
     if logger_name == "process_manager" and not rich_handler:
         raise DruncSetupException("process_manager requires a rich handler.")
     if log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 
-    logger = logging.getLogger(logger_name)
     while logger.hasHandlers():
         if len(logger.handlers) > 0:
             logger.removeHandler(logger.handlers[0])
         else:
             break
-    logger.setLevel(logging.getLogger('drunc').getEffectiveLevel())
+    logger.setLevel(logging.getLogger('drunc').level)
 
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
