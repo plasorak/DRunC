@@ -50,57 +50,61 @@ class ResponseDispatcher(threading.Thread):
 class ResponseListener:
     _instance = None
     manager = None
+    import threading
+    _lock = threading.Lock()
+
     def __init__(self):
         from drunc.exceptions import DruncSetupException
         raise DruncSetupException('Call get() instead')
 
     @classmethod
     def get(cls):
-        from logging import getLogger
-        log = getLogger('ResponseListener.get')
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-            from drunc.utils.utils import get_new_port
-            cls.port = get_new_port()
-            from flask import Flask
-            from flask_restful import Api
-            cls.app = Flask('response-listener')
-            cls.api = Api(cls.app)
-            from multiprocessing import Queue
-            cls.queue = Queue()
-            cls.handlers = {}
+        with cls._lock:
+            from logging import getLogger
+            log = getLogger('ResponseListener.get')
+            if cls._instance is None:
+                cls._instance = cls.__new__(cls)
+                from drunc.utils.utils import get_new_port
+                cls.port = get_new_port()
+                from flask import Flask
+                from flask_restful import Api
+                cls.app = Flask('response-listener')
+                cls.api = Api(cls.app)
+                from multiprocessing import Queue
+                cls.queue = Queue()
+                cls.handlers = {}
 
-            cls.dispatcher = ResponseDispatcher(cls)
-            cls.dispatcher.start()
+                cls.dispatcher = ResponseDispatcher(cls)
+                cls.dispatcher.start()
 
-            from flask import request
-            def index():
-                from logging import getLogger
-                log = getLogger('ResponseListener.index')
-                json = request.get_json(force=True)
-                log.debug(f'Received {json}')
-                # enqueue command reply
-                cls.queue.put(json)
-                log.debug(f'Queue size {cls.queue.qsize()}')
-                log.debug(f'Queue pointer {cls.queue}')
-                return "Response received"
+                from flask import request
+                def index():
+                    from logging import getLogger
+                    log = getLogger('ResponseListener.index')
+                    json = request.get_json(force=True)
+                    log.debug(f'Received {json}')
+                    # enqueue command reply
+                    cls.queue.put(json)
+                    log.debug(f'Queue size {cls.queue.qsize()}')
+                    log.debug(f'Queue pointer {cls.queue}')
+                    return "Response received"
 
-            def get():
-                return "ready"
+                def get():
+                    return "ready"
 
-            cls.app.add_url_rule("/response", "index", index, methods=["POST"])
-            cls.app.add_url_rule("/", "get", get, methods=["GET"])
-            from drunc.utils.flask_manager import FlaskManager
-            cls.manager = FlaskManager(
-                port = cls.port,
-                app = cls.app,
-                name = "response-listener-flaskmanager"
-            )
+                cls.app.add_url_rule("/response", "index", index, methods=["POST"])
+                cls.app.add_url_rule("/", "get", get, methods=["GET"])
+                from drunc.utils.flask_manager import FlaskManager
+                cls.manager = FlaskManager(
+                    port = cls.port,
+                    app = cls.app,
+                    name = "response-listener-flaskmanager"
+                )
 
-            cls.manager.start()
-            while not cls.manager.is_ready():
-                from time import sleep
-                sleep(0.1)
+                cls.manager.start()
+                while not cls.manager.is_ready():
+                    from time import sleep
+                    sleep(0.1)
 
         return cls._instance
 
