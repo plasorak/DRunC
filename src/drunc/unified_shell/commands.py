@@ -47,7 +47,7 @@ async def boot(
             if not result: break
             log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
-        log.warning("booting interrupted")
+        log.warning("Booting interrupted")
         return
 
     controller_address = obj.get_driver('process_manager').controller_address
