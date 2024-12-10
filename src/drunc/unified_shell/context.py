@@ -17,7 +17,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
 
     def reset(self, address_pm:str=''):
         self.address_pm = address_pm
-        self.log = get_logger("unified_shell", rich_handler = True)
+        self.log = get_logger("unified_shell.context", rich_handler = True)
         super(UnifiedShellContext, self)._reset(
             name = 'unified_shell',
             token_args = {},
@@ -25,6 +25,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         )
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
+        self.log.debug("Creating drivers")
         ret = {}
         if self.address_pm != '':
             from drunc.process_manager.process_manager_driver import ProcessManagerDriver
@@ -45,6 +46,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         return ret
 
     def set_controller_driver(self, address_controller, **kwargs) -> None:
+        self.log.debug("Setting controller address")
         self.address_controller = address_controller
 
         from drunc.controller.controller_driver import ControllerDriver
@@ -57,11 +59,13 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
 
 
     def create_token(self, **kwargs) -> Token:
+        self.log.debug("Creating dummy token")
         from drunc.utils.shell_utils import create_dummy_token_from_uname
         return create_dummy_token_from_uname()
 
 
     def start_listening_pm(self, broadcaster_conf):
+        self.log.debug("Listening to the pm")
         from drunc.broadcast.client.broadcast_handler import BroadcastHandler
         from drunc.broadcast.client.configuration import BroadcastClientConfHandler
         from drunc.utils.configuration import ConfTypes
@@ -76,6 +80,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         )
 
     def start_listening_controller(self, broadcaster_conf):
+        self.log.debug("Listening to the controller")
         from drunc.broadcast.client.broadcast_handler import BroadcastHandler
         from drunc.broadcast.client.configuration import BroadcastClientConfHandler
         from drunc.utils.configuration import ConfTypes
@@ -88,6 +93,7 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         )
 
     def terminate(self):
+        self.log.debug("Terminating")
         if self.status_receiver_pm:
             self.status_receiver_pm.stop()
 

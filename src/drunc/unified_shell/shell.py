@@ -22,9 +22,8 @@ import getpass
 import logging
 import multiprocessing as mp
 import os
-import pathlib
 from time import sleep
-import socket
+import sys
 from urllib.parse import urlparse
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
@@ -118,11 +117,11 @@ def unified_shell(
         )
         desc = desc.data
     except Exception as e:
-        unified_shell_log.error(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) #RETURNTOME - remove all the shellcontext console prints, we reserve everything for logging.
+        unified_shell_log.error(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) 
         if not external_pm and not ctx.obj.pm_process.is_alive():
             unified_shell_log.error(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
-        unified_shell_log.exception(e) # prints the exception to the terminal, there must be a better way to do this.
-        exit()
+        unified_shell_log.exception(e)
+        sys.exit()
 
     ctx.obj.boot_configuration = find_configuration(boot_configuration)
     ctx.obj.session_name = session_name
@@ -141,6 +140,7 @@ def unified_shell(
         if not external_pm:
             ctx.obj.pm_process.terminate()
             ctx.obj.pm_process.join()
+        logging.shutdown()
     ctx.call_on_close(cleanup)
 
     unified_shell_log.debug("Adding unified_shell commands to the click context")

@@ -53,11 +53,12 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
 def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
-    drunc_root_logger = logging.getLogger('drunc')
+    root_logger = logging.getLogger('drunc')
     if "drunc" in logging.Logger.manager.loggerDict:
-        if drunc_root_logger.level == log_levels["NOTSET"]:
-            drunc_root_logger.setLevel(stream_log_level)
-        drunc_root_logger.info("'drunc' logger already exists, skipping setup")
+        if root_logger.level == log_levels["NOTSET"]:
+            root_logger.setLevel(stream_log_level)
+            root_logger.debug(f"logger level updated from 'NOTSET' to '{stream_log_level}'")
+        root_logger.debug("'drunc' logger already exists, skipping setup")
         return
 
     stream_log_level = log_levels[stream_log_level]
@@ -86,8 +87,10 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
     if "drunc" not in logging.Logger.manager.loggerDict:
         raise DruncSetupException("The root logger has not been initialized, exiting.")
-    if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict and not log_file_path:
+    if logger_name == "process_manager" and not log_file_path and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
         raise DruncSetupException("process_manager setup requires a log path.")
+    if logger_name == "process_manager" and not rich_handler:
+        raise DruncSetupException("process_manager requires a rich handler.")
 
     root_logger_level = logging.getLogger('drunc').level
     if not log_file_log_level:
@@ -95,25 +98,25 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if not rich_log_level:
         rich_log_level = root_logger_level
 
+    # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
     logger_name = 'drunc.' + logger_name
     logger = logging.getLogger(logger_name)
     if logger_name in logging.Logger.manager.loggerDict:
         if logger.level == log_levels["NOTSET"]:
-            logger.setLevel(logging.getLogger('drunc').level)
+            logger.setLevel(root_logger_level)
             for handler in logger.handlers:
-                if type(handler)==RichHandler:
-                    handler.setLevel(rich_log_level)
-                elif type(handler)==logging.FileHandler:
-                    handler.setLevel(log_file_log_level)
-                else:
-                    raise DruncSetupException(f"Unrecognised hanlder type {type(handler)}")
-                    exit(1)
+                match type(handler).__name__:
+                    case "RichHandler":
+                        handler.setLevel(rich_log_level)
+                    case "FileHandler" | "StreamHandler":
+                        handler.setLevel(log_file_log_level)
+                    case _:
+                        raise DruncSetupException(f"Unrecognised handler type {type(handler)}")
+                        exit(1)
         else:
             logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
             return logger
 
-    if logger_name == "process_manager" and not rich_handler:
-        raise DruncSetupException("process_manager requires a rich handler.")
     if log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 
@@ -122,7 +125,8 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             logger.removeHandler(logger.handlers[0])
         else:
             break
-    logger.setLevel(logging.getLogger('drunc').level)
+
+    logger.setLevel(root_logger_level)
 
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
@@ -130,7 +134,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         fileHandler.setFormatter(_get_default_logging_format())
         logger.addHandler(fileHandler)
         logger.debug(f"Added file handler to {logger_name}")
-    
+
     if rich_handler:
         try:
             width = os.get_terminal_size()[0]
