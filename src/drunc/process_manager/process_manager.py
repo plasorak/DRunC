@@ -390,6 +390,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         d = Description(
             type = 'process_manager',
             name = self.name,
+            info = self.configuration.log_path,
             session = 'no_session' if not self.session else self.session,
             commands = self.commands,
         )

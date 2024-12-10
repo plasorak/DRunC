@@ -47,6 +47,13 @@ def unified_shell(
     setup_root_logger(log_level)
     unified_shell_log = get_logger('unified_shell', rich_handler = True)
     unified_shell_log.debug("Setting up process_manager logger")
+    unified_shell_log.debug(pid_info_str())
+
+    process_manager_url = urlparse(process_manager)
+    if process_manager_url.scheme != 'grpc':
+        internal_pm = True
+    else:
+        internal_pm = False
     pm_log_path = get_log_path(
         user = getpass.getuser(),
         session_name = get_pm_conf_name_from_dir(process_manager),
@@ -57,17 +64,13 @@ def unified_shell(
     process_manager_log = get_logger(
         logger_name = "process_manager", 
         log_file_path = pm_log_path,
+        override_log_file = internal_pm,
         rich_handler = True
     )
 
-    unified_shell_log.debug(pid_info_str())
-    process_manager_url = urlparse(process_manager)
-    external_pm = True
-
     unified_shell_log.debug("Setting up process_manager shell logger")
-    if process_manager_url.scheme != 'grpc': # slightly hacky to see if the process manager is an address
+    if internal_pm: # slightly hacky to see if the process manager is an address
         unified_shell_log.debug(f"Spawning process_manager with configuration {process_manager}")
-        external_pm = False
         # Check if process_manager is a packaged config
         process_manager_conf_file = get_process_manager_configuration(process_manager)
 
@@ -118,7 +121,7 @@ def unified_shell(
         desc = desc.data
     except Exception as e:
         unified_shell_log.error(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) 
-        if not external_pm and not ctx.obj.pm_process.is_alive():
+        if internal_pm and not ctx.obj.pm_process.is_alive():
             unified_shell_log.error(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
         unified_shell_log.exception(e)
         sys.exit()
@@ -137,7 +140,7 @@ def unified_shell(
     def cleanup():
         unified_shell_log.debug("Cleanup")
         ctx.obj.terminate()
-        if not external_pm:
+        if internal_pm:
             ctx.obj.pm_process.terminate()
             ctx.obj.pm_process.join()
         logging.shutdown()

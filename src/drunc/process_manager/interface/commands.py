@@ -197,7 +197,6 @@ async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) ->
     results = await obj.get_driver('process_manager').ps(
         query=query,
     )
-
     if not results: return
 
     from drunc.process_manager.utils import tabulate_process_instance_list

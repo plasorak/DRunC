@@ -82,7 +82,7 @@ def setup_root_logger(stream_log_level:str) -> None:
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, override_log_file:bool = True, rich_handler:bool = False, rich_log_level:str = None):
+def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, override_log_file:bool = False, rich_handler:bool = False, rich_log_level:str = None):
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
     if "drunc" not in logging.Logger.manager.loggerDict:

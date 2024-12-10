@@ -17,7 +17,7 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         )
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
-        self.log.debug("Creating process_manager drivers")
+        self.log.debug("Creating drivers")
         if not self.address:
             return {}
 
@@ -32,11 +32,13 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         }
 
     def create_token(self, **kwargs) -> Token:
+        self.log.debug("Creating token")
         from drunc.utils.shell_utils import create_dummy_token_from_uname
         return create_dummy_token_from_uname()
 
 
     def start_listening(self, broadcaster_conf):
+        self.log.debug("starting to listen")
         from drunc.broadcast.client.broadcast_handler import BroadcastHandler
         from drunc.broadcast.client.configuration import BroadcastClientConfHandler
         from drunc.utils.configuration import ConfTypes
