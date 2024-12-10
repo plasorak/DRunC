@@ -1,6 +1,6 @@
 import click
 import signal
-from drunc.utils.utils import log_levels, setup_logger, validate_command_facility
+from drunc.utils.utils import log_levels, setup_root_logger, validate_command_facility, get_logger
 import os
 import logging
 
@@ -15,9 +15,9 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
     from rich.console import Console
     console = Console()
 
-    setup_logger(log_level)
-    from logging import getLogger
-    log = getLogger('controller_cli')
+    setup_root_logger(log_level)
+    log = get_logger('controller_cli')
+
     from drunc.controller.controller import Controller
     from drunc.controller.configuration import ControllerConfHandler
     from druncschema.controller_pb2_grpc import add_ControllerServicer_to_server
@@ -66,13 +66,13 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         ctrlr.terminate()
 
     def kill_me(sig, frame):
-        l = logging.getLogger("kill_me")
+        l = get_logger("kill_me")
         l.info('Sending SIGKILL')
         pgrp = os.getpgid(os.getpid())
         os.killpg(pgrp, signal.SIGKILL)
 
     def shutdown(sig, frame):
-        l = logging.getLogger("shutdown")
+        l = get_logger("shutdown")
         l.info('Shutting down gracefully')
         try:
             controller_shutdown()

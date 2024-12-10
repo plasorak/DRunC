@@ -7,7 +7,6 @@ from typing import List, Dict, Any
 
 from drunc.process_manager.configuration import ProcessManagerConfHandler
 from drunc.exceptions import  DruncException
-pmch = ProcessManagerConfHandler()
 
 dal = conffwk.dal.module('x', 'schema/confmodel/dunedaq.schema.xml')
 
@@ -43,8 +42,8 @@ def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> L
 
   """
 
-  import logging
-  log = logging.getLogger('collect_apps')
+  from drunc.utils.utils import get_logger
+  log = get_logger('collect_apps')
   # Get default environment from Session
   defenv = env.copy()
 
@@ -141,8 +140,8 @@ def collect_infra_apps(session, env:Dict[str, str], tree_prefix) -> List[Dict]:
   @return The list of dictionaries holding application attributs
 
   """
-  import logging
-  log = logging.getLogger('collect_infra_apps')
+  from drunc.utils.utils import get_logger
+  log = get_logger('collect_infra_apps')
 
   defenv = env
 

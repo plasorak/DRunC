@@ -19,8 +19,8 @@ class ResponseDispatcher(threading.Thread):
     def __init__(self,listener):
         threading.Thread.__init__(self)
         self.listener = listener
-        from logging import getLogger
-        self.log = getLogger('ResponseDispatcher')
+        from drunc.utils.utils import get_logger
+        self.log = get_logger('ResponseDispatcher')
 
     def run(self) -> NoReturn:
         self.log.debug(f'ResponseDispatcher starting to run')
@@ -56,8 +56,8 @@ class ResponseListener:
 
     @classmethod
     def get(cls):
-        from logging import getLogger
-        log = getLogger('ResponseListener.get')
+        from drunc.utils.utils import get_logger
+        log = get_logger('ResponseListener.get')
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
             from drunc.utils.utils import get_new_port
@@ -75,8 +75,8 @@ class ResponseListener:
 
             from flask import request
             def index():
-                from logging import getLogger
-                log = getLogger('ResponseListener.index')
+                from drunc.utils.utils import get_logger
+                log = get_logger('ResponseListener.index')
                 json = request.get_json(force=True)
                 log.debug(f'Received {json}')
                 # enqueue command reply
@@ -199,9 +199,9 @@ class AppCommander:
         self.proxy_host = proxy_host
         self.proxy_port = proxy_port
 
-        from logging import getLogger
+        from drunc.utils.utils import get_logger
         self.app = app_name
-        self.log = getLogger(f'{self.app}-commander')
+        self.log = get_logger(f'{self.app}-commander')
         self.app_url = f"http://{self.app_host}:{self.app_port}/command"
 
         from queue import Queue
@@ -349,8 +349,8 @@ class RESTAPIChildNode(ClientSideChild):
             fsm_configuration = fsm_configuration,
         )
 
-        from logging import getLogger
-        self.log = getLogger(f'{name}-rest-api-child')
+        from drunc.utils.utils import get_logger
+        self.log = get_logger(f'{name}-rest-api-child')
 
         self.response_listener = ResponseListener.get()
 

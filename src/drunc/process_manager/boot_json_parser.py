@@ -46,8 +46,8 @@ def process_args(args, env):
 def process_exec(name, data, env, exec, hosts, pwd, session, user, extra_args, **kwargs):
     from druncschema.process_manager_pb2 import BootRequest, ProcessDescription, ProcessRestriction, ProcessMetadata
 
-    from logging import getLogger
-    _log = getLogger('process_exec')
+    from drunc.utils.utils import get_logger
+    _log = get_logger('process_exec')
     from copy import deepcopy as dc
     exec = dc(exec)
     app_exec = exec[data['exec']]

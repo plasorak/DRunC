@@ -18,8 +18,8 @@ class ChildNode(abc.ABC):
         super().__init__(**kwargs)
 
         self.node_type = node_type
-        import logging
-        self.log = logging.getLogger(f"{name}-child-node")
+        from drunc.utils.utils import get_logger
+        self.log = get_logger(f"{name}-child-node")
         self.name = name
         self.configuration = configuration
 
@@ -83,8 +83,8 @@ class ChildNode(abc.ABC):
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
 
         from drunc.utils.configuration import ConfTypes
-        import logging
-        log = logging.getLogger("ChildNode.get_child")
+        from drunc.utils.utils import get_logger
+        log = get_logger("ChildNode.get_child")
 
         ctype = ControlType.Unknown
         uri = None

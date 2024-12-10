@@ -21,7 +21,7 @@ class DBRunRegistry(FSMAction):
         self.timeout = 2
 
         import logging
-        self._log = logging.getLogger('microservice-run-registry')
+        self.log = logging.getLogger('microservice-run-registry')
 
     def pre_start(self, _input_data:dict, _context, **kwargs):
         self.run_number = _input_data['run'] #Seems like run_number isn't in _input_data in post_drain_dataflow so need to initialise it here
@@ -61,15 +61,15 @@ class DBRunRegistry(FSMAction):
                     r.raise_for_status()
                 except requests.HTTPError as exc:
                     error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
-                    self._log.error(error)
+                    self.log.error(error)
                     raise CannotInsertRunNumber(error) from exc
                 except requests.ConnectionError as exc:
                     error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
-                    self._log.error(error)
+                    self.log.error(error)
                     raise CannotInsertRunNumber(error) from exc
                 except requests.Timeout as exc:
                     error = f"connection to {self.API_SOCKET} timed out using {__name__}"
-                    self._log.error(error)
+                    self.log.error(error)
                     raise CannotInsertRunNumber(error) from exc
             os.remove(tar_fname)
         return _input_data
@@ -84,13 +84,13 @@ class DBRunRegistry(FSMAction):
 
         except requests.HTTPError as exc:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotUpdateStopTime(error) from exc
         except requests.ConnectionError as exc:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotUpdateStopTime(error) from exc
         except requests.Timeout as exc:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
-            self._log.error(error)
+            self.log.error(error)
             raise CannotUpdateStopTime(error) from exc

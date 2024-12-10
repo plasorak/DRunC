@@ -1,14 +1,30 @@
+from drunc.controller.configuration import ControllerConfHandler
+from drunc.controller.interface.commands import status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
+from drunc.controller.interface.shell_utils import generate_fsm_command
+from drunc.controller.stateful_node import StatefulNode
+from drunc.exceptions import DruncSetupException
+from drunc.fsm.configuration import FSMConfHandler
+from drunc.fsm.utils import convert_fsm_transition
+from drunc.process_manager.configuration import get_process_manager_configuration
+from drunc.process_manager.interface.cli_argument import validate_conf_string
+from drunc.process_manager.interface.commands import kill, terminate, flush, logs, restart, ps, dummy_boot
+from drunc.process_manager.interface.process_manager import run_pm
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
+from drunc.unified_shell.commands import boot
+from drunc.utils.configuration import find_configuration, OKSKey, parse_conf_url
+from drunc.utils.utils import validate_command_facility, log_levels, setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
+
+import asyncio
 import click
 import click_shell
-from drunc.utils.utils import log_levels
-import os
-from drunc.utils.utils import validate_command_facility
-import pathlib
-from drunc.process_manager.interface.cli_argument import validate_conf_string
-from urllib.parse import urlparse
-# from rich import print as rprint
-import logging
+import conffwk
 import getpass
+import logging
+import multiprocessing as mp
+import os
+from time import sleep
+import sys
+from urllib.parse import urlparse
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
@@ -16,6 +32,7 @@ import getpass
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 @click.pass_context
 def unified_shell(
     ctx,
@@ -24,31 +41,47 @@ def unified_shell(
     session_name:str,
     log_level:str,
     override_logs:bool,
+    log_path:str
 ) -> None:
-    from drunc.utils.utils import setup_logger, pid_info_str, ignore_sigint_sighandler
-    setup_logger(log_level)
-    from logging import getLogger
-    log = getLogger('unified_shell')
-    log.debug(pid_info_str())
-    url_process_manager = urlparse(process_manager)
-    external_pm = True
+    # Set up the drunc, process_manager, and unified_shell loggers
+    setup_root_logger(log_level)
+    unified_shell_log = get_logger('unified_shell', rich_handler = True)
+    unified_shell_log.debug("Setting up process_manager logger")
+    unified_shell_log.debug(pid_info_str())
 
-    if url_process_manager.scheme != 'grpc': # slightly hacky to see if the process manager is an address
-        log.debug(f"Spawning a process manager with configuration [green]{process_manager}[/green]")
-        external_pm = False
+    process_manager_url = urlparse(process_manager)
+    if process_manager_url.scheme != 'grpc':
+        internal_pm = True
+    else:
+        internal_pm = False
+    pm_log_path = get_log_path(
+        user = getpass.getuser(),
+        session_name = get_pm_conf_name_from_dir(process_manager),
+        application_name = "process_manager",
+        override_logs = override_logs,
+        app_log_path = log_path
+    )
+    process_manager_log = get_logger(
+        logger_name = "process_manager", 
+        log_file_path = pm_log_path,
+        override_log_file = internal_pm,
+        rich_handler = True
+    )
+
+    unified_shell_log.debug("Setting up process_manager shell logger")
+    if internal_pm: # slightly hacky to see if the process manager is an address
+        unified_shell_log.debug(f"Spawning process_manager with configuration {process_manager}")
         # Check if process_manager is a packaged config
-        from drunc.process_manager.configuration import get_process_manager_configuration
-        process_manager = get_process_manager_configuration(process_manager)
+        process_manager_conf_file = get_process_manager_configuration(process_manager)
 
-        from drunc.process_manager.interface.process_manager import run_pm
-        import multiprocessing as mp
         ready_event = mp.Event()
         port = mp.Value('i', 0)
 
+        unified_shell_log.debug("Starting process_manager as a separate process")
         ctx.obj.pm_process = mp.Process(
             target = run_pm,
             kwargs = {
-                "pm_conf": process_manager,
+                "pm_conf": process_manager_conf_file,
                 "pm_address": "localhost:0",
                 "override_logs": override_logs,
                 "log_level": log_level,
@@ -58,72 +91,65 @@ def unified_shell(
                 "generated_port": port,
             },
         )
-        log.info(f'Starting process manager with configuration {process_manager}')
+        unified_shell_log.info(f'Started process_manager with configuration [green]{process_manager}[/green]', extra={'markup': True})
         ctx.obj.pm_process.start()
 
-
-        from time import sleep
         for _ in range(100):
             if ready_event.is_set():
                 break
             sleep(0.1)
-
         if not ready_event.is_set():
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException('Process manager did not start in time')
 
-        import socket
         process_manager_address = f'localhost:{port.value}'
 
     else: # user provided an address
-        log.info(f"Connecting to process manager at [green]{process_manager}[/green]")
         process_manager_address = process_manager.replace('grpc://', '') # remove the grpc scheme
+        unified_shell_log.info(f"Connecting to process manager at \'{process_manager}\' at address [green]{process_manager_address}[/green]")
+        unified_shell_log.info(f"process_manager connected to the unified_shell")
 
     ctx.obj.reset(
         address_pm = process_manager_address,
     )
 
     desc = None
-
     try:
-        import asyncio
+        unified_shell_log.debug("Runnning describe")
         desc = asyncio.get_event_loop().run_until_complete(
             ctx.obj.get_driver().describe()
         )
         desc = desc.data
-
     except Exception as e:
-        ctx.obj.critical(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True})
-        if not external_pm and not ctx.obj.pm_process.is_alive():
-            ctx.obj.critical(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
-        if logging.DEBUG == logging.root.level:
-            raise e
-        else:
-            exit()
+        unified_shell_log.error(f'Could not connect to the process manager at the address [green]{process_manager_address}[/]', extra={'markup': True}) 
+        if internal_pm and not ctx.obj.pm_process.is_alive():
+            unified_shell_log.error(f'The process manager is dead, exit code {ctx.obj.pm_process.exitcode}')
+        unified_shell_log.exception(e)
+        sys.exit()
 
-    from drunc.utils.configuration import find_configuration
     ctx.obj.boot_configuration = find_configuration(boot_configuration)
     ctx.obj.session_name = session_name
 
+    unified_shell_log.debug(f'{process_manager_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
+    unified_shell_log.debug(f"process_manager listening...")
 
-    ctx.obj.info(f'{process_manager_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
     if desc.HasField('broadcast'):
         ctx.obj.start_listening_pm(
             broadcaster_conf = desc.broadcast,
         )
 
     def cleanup():
+        unified_shell_log.debug("Cleanup")
         ctx.obj.terminate()
-        if not external_pm:
+        if internal_pm:
             ctx.obj.pm_process.terminate()
             ctx.obj.pm_process.join()
-
+        logging.shutdown()
     ctx.call_on_close(cleanup)
 
-    from drunc.unified_shell.commands import boot
+    unified_shell_log.debug("Adding unified_shell commands to the click context")
     ctx.command.add_command(boot, 'boot')
 
-    from drunc.process_manager.interface.commands import kill, terminate, flush, logs, restart, ps, dummy_boot
+    unified_shell_log.debug("Adding process_manager commands to the click context")
     ctx.command.add_command(kill, 'kill')
     ctx.command.add_command(terminate, 'terminate')
     ctx.command.add_command(flush, 'flush')
@@ -135,15 +161,11 @@ def unified_shell(
     # Not particularly proud of this...
     # We instantiate a stateful node which has the same configuration as the one from this session
     # Let's do this
-    import conffwk
-
     db = conffwk.Configuration(f"oksconflibs:{ctx.obj.boot_configuration}")
     session_dal = db.get_dal(class_name="Session", uid=session_name)
 
-    from drunc.utils.configuration import parse_conf_url, OKSKey
     conf_path, conf_type = parse_conf_url(f"oksconflibs:{ctx.obj.boot_configuration}")
     controller_name = session_dal.segment.controller.id
-    from drunc.controller.configuration import ControllerConfHandler
     controller_configuration = ControllerConfHandler(
         type = conf_type,
         data = conf_path,
@@ -155,39 +177,28 @@ def unified_shell(
         ),
     )
 
-    from drunc.fsm.configuration import FSMConfHandler
-    fsm_logger = getLogger("FSM")
-    fsm_log_level = fsm_logger.level
+    fsm_logger = get_logger("FSM")
     fsm_logger.setLevel("ERROR")
-    fsm_conf_logger = getLogger("FSMConfHandler")
-    fsm_conf_log_level = fsm_conf_logger.level
+    fsm_conf_logger = get_logger("FSMConfHandler")
     fsm_conf_logger.setLevel("ERROR")
 
     fsmch = FSMConfHandler(
         data = controller_configuration.data.controller.fsm,
     )
 
-    from drunc.controller.stateful_node import StatefulNode
     stateful_node = StatefulNode(
         fsm_configuration = fsmch,
         broadcaster = None,
     )
 
-    from drunc.fsm.utils import convert_fsm_transition
-
     transitions = convert_fsm_transition(stateful_node.get_all_fsm_transitions())
-    fsm_logger.setLevel(fsm_log_level)
-    fsm_conf_logger.setLevel(fsm_conf_log_level)
+    fsm_logger.setLevel(log_level)
+    fsm_conf_logger.setLevel(log_level)
     # End of shameful code
 
-    from drunc.controller.interface.shell_utils import generate_fsm_command
+    unified_shell_log.debug("Adding controller commands to the click context")
     for transition in transitions.commands:
         ctx.command.add_command(*generate_fsm_command(ctx.obj, transition, controller_name))
-
-
-    from drunc.controller.interface.commands import (
-        status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
-    )
 
     ctx.command.add_command(status, 'status')
     ctx.command.add_command(connect, 'connect')
@@ -198,3 +209,5 @@ def unified_shell(
     ctx.command.add_command(include, 'include')
     ctx.command.add_command(exclude, 'exclude')
     ctx.command.add_command(wait, 'wait')
+
+    unified_shell_log.info("unified_shell ready with process_manager and controller commands")

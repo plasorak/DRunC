@@ -3,11 +3,11 @@ import getpass
 import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
-from drunc.process_manager.interface.cli_argument import add_query_options
+from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
+from drunc.utils.utils import get_logger
 
 from druncschema.process_manager_pb2 import ProcessQuery, ProcessInstanceList
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')
@@ -25,7 +25,8 @@ async def boot(
     log_level:str,
     override_logs:bool,
     ) -> None:
-    log = logging.getLogger("process_manager_interface")
+    log = get_logger("process_manager.boot", log_level)
+    log.debug(f"Booting session {session_name} with boot configuration {boot_configuration}, requested by user {user}")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
@@ -59,7 +60,8 @@ async def boot(
 @click.pass_obj
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
-    log = logging.getLogger("process_manager_interface")
+    log = get_logger("process_manager.dummy_boot")
+    log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleeps} times, requested by user {user}")
     from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(
@@ -80,6 +82,8 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
 @click.pass_obj
 @run_coroutine
 async def terminate(obj:ProcessManagerContext) -> None:
+    log = get_logger("process_manager.terminate")
+    log.debug("Terminating")
     result = await obj.get_driver('process_manager').terminate()
     if not result: return
 
@@ -91,6 +95,8 @@ async def terminate(obj:ProcessManagerContext) -> None:
 @click.pass_obj
 @run_coroutine
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
+    log = get_logger("process_manager.kill")
+    log.debug(f"Killing with query {query}")
     result = await obj.get_driver('process_manager').kill(
         query = query,
     )
@@ -106,6 +112,8 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
+    log = get_logger("process_manager.flush")
+    log.debug(f"process_manager running flish with query {query}")
     result = await obj.get_driver('process_manager').flush(
         query = query,
     )
@@ -123,6 +131,8 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
+    log = get_logger("process_manager.logs")
+    log.debug(f"Running logs with query {query}")
     from druncschema.process_manager_pb2 import LogRequest, LogLine
 
     log_req = LogRequest(
@@ -169,6 +179,8 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 @click.pass_obj
 @run_coroutine
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
+    log = get_logger("process_manager.restart")
+    log.debug(f"Restarting with query {query}")
     result = await obj.get_driver('process_manager').restart(
         query = query,
     )
@@ -180,10 +192,11 @@ async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) -> None:
+    log = get_logger("process_manager.ps")
+    log.debug(f"Running ps with query {query}")
     results = await obj.get_driver('process_manager').ps(
         query=query,
     )
-
     if not results: return
 
     from drunc.process_manager.utils import tabulate_process_instance_list

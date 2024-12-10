@@ -2,9 +2,11 @@ import click
 import getpass
 import logging
 
-from drunc.utils.utils import run_coroutine, log_levels
+from drunc.controller.interface.shell_utils import controller_setup
 from drunc.process_manager.interface.context import ProcessManagerContext
 from drunc.process_manager.interface.cli_argument import validate_conf_string
+from drunc.utils.shell_utils import InterruptedCommand
+from drunc.utils.utils import run_coroutine, log_levels, get_logger
 
 @click.command('boot')
 @click.option(
@@ -32,9 +34,7 @@ async def boot(
     override_logs:bool,
     ) -> None:
 
-
-    log = logging.getLogger("unified_shell_interface")
-    from drunc.utils.shell_utils import InterruptedCommand
+    log = get_logger("unified_shell.boot")
     try:
         results = obj.get_driver('process_manager').boot(
             conf = obj.boot_configuration,
@@ -47,18 +47,18 @@ async def boot(
             if not result: break
             log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
     except InterruptedCommand:
+        log.warning("Booting interrupted")
         return
 
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
-        log.info(f'Controller endpoint is \'{controller_address}\'')
-        log.info(f'Connecting this shell to it...')
+        log.debug(f'Controller endpoint is \'{controller_address}\'')
+        log.debug(f'Connecting the unified_shell to the controller endpoint')
         obj.set_controller_driver(controller_address)
-        from drunc.controller.interface.shell_utils import controller_setup
         controller_setup(obj, controller_address)
 
     else:
         log.error(f'Could not understand where the controller is!')
         return
 
-
+    log.info("Booted successfully")

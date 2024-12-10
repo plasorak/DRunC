@@ -1,4 +1,3 @@
-
 def main():
     from drunc.unified_shell.context import UnifiedShellContext
     context = UnifiedShellContext()

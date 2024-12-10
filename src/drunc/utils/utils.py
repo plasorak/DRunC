@@ -1,8 +1,12 @@
 import logging
+import os
+import sys
 from rich.theme import Theme
 from enum import Enum
 from drunc.connectivity_service.client import ConnectivityServiceClient
 from drunc.exceptions import DruncSetupException
+from rich.logging import RichHandler
+from rich.console import Console
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 CONSOLE_THEMES = Theme({
@@ -32,7 +36,7 @@ def regex_match(regex, string):
 
 log_level = logging.INFO
 
-def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
+def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
     if with_rich:
         from rich.console import Console
         c = Console()
@@ -46,22 +50,25 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
     #     import sys
     #     sys.traceback # FIX THISNOW
 
+def setup_root_logger(stream_log_level:str) -> None:
+    if stream_log_level not in log_levels.keys():
+        raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+    root_logger = logging.getLogger('drunc')
+    if "drunc" in logging.Logger.manager.loggerDict:
+        if root_logger.level == log_levels["NOTSET"]:
+            root_logger.setLevel(stream_log_level)
+            root_logger.debug(f"logger level updated from 'NOTSET' to '{stream_log_level}'")
+        root_logger.debug("'drunc' logger already exists, skipping setup")
+        return
 
-def setup_logger(log_level:str, log_path:str = None):
-    import os
-    if log_path and os.path.isfile(log_path):
-        os.remove(log_path)
-
-    log_level = log_levels[log_level]
-    # Update log level for root logger
-    logger = logging.getLogger('drunc')
-    logger.setLevel(log_level)
-    for handler in logger.handlers:
-        handler.setLevel(log_level)
+    stream_log_level = log_levels[stream_log_level]
+    root_logger.setLevel(stream_log_level)
+    for handler in root_logger.handlers:
+        handler.setLevel(stream_log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
     import sh
-    sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
+    sh_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
     sh_command_logger = logging.getLogger(sh.__name__)
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
@@ -69,43 +76,98 @@ def setup_logger(log_level:str, log_path:str = None):
 
     # And kafka
     import kafka
-    kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
+    kafka_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
     kafka_command_logger = logging.getLogger(kafka.__name__)
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-    from rich.logging import RichHandler
-    from rich.console import Console
-    import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 150
+def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, override_log_file:bool = False, rich_handler:bool = False, rich_log_level:str = None):
+    if logger_name == "":
+        raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
+    if "drunc" not in logging.Logger.manager.loggerDict:
+        raise DruncSetupException("The root logger has not been initialized, exiting.")
+    if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
+        if not log_file_path:
+            raise DruncSetupException("process_manager setup requires a log path.")
+        if not rich_handler:
+            raise DruncSetupException("process_manager requires a rich handler.")
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-        datefmt="[%X]",
-        handlers=[
-            #logging.StreamHandler(),
-            RichHandler(
-                console=Console(width=width),
-                rich_tracebacks=False,
-                show_path=False,
-                tracebacks_width=width
-            ) # Make this True, and everything crashes on exceptions (no clue why)
-        ]
-    )
-    if (log_path):
-        fileHandler = logging.FileHandler(filename = log_path)
-        fileHandler.setLevel(log_level)
-        fileHandlerFormatter = logging.Formatter(
-            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-            datefmt="[%X]"
-        )
-        fileHandler.setFormatter(fileHandlerFormatter)
+    root_logger_level = logging.getLogger('drunc').level
+    if not log_file_log_level:
+        log_file_log_level = root_logger_level
+    if not rich_log_level:
+        rich_log_level = root_logger_level
+
+    # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
+    logger_name = 'drunc.' + logger_name
+    logger = logging.getLogger(logger_name)
+    if logger_name in logging.Logger.manager.loggerDict:
+        if logger.level == log_levels["NOTSET"]:
+            logger.setLevel(root_logger_level)
+            for handler in logger.handlers:
+                match type(handler).__name__:
+                    case "RichHandler":
+                        handler.setLevel(rich_log_level)
+                    case "FileHandler" | "StreamHandler":
+                        handler.setLevel(log_file_log_level)
+                    case _:
+                        raise DruncSetupException(f"Unrecognised handler type {type(handler)}")
+                        exit(1)
+        else:
+            logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
+            return logger
+
+    if override_log_file and log_file_path and os.path.isfile(log_file_path):
+        os.remove(log_file_path)
+
+    while logger.hasHandlers():
+        if len(logger.handlers) > 0:
+            logger.removeHandler(logger.handlers[0])
+        else:
+            break
+
+    logger.setLevel(root_logger_level)
+
+    if log_file_path:
+        fileHandler = logging.FileHandler(filename = log_file_path)
+        fileHandler.setLevel(log_file_log_level)
+        fileHandler.setFormatter(_get_default_logging_format())
         logger.addHandler(fileHandler)
+        logger.debug(f"Added file handler to {logger_name}")
+
+    if rich_handler:
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 150
+        stdHandler = RichHandler(
+            console=Console(width=width),
+            rich_tracebacks=True,
+            show_path=False,
+            tracebacks_width=width,
+            markup=True
+        )
+    elif any(type(handler) == RichHandler for handler in logger.parent.handlers):
+        stdHandler = None
+    else:
+        stdHandler = logging.StreamHandler()
+
+    if stdHandler:
+        stdHandler.setLevel(rich_log_level)
+        stdHandler.setFormatter(_get_default_logging_format())
+        logger.addHandler(stdHandler)
+        logger.debug(f"Added appropriate stream handler to {logger_name}")
+
+    logger.debug(f"Finished setting up logger {logger_name}")
+    return logger
+
+def _get_default_logging_format():
+    return logging.Formatter(
+        fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        datefmt = "[%X]",
+        validate = True
+    )
 
 def get_new_port():
     import socket
@@ -296,7 +358,7 @@ def http_get(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
 
     from requests import get
-    log = logging.getLogger("http_get")
+    log = get_logger("http_get")
 
     log.debug(f"GETTING {address} {data}")
     if as_json:
@@ -364,7 +426,7 @@ def get_control_type_and_uri_from_connectivity_service(
 
     uris = []
     from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
-    logger = logging.getLogger('get_control_type_and_uri_from_connectivity_service')
+    logger = get_logger('get_control_type_and_uri_from_connectivity_service')
     import time
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
