@@ -4,13 +4,12 @@ import grpc
 import os
 import logging
 import getpass
-from rich.console import Console
 from rich.logging import RichHandler
 from drunc.utils.utils import log_levels, setup_root_logger, get_logger
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 _cleanup_coroutines = []
 
-def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None):
+def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None) -> None:
     appName = "process_manager"
     pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
 
@@ -34,8 +33,6 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     from drunc.utils.utils import parent_death_pact
     parent_death_pact() # If the parent dies (for example unified shell), we die too
 
-    # from rich.console import Console
-    # console = Console()
     log.debug(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
     from drunc.process_manager.process_manager import ProcessManager
@@ -54,6 +51,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     loop = asyncio.get_event_loop()
 
     async def serve(address:str) -> None:
+        log.debug("serve called")
         if not address:
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException('The address on which to expect commands/send status wasn\'t specified')
@@ -90,10 +88,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         )
     except Exception as e:
         log.error("Serving the ProcessManager received an Exception")
-        import os
-        from rich.console import Console
-        console = Console()
-        console.print_exception(width=os.get_terminal_size()[0])
+        log.exception(e)
     finally:
         if _cleanup_coroutines:
             log.info("Clearing coroutines")
@@ -110,13 +105,16 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         log_levels.keys(),
         case_sensitive=False
     ),
-    default='DEBUG',
+    default='INFO',
     help='Set the log level'
 )
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 @click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
-def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str):
+def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str) -> None:
+    from drunc.utils.utils import setup_root_logger
+    setup_root_logger(log_level)
+
     from drunc.process_manager.configuration import get_process_manager_configuration
     pm_conf = get_process_manager_configuration(pm_conf)
     run_pm(

@@ -4,7 +4,9 @@ from druncschema.token_pb2 import Token
 from drunc.utils.shell_utils import ShellContext, GRPCDriver
 
 class ProcessManagerContext(ShellContext): # boilerplatefest
-    status_receiver = None
+    def __init__(self):
+        self.status_receiver = None
+        super(ProcessManagerContext, self).__init__()
 
     def reset(self, address:str=None):
         self.address = address

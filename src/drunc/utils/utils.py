@@ -36,7 +36,7 @@ def regex_match(regex, string):
 
 log_level = logging.INFO
 
-def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
+def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
     if with_rich:
         from rich.console import Console
         c = Console()
@@ -62,8 +62,8 @@ def setup_root_logger(stream_log_level:str) -> None:
         return
 
     stream_log_level = log_levels[stream_log_level]
-    logger.setLevel(stream_log_level)
-    for handler in logger.handlers:
+    root_logger.setLevel(stream_log_level)
+    for handler in root_logger.handlers:
         handler.setLevel(stream_log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
@@ -82,15 +82,16 @@ def setup_root_logger(stream_log_level:str) -> None:
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, rich_handler:bool = False, rich_log_level:str = None):
+def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, override_log_file:bool = True, rich_handler:bool = False, rich_log_level:str = None):
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, this should be corrected to command `setup_root_logger`.")
     if "drunc" not in logging.Logger.manager.loggerDict:
         raise DruncSetupException("The root logger has not been initialized, exiting.")
-    if logger_name == "process_manager" and not log_file_path and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
-        raise DruncSetupException("process_manager setup requires a log path.")
-    if logger_name == "process_manager" and not rich_handler:
-        raise DruncSetupException("process_manager requires a rich handler.")
+    if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
+        if not log_file_path:
+            raise DruncSetupException("process_manager setup requires a log path.")
+        if not rich_handler:
+            raise DruncSetupException("process_manager requires a rich handler.")
 
     root_logger_level = logging.getLogger('drunc').level
     if not log_file_log_level:
@@ -117,7 +118,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
             return logger
 
-    if log_file_path and os.path.isfile(log_file_path):
+    if override_log_file and log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 
     while logger.hasHandlers():

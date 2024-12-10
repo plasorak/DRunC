@@ -103,7 +103,7 @@ def unified_shell(
     else: # user provided an address
         process_manager_address = process_manager.replace('grpc://', '') # remove the grpc scheme
         unified_shell_log.info(f"Connecting to process manager at \'{process_manager}\' at address [green]{process_manager_address}[/green]")
-        unified_shell_log.info(f"Unified shell connected to the process_manager")
+        unified_shell_log.info(f"process_manager connected to the unified_shell")
 
     ctx.obj.reset(
         address_pm = process_manager_address,
@@ -127,7 +127,7 @@ def unified_shell(
     ctx.obj.session_name = session_name
 
     unified_shell_log.debug(f'{process_manager_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
-    unified_shell_log.info(f"process_manager listening...")
+    unified_shell_log.debug(f"process_manager listening...")
 
     if desc.HasField('broadcast'):
         ctx.obj.start_listening_pm(
@@ -207,4 +207,4 @@ def unified_shell(
     ctx.command.add_command(exclude, 'exclude')
     ctx.command.add_command(wait, 'wait')
 
-    unified_shell_log.debug("Unified shell ready")
+    unified_shell_log.info("unified_shell ready with process_manager and controller commands")

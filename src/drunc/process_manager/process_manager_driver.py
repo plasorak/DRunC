@@ -23,7 +23,7 @@ class ProcessManagerDriver(GRPCDriver):
             token = token,
             **kwargs
         )
-        self.log.debug(f"set up process_manager.driver")
+        self.log.debug("set up process_manager.driver")
 
     def create_stub(self, channel):
         from druncschema.process_manager_pb2_grpc import ProcessManagerStub
