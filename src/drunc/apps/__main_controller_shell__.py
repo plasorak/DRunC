@@ -1,4 +1,3 @@
-
 def main() -> None:
     from drunc.controller.interface.context import ControllerContext
     context = ControllerContext()
@@ -14,10 +13,6 @@ def main() -> None:
         print_traceback()
         rprint(f'Exiting...')
         exit(1)
-
-
-
-
 
 if __name__ == '__main__':
     main()

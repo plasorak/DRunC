@@ -2,14 +2,14 @@ from typing import Mapping
 
 from druncschema.token_pb2 import Token
 from drunc.utils.shell_utils import ShellContext, GRPCDriver
-
+from drunc.utils.utils import resolve_localhost_to_hostname
 class ProcessManagerContext(ShellContext): # boilerplatefest
     def __init__(self):
         self.status_receiver = None
         super(ProcessManagerContext, self).__init__()
 
     def reset(self, address:str=None):
-        self.address = address
+        self.address = resolve_localhost_to_hostname(address)
         super(ProcessManagerContext, self)._reset(
             name = 'process_manager',
             token_args = {},

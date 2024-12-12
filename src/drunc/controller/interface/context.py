@@ -1,4 +1,5 @@
 from drunc.utils.shell_utils import ShellContext, GRPCDriver
+from drunc.utils.utils import resolve_localhost_to_hostname
 from druncschema.token_pb2 import Token
 from typing import Mapping
 
@@ -9,7 +10,7 @@ class ControllerContext(ShellContext): # boilerplatefest
         super(ControllerContext, self).__init__()
 
     def reset(self, address:str=None):
-        self.address = address
+        self.address = resolve_localhost_to_hostname(address)
         super(ControllerContext, self)._reset(
             name = 'controller',
             token_args = {},

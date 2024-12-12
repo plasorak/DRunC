@@ -1,22 +1,25 @@
 import click
 import click_shell
 import os
+import logging
 
 from drunc.controller.interface.context import ControllerContext
-from drunc.utils.utils import log_levels, validate_command_facility
+from drunc.utils.utils import log_levels, validate_command_facility, CONTEXT_SETTINGS, get_logger
 
 
-@click_shell.shell(prompt='drunc-controller > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-controller-shell.history')
-@click.argument('controller-address', type=str, callback=validate_command_facility)
+@click_shell.shell(prompt='drunc-controller > ', chain=True, context_settings=CONTEXT_SETTINGS, hist_file=os.path.expanduser('~')+'/.drunc-controller-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
+@click.argument('controller-address', type=str, callback=validate_command_facility)
 @click.pass_context
 def controller_shell(ctx, controller_address:str, log_level:str) -> None:
-    from drunc.utils.utils import get_logger
-
-    get_logger("controller_shell")
+    controller_shell_log = get_logger(
+        logger_name = "controller_shell",
+        rich_handler = True,
+        rich_log_level = log_level
+    )
 
     ctx.obj.reset(address = controller_address)
-
+    controller_shell_log.info(f"Connected to [green]{ctx}[/green] at address [green]{controller_address}[/green]") # RETURNTOME - app name not ctx
     from drunc.controller.interface.shell_utils import controller_setup, controller_cleanup_wrapper, generate_fsm_command
     ctx.call_on_close(controller_cleanup_wrapper(ctx.obj))
     controller_desc = controller_setup(ctx.obj, controller_address)

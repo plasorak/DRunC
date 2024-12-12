@@ -246,6 +246,8 @@ def validate_command_facility(ctx, param, value):
 
 
 def resolve_localhost_to_hostname(address):
+    if not address:
+        return None
     from socket import gethostbyname, gethostname
     hostname = gethostname()
     if 'localhost' in address:
