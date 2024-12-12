@@ -3,8 +3,10 @@ from druncschema.token_pb2 import Token
 from typing import Mapping
 
 class ControllerContext(ShellContext): # boilerplatefest
-    status_receiver = None
-    took_control = False
+    def __init__(self):
+        self.status_receiver = None
+        self.took_control = False
+        super(ControllerContext, self).__init__()
 
     def reset(self, address:str=None):
         self.address = address

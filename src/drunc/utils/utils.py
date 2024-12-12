@@ -120,8 +120,6 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
         else:
             logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
             return logger
-    if log_file_path:
-        logger.error(f"{os.path.isfile(log_file_path)=}")
 
     if override_log_file and log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)

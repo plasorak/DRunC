@@ -11,13 +11,12 @@ from drunc.utils.utils import log_levels, validate_command_facility
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.pass_context
 def controller_shell(ctx, controller_address:str, log_level:str) -> None:
-    from drunc.utils.utils import setup_logger
+    from drunc.utils.utils import get_logger
 
-    setup_logger(log_level)
+    get_logger("controller_shell")
 
-    ctx.obj.reset(
-        address = controller_address,
-    )
+    ctx.obj.reset(address = controller_address)
+
     from drunc.controller.interface.shell_utils import controller_setup, controller_cleanup_wrapper, generate_fsm_command
     ctx.call_on_close(controller_cleanup_wrapper(ctx.obj))
     controller_desc = controller_setup(ctx.obj, controller_address)
@@ -25,10 +24,9 @@ def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     transitions = ctx.obj.get_driver('controller').describe_fsm(key="all-transitions").data
 
     from drunc.controller.interface.commands import (
-        describe, status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, fsm, include, exclude, wait
+        status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
     )
 
-    ctx.command.add_command(describe, 'describe')
     ctx.command.add_command(status, 'status')
     ctx.command.add_command(connect, 'connect')
     ctx.command.add_command(take_control, 'take-control')
