@@ -34,7 +34,6 @@ def regex_match(regex, string):
     import re
     return re.match(regex, string) is not None
 
-log_level = logging.INFO
 
 def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
     if with_rich:
@@ -102,8 +101,11 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
     logger_name = 'drunc.' + logger_name
     logger = logging.getLogger(logger_name)
+    logger.debug(f"Setting up logger {logger_name}")
     if logger_name in logging.Logger.manager.loggerDict:
+        logger.debug(f"Logger {logger_name} already exists!")
         if logger.level == log_levels["NOTSET"]:
+            logger.debug(f"Updating {logger_name} level and handlers")
             logger.setLevel(root_logger_level)
             for handler in logger.handlers:
                 match type(handler).__name__:
@@ -114,9 +116,12 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
                     case _:
                         raise DruncSetupException(f"Unrecognised handler type {type(handler)}")
                         exit(1)
+            logger.debug(f"Updated {logger_name} level and handlers")
         else:
             logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
             return logger
+    if log_file_path:
+        logger.error(f"{os.path.isfile(log_file_path)=}")
 
     if override_log_file and log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
@@ -164,7 +169,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
 
 def _get_default_logging_format():
     return logging.Formatter(
-        fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        fmt = "%(asctime)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
         datefmt = "[%X]",
         validate = True
     )

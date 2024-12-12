@@ -1,28 +1,32 @@
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
+from drunc.utils.utils import log_levels, setup_root_logger, get_logger, ignore_sigint_sighandler
+
 import asyncio
 import click
-import grpc
-import os
-import logging
 import getpass
+import grpc
+import logging
+import os
+import signal
 from rich.logging import RichHandler
-from drunc.utils.utils import log_levels, setup_root_logger, get_logger
-from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 _cleanup_coroutines = []
 
 def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None) -> None:
     appName = "process_manager"
     pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
 
-    log_path = get_log_path(
-        user = user,
-        session_name = pmConfFileName,
-        application_name = appName,
-        override_logs = override_logs,
-        app_log_path = log_path
-    )
+    if not log_path:
+        log_path = get_log_path(
+            user = user,
+            session_name = pmConfFileName,
+            application_name = appName,
+            override_logs = override_logs,
+            app_log_path = log_path
+        )
     log = get_logger(
         logger_name = "process_manager", 
         log_file_path = log_path,
+        override_log_file = override_logs,
         rich_handler = True
     )
 
