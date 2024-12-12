@@ -1,16 +1,17 @@
 import click
 import signal
 from drunc.utils.utils import log_levels, setup_root_logger, validate_command_facility, get_logger
+from drunc.utils.configuration import find_configuration
 import os
 import logging
 
 @click.command()
-@click.argument('configuration', type=str)
+@click.argument('boot-configuration', type=str)
 @click.argument('command-facility', type=str, callback=validate_command_facility)#, help=f'Command facility (protocol, host and port) grpc://{socket.gethostname()}:12345')
-@click.argument('name', type=str)
+@click.argument('application_name', type=str)
 @click.argument('session', type=str)
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
-def controller_cli(configuration:str, command_facility:str, name:str, session:str, log_level:str):
+def controller_cli(boot_configuration:str, command_facility:str, application_name:str, session:str, log_level:str):
 
     from rich.console import Console
     console = Console()
@@ -28,6 +29,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
     )
 
     from drunc.utils.configuration import parse_conf_url, OKSKey
+    configuration = f"oksconflibs:{find_configuration(boot_configuration)}"
     conf_path, conf_type = parse_conf_url(configuration)
     controller_configuration = ControllerConfHandler(
         type = conf_type,
@@ -35,13 +37,13 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         oks_key = OKSKey(
             schema_file='schema/confmodel/dunedaq.schema.xml',
             class_name="RCApplication",
-            obj_uid=name,
+            obj_uid=application_name,
             session=session, # some of the function for enable/disable require the full dal of the session
         ),
     )
 
     ctrlr = Controller(
-        name = name,
+        name = application_name,
         session = session,
         configuration = controller_configuration,
         token = token,
