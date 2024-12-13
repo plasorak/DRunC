@@ -135,7 +135,7 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
         fileHandler.setLevel(log_file_log_level)
-        fileHandler.setFormatter(_get_default_logging_format())
+        fileHandler.setFormatter(_get_stream_logging_format())
         logger.addHandler(fileHandler)
         logger.debug(f"Added file handler to {logger_name}")
 
@@ -151,23 +151,30 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             tracebacks_width=width,
             markup=True
         )
+        stdHandler.setFormatter(_get_rich_logging_format())
     elif any(type(handler) == RichHandler for handler in logger.parent.handlers):
         stdHandler = None
     else:
         stdHandler = logging.StreamHandler()
+        stdHandler.setFormatter(_get_stream_logging_format())
 
     if stdHandler:
         stdHandler.setLevel(rich_log_level)
-        stdHandler.setFormatter(_get_default_logging_format())
         logger.addHandler(stdHandler)
         logger.debug(f"Added appropriate stream handler to {logger_name}")
 
     logger.debug(f"Finished setting up logger {logger_name}")
     return logger
 
-def _get_default_logging_format():
+def _get_stream_logging_format():
     return logging.Formatter(
-        fmt = "%(asctime)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+        datefmt = "[%X]",
+        validate = True
+    )
+def _get_rich_logging_format():
+    return logging.Formatter(
+        fmt = "%(asctime)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s", # For production, remove the filename and lineno
         datefmt = "[%X]",
         validate = True
     )

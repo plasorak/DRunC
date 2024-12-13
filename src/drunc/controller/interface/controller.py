@@ -1,23 +1,30 @@
 import click
 import signal
 from drunc.utils.utils import log_levels, setup_root_logger, validate_command_facility, get_logger
-from drunc.utils.configuration import find_configuration
+from drunc.utils.configuration import find_configuration, CLI_to_ConfTypes
 import os
 import logging
 
 @click.command()
 @click.argument('boot-configuration', type=str)
-@click.argument('command-facility', type=str, callback=validate_command_facility)#, help=f'Command facility (protocol, host and port) grpc://{socket.gethostname()}:12345')
+@click.argument('command-facility', type=str, callback=validate_command_facility)
 @click.argument('application_name', type=str)
 @click.argument('session', type=str)
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 def controller_cli(boot_configuration:str, command_facility:str, application_name:str, session:str, log_level:str):
-
+    """
+    Spawns a single controller defined in the boot-configuration file, in a given session identified by its name, with communications defined through the command-facility.\n
+    Arguments\n
+    boot-configuration - Path to boot configuration, searches DUNEDAQ_DB_PATH if not absolute, e.g. 'config/daqsystemtest/example-configs.data.xml'\n
+    command-facility - Path to boot configuration, searches DUNEDAQ_DB_PATH if not absolute, e.g. 'config/daqsystemtest/example-configs.data.xml'\n
+    application_name - Name of application, e.g. 'root-controller'\n
+    session - Name of session in boot-configuration, e.g. 'local-2x3-config'
+    """
     from rich.console import Console
     console = Console()
 
     setup_root_logger(log_level)
-    log = get_logger('controller_cli')
+    log = get_logger(logger_name = 'controller.controller_cli')
 
     from drunc.controller.controller import Controller
     from drunc.controller.configuration import ControllerConfHandler
@@ -29,8 +36,8 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     )
 
     from drunc.utils.configuration import parse_conf_url, OKSKey
-    configuration = f"oksconflibs:{find_configuration(boot_configuration)}"
-    conf_path, conf_type = parse_conf_url(configuration)
+    boot_configuration = find_configuration(boot_configuration)
+    conf_path, conf_type = parse_conf_url(boot_configuration)
     controller_configuration = ControllerConfHandler(
         type = conf_type,
         data = conf_path,
@@ -49,8 +56,6 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         token = token,
     )
 
-    #if name == 'ru-controller': exit()
-
     def serve(listen_addr:str) -> None:
         import grpc
         from concurrent import futures
@@ -60,11 +65,11 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         port = server.add_insecure_port(listen_addr)
 
         server.start()
-        log.info(f'\'{ctrlr.name}\' was started on \'{port}\'')
+        log.debug(f'\'{ctrlr.name}\' was started on \'{port}\'')
         return server, port
 
     def controller_shutdown():
-        console.print('Requested termination')
+        log.warning('Requested termination')
         ctrlr.terminate()
 
     def kill_me(sig, frame):
@@ -74,8 +79,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         os.killpg(pgrp, signal.SIGKILL)
 
     def shutdown(sig, frame):
-        l = get_logger("shutdown")
-        l.info('Shutting down gracefully')
+        log.info('Shutting down gracefully')
         try:
             controller_shutdown()
         except:

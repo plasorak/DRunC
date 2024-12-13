@@ -1,5 +1,6 @@
 from enum import Enum
 from drunc.exceptions import DruncSetupException
+from urllib.parse import urlparse
 
 class ConfTypes(Enum):
     Unknown = 0
@@ -17,13 +18,12 @@ def CLI_to_ConfTypes(scheme:str) -> ConfTypes:
     match scheme:
         case 'file':
             return ConfTypes.JsonFileName
-        case 'oksconflibs':
+        case 'oksconflibs' | '':
             return ConfTypes.OKSFileName
         case _:
             raise DruncSetupException(f'{scheme} configuration type is not understood')
 
 def parse_conf_url(url:str) ->tuple[ConfTypes,str]:
-    from urllib.parse import urlparse
     u = urlparse(url)
     # urlparse("scheme://netloc/path;parameters?query#fragment")
     t = CLI_to_ConfTypes(u.scheme)
@@ -33,20 +33,19 @@ def parse_conf_url(url:str) ->tuple[ConfTypes,str]:
     else:
         return f'{u.netloc}', t
 
-
-
-
-
 class ConfigurationNotFound(DruncSetupException):
     def __init__(self, requested_path):
         super().__init__(f'The configuration \'{requested_path}\' is not in $DUNEDAQ_DB_PATH, perhaps you forgot to \'dbt-workarea-env && dbt-build\'?')
 
 def find_configuration(path:str) -> str:
     from drunc.utils.utils import get_logger
-    log = get_logger('find_configuration')
+    log = get_logger(
+        logger_name = 'find_configuration',
+        rich_handler = True
+    )
     import os
     from drunc.utils.utils import expand_path
-    expanded_path = expand_path(path, turn_to_abs_path=False)
+    expanded_path = expand_path(urlparse(path).path, turn_to_abs_path=False)
     if os.path.exists(expanded_path):
         return expanded_path
 
@@ -65,8 +64,6 @@ def find_configuration(path:str) -> str:
         raise ConfigurationNotFound(path)
 
     return configuration_files[0]
-
-
 
 class ConfTypeNotSupported(DruncSetupException):
     def __init__(self, conf_type:ConfTypes, class_name:str):
