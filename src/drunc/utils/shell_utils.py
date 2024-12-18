@@ -276,6 +276,14 @@ class ShellContext:
             self._log.error(f'Controller-specific commands cannot be sent until the session is booted')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
 
+    def delete_driver(self, name: str) -> None:
+        if name in self._drivers:
+            del self._drivers[name]
+            self._log.info(f"Driver '{name}' has been deleted.")
+        else:
+            self._log.warn(f"Driver '{name}' does not exist in this context.")
+
+    
     def get_token(self) -> Token:
         return self._token
 
