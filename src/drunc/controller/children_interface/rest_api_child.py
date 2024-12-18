@@ -238,7 +238,7 @@ class AppCommander:
             self.log.debug(f'\'{self.app}\' pings')
             return True
         except Exception as e:
-            self.log.debug(f'\'{self.app}\' does not ping, reason: \'{str(e)}\'')
+            self.log.error(f'\'{self.app}\' does not ping, reason: \'{str(e)}\'')
             return False
 
     def send_command(
