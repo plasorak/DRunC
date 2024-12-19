@@ -280,9 +280,6 @@ class ShellContext:
         if name in self._drivers:
             del self._drivers[name]
             self._log.info(f"Driver '{name}' has been deleted.")
-        else:
-            self._log.warn(f"Driver '{name}' does not exist in this context.")
-
     
     def get_token(self) -> Token:
         return self._token
