@@ -1,20 +1,30 @@
-import grpc
-import sh
+from ctypes import cdll
 from functools import partial
+import getpass
+import grpc
+import logging
+import os
+import sh
+import signal
+import tempfile
 import threading
+from time import sleep
+import uuid
+
+from drunc.exceptions import DruncException, DruncCommandException
+from drunc.process_manager.process_manager import ProcessManager
+from drunc.utils.utils import now_str
 
 from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessMetadata, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
-from drunc.process_manager.process_manager import ProcessManager
+from druncschema.broadcast_pb2 import BroadcastType
+
 
 # # ------------------------------------------------
 # # pexpect.spawn(...,preexec_fn=on_parent_exit('SIGTERM'))
-from ctypes import cdll
-import signal
 
 # Constant taken from http://linux.die.net/include/linux/prctl.h
 PR_SET_PDEATHSIG = 1
 
-from drunc.exceptions import DruncException
 class PrCtlError(DruncException):
     pass
 
@@ -60,7 +70,6 @@ class AppProcessWatcherThread(threading.Thread):
 class SSHProcessManager(ProcessManager):
     def __init__(self, configuration, **kwargs):
 
-        import getpass
         self.session = getpass.getuser() # unfortunate
 
         super().__init__(
@@ -69,13 +78,11 @@ class SSHProcessManager(ProcessManager):
             **kwargs
         )
 
-        import logging
         # self.children_logs_depth = 1000
         # self.children_logs = {}
         self.watchers = []
 
-        from sh import Command
-        self.ssh = Command('/usr/bin/ssh')
+        self.ssh = sh.Command('/usr/bin/ssh')
 
     def kill_processes(self, uuids:list) -> ProcessInstanceList:
         ret = []
@@ -83,7 +90,6 @@ class SSHProcessManager(ProcessManager):
             process = self.process_store[uuid]
             app_name = self.boot_request[uuid].process_description.metadata.name
             if process.is_alive():
-                import signal
                 sequence = [
                     # signal.SIGINT, # In appfwk/daq_application, SIGQUIT makes the run marker false and quits the loop, killing the application. SIGINT not needed.
                     signal.SIGQUIT,
@@ -97,7 +103,6 @@ class SSHProcessManager(ProcessManager):
                     process.signal_group(sig) # TODO grab this from the inputs
                     if not process.is_alive():
                         break
-                    from time import sleep
                     sleep(self.configuration.data.kill_timeout)
             pd = ProcessDescription()
             pd.CopyFrom(self.boot_request[uuid].process_description)
@@ -147,9 +152,7 @@ class SSHProcessManager(ProcessManager):
         logfile = self.boot_request[uid].process_description.process_logs_path
         # https://stackoverflow.com/questions/7167008/efficiently-finding-the-last-line-in-a-text-file
         # "Not the straight forward way"...
-        import tempfile
         f = tempfile.NamedTemporaryFile(delete=False)
-        import sh
         nlines = log_request.how_far
         if not nlines:
             nlines = 100
@@ -188,7 +191,6 @@ class SSHProcessManager(ProcessManager):
                 )
                 yield ll
 
-        import os
         os.remove(f.name)
 
 
@@ -202,7 +204,6 @@ class SSHProcessManager(ProcessManager):
         if exec:
             self.log.debug(name+str(exec))
 
-        from druncschema.broadcast_pb2 import BroadcastType
         self.broadcast(
             end_str,
             BroadcastType.SUBPROCESS_STATUS_UPDATE
@@ -222,10 +223,8 @@ class SSHProcessManager(ProcessManager):
 
     def __boot(self, boot_request:BootRequest, uuid:str) -> ProcessInstance:
         self.log.debug(f'{self.name} booting \'{boot_request.process_description.metadata.name}\' from session \'{boot_request.process_description.metadata.session}\'')
-        import os
         platform = os.uname().sysname.lower()
         macos = ("darwin" in platform)
-        from drunc.exceptions import DruncCommandException
 
         meta = boot_request.process_description.metadata
         if len(boot_request.process_restriction.allowed_hosts) < 1:
@@ -245,7 +244,6 @@ class SSHProcessManager(ProcessManager):
                 user_host = host if not user else f'{user}@{host}'
                 hostname = host
 
-                from drunc.utils.utils import now_str
                 log_file = boot_request.process_description.process_logs_path
                 env_var = boot_request.process_description.env
 
@@ -383,7 +381,6 @@ class SSHProcessManager(ProcessManager):
 
     def _boot_impl(self, boot_request:BootRequest) -> ProcessInstance:
         self.log.debug(f'{self.name} running _boot_impl')
-        import uuid
         this_uuid = str(uuid.uuid4())
         return self.__boot(boot_request, this_uuid)
 

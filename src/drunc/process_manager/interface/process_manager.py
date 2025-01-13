@@ -1,6 +1,3 @@
-from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
-from drunc.utils.utils import log_levels, setup_root_logger, get_logger, ignore_sigint_sighandler
-
 import asyncio
 import click
 import getpass
@@ -8,7 +5,19 @@ import grpc
 import logging
 import os
 import signal
+import socket
 from rich.logging import RichHandler
+
+from drunc.process_manager.configuration import get_process_manager_configuration
+from drunc.exceptions import DruncSetupException
+from drunc.process_manager.configuration import ProcessManagerConfHandler
+from drunc.process_manager.process_manager import ProcessManager
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
+from drunc.utils.configuration import parse_conf_url, OKSKey
+from drunc.utils.utils import setup_root_logger, parent_death_pact, log_levels, get_logger, ignore_sigint_sighandler
+
+from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_server
+
 _cleanup_coroutines = []
 
 def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None) -> None:
@@ -34,14 +43,10 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     if signal_handler is not None:
         signal_handler()
 
-    from drunc.utils.utils import parent_death_pact
     parent_death_pact() # If the parent dies (for example unified shell), we die too
 
     log.debug(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
-    from drunc.process_manager.process_manager import ProcessManager
-    from drunc.utils.configuration import parse_conf_url, OKSKey
-    from drunc.process_manager.configuration import ProcessManagerConfHandler
     conf_path, conf_type = parse_conf_url(pm_conf)
     pmch = ProcessManagerConfHandler(
         log_path = log_path,
@@ -57,9 +62,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     async def serve(address:str) -> None:
         log.debug("serve called")
         if not address:
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException('The address on which to expect commands/send status wasn\'t specified')
-        from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_server
         server = grpc.aio.server()
         add_ProcessManagerServicer_to_server(pm, server)
         port = server.add_insecure_port(address)
@@ -67,7 +70,6 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
             generated_port.value = port
 
         await server.start()
-        import socket
         hostname = socket.gethostname()
         log.info(f'process_manager communicating through address [bold green]{hostname}:{port}[/bold green]', extra={'markup': True}) # bold as part of the address was already formatting, couldn't figure out why
 
@@ -116,10 +118,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
 @click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 @click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
 def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str) -> None:
-    from drunc.utils.utils import setup_root_logger
     setup_root_logger(log_level)
-
-    from drunc.process_manager.configuration import get_process_manager_configuration
     pm_conf = get_process_manager_configuration(pm_conf)
     run_pm(
         pm_conf = pm_conf,

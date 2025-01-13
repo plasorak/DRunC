@@ -1,8 +1,10 @@
-import click_shell
+import asyncio
 import click
+import click_shell
 import os
 import getpass
 
+from drunc.process_manager.interface.commands import boot, terminate, kill, flush, logs, restart, ps, dummy_boot
 from drunc.utils.grpc_utils import ServerUnreachable
 from drunc.utils.utils import CONTEXT_SETTINGS, log_levels, validate_command_facility, setup_root_logger, get_logger
 
@@ -23,7 +25,6 @@ def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> No
     desc = None
     process_manager_shell_log.info(f"Connecting to process_manager at address {process_manager_address}")
     try:
-        import asyncio
         desc = asyncio.get_event_loop().run_until_complete(
             ctx.obj.get_driver('process_manager').describe()
         )
@@ -47,7 +48,6 @@ def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> No
         ctx.obj.terminate()
     ctx.call_on_close(cleanup)
 
-    from drunc.process_manager.interface.commands import boot, terminate, kill, flush, logs, restart, ps, dummy_boot
     ctx.command.add_command(boot, 'boot')
     ctx.command.add_command(terminate, 'terminate')
     ctx.command.add_command(kill, 'kill')
@@ -56,5 +56,4 @@ def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> No
     ctx.command.add_command(restart, 'restart')
     ctx.command.add_command(ps, 'ps')
     ctx.command.add_command(dummy_boot, 'dummy_boot')
-
     process_manager_shell_log.info("process_manager_shell ready")

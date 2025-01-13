@@ -1,8 +1,16 @@
+from rich import print as rprint
 from typing import Mapping
 
-from druncschema.token_pb2 import Token
-from drunc.utils.shell_utils import ShellContext, GRPCDriver
+from drunc.broadcast.client.broadcast_handler import BroadcastHandler
+from drunc.broadcast.client.configuration import BroadcastClientConfHandler
+from drunc.process_manager.process_manager_driver import ProcessManagerDriver
+from drunc.utils.configuration import ConfTypes
+from drunc.utils.shell_utils import ShellContext, GRPCDriver, create_dummy_token_from_uname
 from drunc.utils.utils import resolve_localhost_to_hostname
+
+from druncschema.token_pb2 import Token
+
+
 class ProcessManagerContext(ShellContext): # boilerplatefest
     def __init__(self):
         self.status_receiver = None
@@ -21,7 +29,6 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         if not self.address:
             return {}
 
-        from drunc.process_manager.process_manager_driver import ProcessManagerDriver
 
         return {
             'process_manager': ProcessManagerDriver(
@@ -33,25 +40,17 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
 
     def create_token(self, **kwargs) -> Token:
         self.log.debug("Creating token")
-        from drunc.utils.shell_utils import create_dummy_token_from_uname
         return create_dummy_token_from_uname()
 
 
     def start_listening(self, broadcaster_conf):
         self.log.debug("starting to listen")
-        from drunc.broadcast.client.broadcast_handler import BroadcastHandler
-        from drunc.broadcast.client.configuration import BroadcastClientConfHandler
-        from drunc.utils.configuration import ConfTypes
         bcch = BroadcastClientConfHandler(
             data = broadcaster_conf,
             type = ConfTypes.ProtobufAny,
         )
-
         self.log.debug(f'Broadcaster configuration:\n{broadcaster_conf}')
-
         self.status_receiver = BroadcastHandler(bcch)
-
-        from rich import print as rprint
         rprint(f':ear: Listening to the Process Manager at {self.address}')
 
     def terminate(self):

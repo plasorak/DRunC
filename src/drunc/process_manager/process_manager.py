@@ -1,8 +1,7 @@
-from druncschema.authoriser_pb2 import ActionType, SystemType
-from druncschema.broadcast_pb2 import BroadcastType
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessRestriction, ProcessDescription, ProcessUUID, ProcessInstanceList, LogRequest, LogLine
-from druncschema.process_manager_pb2_grpc import ProcessManagerServicer
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+import abc
+import os
+import getpass
+import logging
 
 from drunc.authoriser.decorators import authentified_and_authorised, async_authentified_and_authorised
 from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
@@ -12,10 +11,12 @@ from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
 from drunc.utils.utils import get_logger, pid_info_str
 
-import abc
-import os
-import getpass
-import logging
+from druncschema.authoriser_pb2 import ActionType, SystemType
+from druncschema.broadcast_pb2 import BroadcastType
+from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessRestriction, ProcessDescription, ProcessUUID, ProcessInstanceList, LogRequest, LogLine
+from druncschema.process_manager_pb2_grpc import ProcessManagerServicer
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+
 
 class BadQuery(DruncCommandException):
     def __init__(self, txt):

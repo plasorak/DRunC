@@ -1,7 +1,11 @@
 
-from druncschema.authoriser_pb2 import ActionType, SystemType
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
-from druncschema.request_response_pb2 import Response
+from kubernetes import client, configuration
+import getpass
+import os
+import re
+import socket
+from time import sleep
+import uuid
 
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.broadcast.server.decorators import broadcasted
@@ -11,11 +15,14 @@ from drunc.process_manager.process_manager import ProcessManager
 from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
 from drunc.utils.utils import get_logger
 
+from druncschema.authoriser_pb2 import ActionType, SystemType
+from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.request_response_pb2 import Response
+
 
 class K8sProcessManager(ProcessManager):
     def __init__(self, configuration, **kwargs):
 
-        import getpass
         self.session = getpass.getuser() # unfortunate
 
         super().__init__(
@@ -24,9 +31,7 @@ class K8sProcessManager(ProcessManager):
             **kwargs
         )
 
-        from kubernetes import client, config
 
-        import logging
         self.log = get_logger('k8s-process-manager')
         config.load_kube_config()
 
@@ -136,9 +141,7 @@ class K8sProcessManager(ProcessManager):
 
 
     def _create_pod(self, podname, session, pod_image="ghcr.io/dune-daq/alma9:latest",env_vars=None, commands=""):
-        import os
         # HACK
-        import socket
         hostname = socket.gethostname()
         #/ HACK
 
@@ -213,7 +216,6 @@ class K8sProcessManager(ProcessManager):
 
 
     def _get_process_uid(self, query:ProcessQuery, in_boot_request:bool=False):
-        import re
         uuid_selector = []
         name_selector = query.names
         user_selector = query.user
@@ -272,7 +274,6 @@ class K8sProcessManager(ProcessManager):
         if podname in pod_names:
             self._core_v1_api.delete_namespaced_pod(podname, session,grace_period_seconds=0)
             while podname in pod_names:
-                from time import sleep
                 sleep(1)
                 pods = self._core_v1_api.list_namespaced_pod(session)
                 pod_names = [pod.metadata.name for pod in pods.items]
@@ -295,7 +296,6 @@ class K8sProcessManager(ProcessManager):
             )
             namespaces = [ns.metadata.name for ns in ns_list.items]
             while session in namespaces:
-                from time import sleep
                 sleep(1)
                 ns_list = self._core_v1_api.list_namespace(
                     label_selector = self._get_creator_label_selector(),
@@ -343,7 +343,6 @@ class K8sProcessManager(ProcessManager):
 
 
     def _boot_impl(self, boot_request:BootRequest) -> ProcessUUID:
-        import uuid
         this_uuid = str(uuid.uuid4())
         return self.__boot(boot_request, this_uuid)
 
@@ -378,7 +377,6 @@ class K8sProcessManager(ProcessManager):
 
         for _ in range(10):
             if not podnames in pod_names:
-                from time import sleep
                 sleep(1)
             else:
                 break

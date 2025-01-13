@@ -1,13 +1,17 @@
 import click
 import getpass
 import logging
+from rich.markup import escape
 
-from drunc.utils.utils import run_coroutine, log_levels
+from drunc.utils.utils import run_coroutine, log_levels, get_logger
 from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
-from drunc.utils.utils import get_logger
+from drunc.process_manager.utils import tabulate_process_instance_list
+from drunc.utils.grpc_utils import unpack_any
+from drunc.utils.shell_utils import InterruptedCommand
 
-from druncschema.process_manager_pb2 import ProcessQuery, ProcessInstanceList
+from druncschema.process_manager_pb2 import LogRequest, LogLine, ProcessQuery, ProcessInstanceList
+from rich.panel import Panel
 
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')
@@ -27,7 +31,6 @@ async def boot(
     ) -> None:
     log = get_logger("process_manager.boot", log_level)
     log.debug(f"Booting session {session_name} with boot configuration {boot_configuration}, requested by user {user}")
-    from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').boot(
             conf = boot_configuration,
@@ -45,7 +48,6 @@ async def boot(
 
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
-        from rich.panel import Panel
         obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center')
     else:
         obj.error(f'Could not understand where the controller is! You can look at the logs of the controller to see its address')
@@ -62,7 +64,6 @@ async def boot(
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
     log = get_logger("process_manager.dummy_boot")
     log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleeps} times, requested by user {user}")
-    from drunc.utils.shell_utils import InterruptedCommand
     try:
         results = obj.get_driver('process_manager').dummy_boot(
             user = user,
@@ -87,7 +88,6 @@ async def terminate(obj:ProcessManagerContext) -> None:
     result = await obj.get_driver('process_manager').terminate()
     if not result: return
 
-    from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
 
 @click.command('kill')
@@ -103,7 +103,6 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 
     if not result: return
 
-    from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Killed process', False))
 
 
@@ -117,10 +116,7 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     result = await obj.get_driver('process_manager').flush(
         query = query,
     )
-
     if not result: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Flushed process', False))
 
 
@@ -133,7 +129,6 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
     log = get_logger("process_manager.logs")
     log.debug(f"Running logs with query {query}")
-    from druncschema.process_manager_pb2 import LogRequest, LogLine
 
     log_req = LogRequest(
         how_far = how_far,
@@ -141,8 +136,6 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
     )
 
     uuid = None
-    from rich.markup import escape
-    from drunc.utils.grpc_utils import unpack_any
 
     async for result in obj.get_driver('process_manager').logs(
         log_req,
@@ -198,8 +191,6 @@ async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) ->
         query=query,
     )
     if not results: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(results.data, title='Processes running', long=long_format))
 
 
