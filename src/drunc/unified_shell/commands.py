@@ -45,7 +45,7 @@ async def boot(
         )
         async for result in results:
             if not result: break
-            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) process started')
+            log.debug(f'\'{result.data.process_description.metadata.name}\' ({result.data.uuid.uuid}) started')
     except InterruptedCommand:
         log.warning("Booting interrupted")
         return

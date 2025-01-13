@@ -1,9 +1,17 @@
 import abc
-from druncschema.token_pb2 import Token
-from druncschema.request_response_pb2 import Request
-from drunc.utils.utils import get_logger, setup_root_logger
+import click
+import getpass
+from google.protobuf.any_pb2 import Any
+import grpc
 from typing import Mapping
-from drunc.exceptions import DruncShellException
+
+from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
+from druncschema.token_pb2 import Token
+from druncschema.request_response_pb2 import Request, ResponseFlag, Response
+
+from drunc.utils.grpc_utils import unpack_any
+from drunc.utils.utils import get_logger, setup_root_logger
+from drunc.exceptions import DruncShellException, DruncSetupException, DruncServerSideError
 
 class InterruptedCommand(DruncShellException):
     '''
@@ -45,13 +53,12 @@ class DecodedResponse:
 
 class GRPCDriver:
     def __init__(self, name:str, address:str, token:Token, aio_channel=False):
-        from drunc.utils.utils import get_logger
-        self.log = get_logger(name)
-        import grpc
-        from druncschema.token_pb2 import Token
+        self.log = get_logger(
+            logger_name = f"GRPCDriver",
+            rich_handler = True
+        )
 
         if not address:
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f'You need to provide a valid IP address for the driver. Provided \'{address}\'')
 
         self.address = address
@@ -70,8 +77,6 @@ class GRPCDriver:
         pass
 
     def _create_request(self, payload=None) -> Request:
-        from google.protobuf.any_pb2 import Any
-
         token2 = Token()
         token2.CopyFrom(self.token)
         data = Any()
@@ -105,8 +110,6 @@ class GRPCDriver:
         #         raise error
 
     def handle_response(self, response, command, outformat):
-        from druncschema.request_response_pb2 import ResponseFlag, Response
-        from drunc.utils.grpc_utils import unpack_any
         dr = DecodedResponse(
             name = response.name,
             token = response.token,
@@ -116,7 +119,6 @@ class GRPCDriver:
             if response.data not in [None, ""]:
                 dr.data = unpack_any(response.data, outformat)
 
-            from drunc.exceptions import DruncServerSideError
             for c_response in response.children:
                 try:
                     dr.children.append(self.handle_response(c_response, command, outformat))
@@ -139,8 +141,6 @@ class GRPCDriver:
                 self.log.error(text("failed"))
 
             if not response.HasField("data"): return None
-            from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
-            from drunc.utils.grpc_utils import unpack_any
 
             error_txt = ''
             stack_txt = None
@@ -161,12 +161,10 @@ class GRPCDriver:
                 error_txt = txt.text
 
             # if rethrow:
-            #     from drunc.exceptions import DruncServerSideError
             #     raise DruncServerSideError(error_txt, stack_txt)
 
 
             dr.data = response.data
-            from drunc.exceptions import DruncServerSideError
             for c_response in response.children:
                 try:
                     dr.children.append(self.handle_response(c_response, command, outformat))
@@ -178,7 +176,6 @@ class GRPCDriver:
 
 
     def send_command(self, command:str, data=None, outformat=None, decode_children=False):
-        import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
 
@@ -194,7 +191,6 @@ class GRPCDriver:
 
 
     async def send_command_aio(self, command:str, data=None, outformat=None):
-        import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
 
@@ -211,7 +207,6 @@ class GRPCDriver:
 
 
     async def send_command_for_aio(self, command:str, data=None, outformat=None):
-        import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
 
@@ -232,7 +227,10 @@ class ShellContext:
     def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
         from rich.console import Console
         self._console = Console()
-        self.log = get_logger(f"{name}.shell_context")
+        self.log = get_logger(
+            logger_name = f"ShellContext",
+            rich_handler = True
+        )
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 
@@ -313,10 +311,7 @@ class ShellContext:
 
 def create_dummy_token_from_uname() -> Token:
     from drunc.utils.shell_utils import create_dummy_token_from_uname
-    import getpass
     user = getpass.getuser()
-
-    from druncschema.token_pb2 import Token
     return Token ( # fake token, but should be figured out from the environment/authoriser
         token = f'{user}-token',
         user_name = user
@@ -325,7 +320,6 @@ def create_dummy_token_from_uname() -> Token:
 
 def add_traceback_flag():
     def wrapper(f0):
-        import click
         f1 = click.option('-t/-nt','--traceback/--no-traceback', default=None, help='Print full exception traceback')(f0)
         return f1
     return wrapper

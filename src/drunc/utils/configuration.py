@@ -1,6 +1,12 @@
+import conffwk
 from enum import Enum
-from drunc.exceptions import DruncSetupException
+import json
+import os
 from urllib.parse import urlparse
+
+from drunc.exceptions import DruncSetupException
+from drunc.utils.utils import expand_path
+from drunc.utils.utils import get_logger
 
 class ConfTypes(Enum):
     Unknown = 0
@@ -12,7 +18,6 @@ class ConfTypes(Enum):
     JsonFileName = 2
     ProtobufAny = 3
     OKSFileName = 4
-
 
 def CLI_to_ConfTypes(scheme:str) -> ConfTypes:
     match scheme:
@@ -38,13 +43,10 @@ class ConfigurationNotFound(DruncSetupException):
         super().__init__(f'The configuration \'{requested_path}\' is not in $DUNEDAQ_DB_PATH, perhaps you forgot to \'dbt-workarea-env && dbt-build\'?')
 
 def find_configuration(path:str) -> str:
-    from drunc.utils.utils import get_logger
     log = get_logger(
-        logger_name = 'find_configuration',
+        logger_name = 'utils.find_configuration',
         rich_handler = True
     )
-    import os
-    from drunc.utils.utils import expand_path
     expanded_path = expand_path(urlparse(path).path, turn_to_abs_path=False)
     if os.path.exists(expanded_path):
         return expanded_path
@@ -58,7 +60,7 @@ def find_configuration(path:str) -> str:
 
     if len(configuration_files)>1:
         l = "\n - ".join(configuration_files)
-        log.warning(f'The configuration \'{path}\' matches >1 configurations in $DUNEDAQ_SHARED_PATH:\n - {l}\nUsing the first one')
+        log.warning(f'The configuration \'{path}\' matches >1 configurations in $DUNEDAQ_SHARED_PATH:\n - {l}\n:heavy_exclamation_mark:Using the first one: :heavy_exclamation_mark:', extra={"markup": True})
 
     if not configuration_files:
         raise ConfigurationNotFound(path)
@@ -81,9 +83,11 @@ class OKSKey:
 
 class ConfHandler:
     def __init__(self, data=None, type=ConfTypes.PyObject, oks_key:OKSKey=None, *args, **kwargs):
-        from drunc.utils.utils import get_logger
         self.class_name = self.__class__.__name__
-        self.log = get_logger(self.class_name)
+        self.log = get_logger(
+            logger_name = "utils." + self.class_name,
+            rich_handler = True
+        )
         self.initial_type = type
         self.initial_data = data
         self.root_id = 0
@@ -98,14 +102,10 @@ class ConfHandler:
         self.validate_and_parse_configuration_location(*args, **kwargs)
 
     def copy_oks_key(self):
-        from copy import deepcopy as dc
         return self.oks_key
 
     def _parse_oks_file(self, oks_path):
-        from drunc.exceptions import DruncSetupException
-
         try:
-            import conffwk
             self.oks_path = f"oksconflibs:{oks_path}"
             self.log.debug(f'Using {self.oks_path} to configure')
             self.db = conffwk.Configuration(self.oks_path)
@@ -133,50 +133,36 @@ class ConfHandler:
 
 
     def validate_and_parse_configuration_location(self, *args, **kwargs):
-        from os.path import exists
-        from drunc.utils.utils import expand_path
-
         match self.initial_type:
-
-
             case ConfTypes.PyObject:
-
                 self.data = self.initial_data
                 self.type = self.initial_type
                 self._post_process_oks(*args, **kwargs)
 
-
             case ConfTypes.JsonFileName:
-
                 resolved = expand_path(self.initial_data, True)
-                if not exists(expand_path(self.initial_data)):
+                if not os.path.exists(expand_path(self.initial_data)):
                     raise DruncSetupException(f'Location {resolved} ({self.initial_data}) is empty!')
 
                 with open(resolved) as f:
-                    import json
                     data = json.loads(f.read())
                     self.data = self._parse_dict(data)
                     self.type = ConfTypes.PyObject
                     self._post_process_oks(*args, **kwargs)
 
-
             case ConfTypes.OKSFileName:
-
                 resolved = find_configuration(self.initial_data)
-                if not exists(resolved):
+                if not os.path.exists(resolved):
                     raise DruncSetupException(f'Location {resolved} ({self.initial_data}) is empty!')
 
                 self.data = self._parse_oks_file(resolved)
                 self.type = ConfTypes.PyObject
                 self._post_process_oks(*args, **kwargs)
 
-
             case ConfTypes.ProtobufAny:
-
                 self.data = self._parse_pbany(self.initial_data)
                 self.type = ConfTypes.PyObject
                 self._post_process_oks(*args, **kwargs)
-
 
             case _:
                 raise ConfTypeNotSupported(self.initial_type, self.class_name)

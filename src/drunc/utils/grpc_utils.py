@@ -1,18 +1,25 @@
+import functools
+import grpc
+from google.protobuf import any_pb2
+from google.protobuf.any_pb2 import Any
+from google.rpc import code_pb2
+
+from drunc.utils.utils import get_logger
+
 from drunc.exceptions import DruncCommandException,DruncException
-from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.generic_pb2 import PlainText
+from druncschema.request_response_pb2 import Response, ResponseFlag
+from druncschema.token_pb2 import Token
 
 class UnpackingError(DruncCommandException):
     def __init__(self, data, format):
         self.data = data
         self.format = format
 
-        from google.rpc import code_pb2
         super().__init__(f'Cannot unpack {data} to {format.DESCRIPTOR}', code_pb2.INVALID_ARGUMENT)
 
 
 def pack_to_any(data):
-    from google.protobuf import any_pb2
     any = any_pb2.Any()
     any.Pack(data)
     return any
@@ -27,15 +34,10 @@ def unpack_any(data, format):
 
 
 def unpack_request_data_to(data_type=None, pass_token=False):
-
     def decor(cmd):
-
-        import functools
-
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         def unpack_request(obj, request):
-            from drunc.utils.utils import get_logger
-            log = get_logger('unpack_request_data_to_decorator')
+            log = get_logger('utils.unpack_request_data_to_decorator')
             log.debug('Entering')
 
             ret = None
@@ -74,19 +76,11 @@ def unpack_request_data_to(data_type=None, pass_token=False):
 
 
 def async_unpack_request_data_to(data_type=None, pass_token=False):
-
     def decor(cmd):
-
-        import functools
-
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def unpack_request(obj, request):
-            from drunc.utils.utils import get_logger
-            log = get_logger('unpack_request_data_to_decorator')
-            log.debug('Entering')
-
+            log = get_logger('utils.unpack_request_data_to_decorator')
             log.debug('Executing wrapped function')
-
             kwargs = {}
             if pass_token:
                 kwargs = {'token': request.token}
@@ -122,19 +116,9 @@ def async_unpack_request_data_to(data_type=None, pass_token=False):
 
 def pack_response(cmd, with_children_responses=False):
     raise DeprecationWarning('This function is deprecated, pack your responses yourself')
-
-    import functools
-
     @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
     def pack_response(obj, *arg, **kwargs):
-        from drunc.utils.utils import get_logger
-        log = get_logger('pack_response_decorator')
-        log.debug('Entering')
-
-        from druncschema.request_response_pb2 import Response
-        from druncschema.token_pb2 import Token
-        from google.protobuf.any_pb2 import Any
-
+        log = get_logger('utils.pack_response_decorator')
         log.debug('Executing wrapped function')
         out = cmd(obj, *arg, **kwargs)
         self_response = out
@@ -143,7 +127,6 @@ def pack_response(cmd, with_children_responses=False):
         if with_children_responses:
             self_response = out[0]
             response_children = out[1]
-
 
         new_token = Token() # empty token
         data = Any()
@@ -165,22 +148,11 @@ def pack_response(cmd, with_children_responses=False):
 
 def async_pack_response(cmd, with_children_responses=False):
     raise DeprecationWarning('This function is deprecated, pack your responses yourself')
-
-    import functools
-
     @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
     async def pack_response(obj, *arg, **kwargs):
-        from drunc.utils.utils import get_logger
-        log = get_logger('pack_response_decorator')
-        log.debug('Entering')
-
+        log = get_logger('utils.pack_response_decorator')
         log.debug('Executing wrapped function')
         async for ret in cmd(obj, *arg, **kwargs):
-
-            from druncschema.request_response_pb2 import Response
-            from druncschema.token_pb2 import Token
-            from google.protobuf.any_pb2 import Any
-
             new_token = Token() # empty token
             data = Any()
             data.Pack(ret)
@@ -196,12 +168,10 @@ def async_pack_response(cmd, with_children_responses=False):
 class ServerUnreachable(DruncException):
     def __init__(self, message):
         self.message = message
-        from google.rpc import code_pb2
         super(ServerUnreachable, self).__init__(message, code_pb2.UNAVAILABLE)
 
 
 def server_is_reachable(grpc_error):
-    import grpc
     if hasattr(grpc_error, '_state'):
         if grpc_error._state.code == grpc.StatusCode.UNAVAILABLE:
             return False

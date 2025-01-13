@@ -1,8 +1,16 @@
+from flask import Flask, make_response, jsonify, request
+from flask_restful import Api, Resource
+import gunicorn.app.base
+from multiprocessing import Process
+import psutil
+import requests
 import threading
 import time
 from typing import NoReturn
-from multiprocessing import Process
-import gunicorn.app.base
+import signal
+
+from drunc.exceptions import DruncCommandException
+from drunc.utils.utils import get_logger, get_new_port
 
 class GunicornStandaloneApplication(gunicorn.app.base.BaseApplication):
 
@@ -21,7 +29,6 @@ class GunicornStandaloneApplication(gunicorn.app.base.BaseApplication):
         return self.application
 
 
-from drunc.exceptions import DruncCommandException
 class CannotStartFlaskManager(DruncCommandException):
     pass
 
@@ -64,7 +71,6 @@ class FlaskManager(threading.Thread):
 
     def __init__(self, name, app, port, workers=1, host='0.0.0.0'):
         super(FlaskManager, self).__init__(daemon = True)
-        from drunc.utils.utils import get_logger
         self.log = get_logger(f"{name}-flaskmanager")
         self.name = name
         self.app = app
@@ -112,8 +118,6 @@ class FlaskManager(threading.Thread):
 
         tries=0
 
-        from requests import get
-
         while True:
             if tries>20:
                 self.log.critical(f'Cannot ping the {self.name}!')
@@ -123,7 +127,7 @@ class FlaskManager(threading.Thread):
                 raise CannotStartFlaskManager(f"Cannot start a FlaskManager for {self.name}")
             tries += 1
             try:
-                resp = get(f"http://{self.host}:{self.port}/readystatus")
+                resp = requests.get(f"http://{self.host}:{self.port}/readystatus")
                 if resp.text == "ready":
                     break
             except Exception as e:
@@ -142,9 +146,7 @@ class FlaskManager(threading.Thread):
     def stop(self) -> NoReturn:
         # gunicorn is forked, so we need to now need send signal ourselves
         if self.gunicorn_pid:
-            import psutil
             gunicorn_proc = psutil.Process(self.gunicorn_pid)
-            import signal
             # https://github.com/benoitc/gunicorn/blob/ab9c8301cb9ae573ba597154ddeea16f0326fc15/docs/source/signals.rst#master-process
             # TOTAL DESTRUCTION
             gunicorn_proc.send_signal(signal.SIGTERM)
@@ -167,8 +169,7 @@ class FlaskManager(threading.Thread):
         )
         fm.start()
         while not fm.is_ready():
-            from time import sleep
-            sleep(0.1)
+            time.sleep(0.1)
         return fm
 
     def is_ready(self):
@@ -197,9 +198,6 @@ class FlaskManager(threading.Thread):
 
 
 def main():
-    from drunc.utils.utils import get_new_port
-    from flask import Flask, make_response, jsonify, request
-    from flask_restful import Api, Resource
 
     class DummyEndpoint(Resource):
         def post(self):
@@ -227,12 +225,10 @@ def main():
         else:
             manager.start()
             while not manager.is_ready():
-                from time import sleep
-                sleep(0.1)
+                time.sleep(0.1)
             assert(not manager.is_terminated())
             assert(manager.is_ready())
 
-            import requests
             requests.get(f'http://127.0.0.1:{manager.port}/dummy')
             print('succesfully got endpoint /dummy')
             manager.stop()
