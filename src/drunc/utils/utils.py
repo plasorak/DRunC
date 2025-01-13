@@ -66,6 +66,7 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console
 def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+
     root_logger = logging.getLogger('drunc')
     if "drunc" in logging.Logger.manager.loggerDict:
         if root_logger.level == log_levels["NOTSET"]:
@@ -93,7 +94,7 @@ def setup_root_logger(stream_log_level:str) -> None:
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str = None, override_log_file:bool = False, rich_handler:bool = False, rich_log_level:str = None):
+def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool = False, rich_handler:bool = False):
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, need to run `setup_root_logger` first.")
     if "drunc" not in logging.Logger.manager.loggerDict:
@@ -107,14 +108,10 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             raise DruncSetupException("process_manager requires a rich handler.")
     if logger_name.count(".") > 1:
         raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-    if logger_name.count(".") == 1 and not "drunc.".join(logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
-        get_logger(logger_name.split(".")[0], log_file_path, log_file_log_level, override_log_file, rich_handler, rich_log_level)
+    if logger_name.count(".") == 1 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
 
-    root_logger_level = logging.getLogger('drunc').level
-    if not log_file_log_level:
-        log_file_log_level = root_logger_level
-    if not rich_log_level:
-        rich_log_level = root_logger_level
+    logger_level = logging.getLogger('drunc').level
 
     # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
     logger_name = 'drunc.' + logger_name
@@ -123,37 +120,33 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
     if logger_name in logging.Logger.manager.loggerDict:
         logger.debug(f"Logger {logger_name} already exists!")
         if logger.level == log_levels["NOTSET"]:
-            logger.debug(f"Updating {logger_name} level and handlers")
-            logger.setLevel(root_logger_level)
+            logger.debug(f"Updating {logger_name} level and handlers' levels to {list(log_levels.keys())[list(log_levels.values()).index(logger_level)]}, matching the root logger")
+            logger.setLevel(logger_level)
             for handler in logger.handlers:
-                match type(handler).__name__:
-                    case "RichHandler":
-                        handler.setLevel(rich_log_level)
-                    case "FileHandler" | "StreamHandler":
-                        handler.setLevel(log_file_log_level)
-                    case _:
-                        raise DruncSetupException(f"Unrecognised handler type {type(handler)}")
-                        exit(1)
+                handler.setLevel(logger_level)
             logger.debug(f"Updated {logger_name} level and handlers")
+            logger.debug(f"Logger {logger_name} has level {logger.level} and handlers {logger.handlers}")
         else:
-            logger.debug(f"Logger {logger_name} already exists, not overwriting handlers")
+            logger.debug(f"Logger {logger_name} already exists and is set, not overwriting handlers")
             return logger
 
     if override_log_file and log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 
-    logger.setLevel(root_logger_level)
+    logger.setLevel(logger_level)
 
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
-        fileHandler.setLevel(log_file_log_level)
+        fileHandler.setLevel(logger_level)
         fileHandler.setFormatter(_get_stream_logging_format())
         logger.addHandler(fileHandler)
         logger.debug(f"Added file handler to {logger_name}")
 
-    if any(isinstance(handler, RichHandler) for handler in logger.parent.handlers):
+    if any(isinstance(handler, RichHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
+        logger.debug(f"Logger {logger_name} already has an associated and usable RichHandler, skipping it")
         stdHandler = None
     elif rich_handler:
+        logger.debug(f"Assigning a RichHandler to logger {logger_name}")
         try:
             width = os.get_terminal_size()[0]
         except:
@@ -166,14 +159,16 @@ def get_logger(logger_name:str, log_file_path:str = None, log_file_log_level:str
             markup=True
         )
         stdHandler.setFormatter(_get_rich_logging_format())
-    elif any(isinstance(handler, logging.StreamHandler) for handler in logger.parent.handlers):
+    elif any(isinstance(handler, logging.StreamHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
+        logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
         stdHandler = None
     else:
+        logger.debug(f"Assigning a StreamHandler to logger {logger_name}")
         stdHandler = logging.StreamHandler()
         stdHandler.setFormatter(_get_stream_logging_format())
 
     if stdHandler:
-        stdHandler.setLevel(rich_log_level)
+        stdHandler.setLevel(logger_level)
         logger.addHandler(stdHandler)
         logger.debug(f"Added appropriate stream handler to {logger_name}")
 

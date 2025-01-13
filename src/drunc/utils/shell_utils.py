@@ -228,7 +228,7 @@ class ShellContext:
         from rich.console import Console
         self._console = Console()
         self.log = get_logger(
-            logger_name = f"ShellContext",
+            logger_name = f"{name}.ShellContext",
             rich_handler = True
         )
         self._token = self.create_token(**token_args)

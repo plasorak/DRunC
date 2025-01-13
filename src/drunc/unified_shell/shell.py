@@ -1,3 +1,15 @@
+import asyncio
+import click
+import click_shell
+import conffwk
+import getpass
+import logging
+import multiprocessing as mp
+import os
+from time import sleep
+import sys
+from urllib.parse import urlparse
+
 from drunc.controller.configuration import ControllerConfHandler
 from drunc.controller.interface.commands import status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
 from drunc.controller.interface.shell_utils import generate_fsm_command
@@ -14,24 +26,12 @@ from drunc.unified_shell.commands import boot
 from drunc.utils.configuration import find_configuration, OKSKey, parse_conf_url
 from drunc.utils.utils import validate_command_facility, log_levels, setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
 
-import asyncio
-import click
-import click_shell
-import conffwk
-import getpass
-import logging
-import multiprocessing as mp
-import os
-from time import sleep
-import sys
-from urllib.parse import urlparse
-
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.argument('process-manager', type=str, nargs=1)
 @click.argument('boot-configuration', type=str, nargs=1)
 @click.argument('session-name', type=str, nargs=1)
-@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
+@click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.") # For production, change default to false/remove it
 @click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 @click.pass_context
 def unified_shell(
@@ -45,7 +45,10 @@ def unified_shell(
 ) -> None:
     # Set up the drunc and unified_shell loggers
     setup_root_logger(log_level)
-    unified_shell_log = get_logger('unified_shell', rich_handler = True)
+    unified_shell_log = get_logger(
+        logger_name = 'unified_shell',
+        rich_handler = True
+    )
     unified_shell_log.debug("Set up [green]unified_shell[/green] logger", extra={'markup': True})
     unified_shell_log.debug(pid_info_str())
 
@@ -56,12 +59,16 @@ def unified_shell(
         internal_pm = False
 
     # Set up process_manager logger
+    conf = find_configuration(boot_configuration)
+    db = conffwk.Configuration(f"oksconflibs:{conf}")
+    app_log_path = db.get_dal(class_name="Session", uid=session_name).log_path
+
     pm_log_path = get_log_path(
         user = getpass.getuser(),
         session_name = get_pm_conf_name_from_dir(process_manager),
         application_name = "process_manager",
         override_logs = override_logs,
-        app_log_path = log_path
+        app_log_path = app_log_path
     )
     process_manager_log = get_logger(
         logger_name = "process_manager", 
@@ -69,6 +76,7 @@ def unified_shell(
         override_log_file = internal_pm,
         rich_handler = True
     )
+    process_manager_log.debug(f"Set up [green]process_manager[/green] logger", extra={'markup': True})
     unified_shell_log.info(f"Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session {session_name}[/green] from [green]{boot_configuration}[/green]", extra={'markup': True})
 
     if internal_pm: 
@@ -109,16 +117,12 @@ def unified_shell(
         unified_shell_log.info(f"[green]unified_shell[/green] connected to the [green]process_manager[/green] ([green]{process_manager}[/green]) at address [green]{process_manager_address}[/green]", extra={'markup': True})
 
     unified_shell_log.debug(f"[green]process_manager[/green] started, communicating through address [green]{process_manager_address}[/green]", extra={'markup': True})
-    ctx.obj.reset(
-        address_pm = process_manager_address,
-    )
+    ctx.obj.reset(address_pm = process_manager_address)
 
     desc = None
     try:
         unified_shell_log.debug("Runnning [green]describe[/green]", extra={'markup': True})
-        desc = asyncio.get_event_loop().run_until_complete(
-            ctx.obj.get_driver().describe()
-        )
+        desc = asyncio.get_event_loop().run_until_complete(ctx.obj.get_driver().describe())
         desc = desc.data
     except Exception as e:
         unified_shell_log.error(f'[red]Could not connect to the process manager at the address[/red] [green]{process_manager_address}[/]', extra={'markup': True}) 
@@ -159,7 +163,7 @@ def unified_shell(
     # Not particularly proud of this...
     # We instantiate a stateful node which has the same configuration as the one from this session
     # Let's do this
-    unified_shell_log.debug("Initializing the session database")
+    unified_shell_log.debug("Retrieving the session database")
     db = conffwk.Configuration(f"oksconflibs:{ctx.obj.boot_configuration}")
     session_dal = db.get_dal(class_name="Session", uid=session_name)
 

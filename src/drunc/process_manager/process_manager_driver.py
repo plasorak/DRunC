@@ -97,9 +97,6 @@ class ProcessManagerDriver(GRPCDriver):
                 args=args))
 
             from drunc.utils.utils import now_str
-            if app_log_path == './':
-                app_log_path = pwd
-
             from drunc.process_manager.utils import get_log_path
             log_path = get_log_path(
                 user = user,

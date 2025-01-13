@@ -127,6 +127,8 @@ def get_log_path(user:str, session_name:str, application_name:str, override_logs
     import os
     from drunc.utils.utils import now_str
     pwd = os.getcwd()
+    if app_log_path == './':
+        app_log_path = pwd
     log_path = None
     if app_log_path: # if the user wants to write to a specific path, we never override
         log_path = f'{app_log_path}/log_{user}_{session_name}_{application_name}_{now_str(True)}.txt'

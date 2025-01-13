@@ -1,7 +1,10 @@
+from typing import Mapping
+
 from drunc.utils.shell_utils import ShellContext, GRPCDriver, add_traceback_flag
 from drunc.utils.utils import get_logger
+
 from druncschema.token_pb2 import Token
-from typing import Mapping
+
 
 class UnifiedShellContext(ShellContext): # boilerplatefest
     def __init__(self):
@@ -17,13 +20,12 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
 
     def reset(self, address_pm:str=''):
         self.address_pm = address_pm
-        self.log = get_logger("unified_shell.context", rich_handler = True)
-        self.log.debug("Resetting context")
-        super(UnifiedShellContext, self)._reset(
-            name = 'unified_shell',
-            token_args = {},
-            driver_args = {},
+        self.log = get_logger(
+            logger_name = "unified_shell.context", 
+            rich_handler = True
         )
+        self.log.debug("Resetting context")
+        super(UnifiedShellContext, self)._reset(name = 'unified_shell')
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
         self.log.debug("Creating drivers")
