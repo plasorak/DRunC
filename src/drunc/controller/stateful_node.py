@@ -5,7 +5,6 @@ from kafkaopmon.OpMonPublisher import OpMonPublisher
 import drunc.fsm.exceptions as fsme
 from typing import Optional
 from druncschema.broadcast_pb2 import BroadcastType
-from opmonlib.opmon.test_pb2 import TestInfo
 
 
 class Observed:
@@ -23,13 +22,6 @@ class Observed:
             message = f'Changing {self._name} from {self._value} to {value}',
             btype = self._broadcast_key,
         )
-
-
-        #self._opmon_publisher.publish(
-            #session="test_Session",
-            #application="test_Controller",
-            #message=init_simple_msg()
-        #)
 
         self._value = value
 
@@ -255,15 +247,3 @@ class StatefulNode(abc.ABC):
 
         return transition_data
     
-def init_simple_msg() -> TestInfo:
-    test_string = "kafkaopmon_drunc_python_test_string"
-    test_double = 123.456789
-    test_int = 0
-    test_bool = False
-    test_info = TestInfo(
-        string_example = test_string,
-        float_example = test_double,
-        int_example = test_int,
-        bool_example = test_bool
-    )
-    return test_info

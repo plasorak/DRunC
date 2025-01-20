@@ -16,31 +16,15 @@ class UserProvidedRunNumber(FSMAction):
         _input_data['disable_data_storage'] = disable_data_storage
         _input_data['trigger_rate'] = trigger_rate
 
-        message = init_simple_msg(
-            test_string=run_type, 
-            test_float=trigger_rate,
-            test_int=run_number, 
-            test_bool=disable_data_storage
-            )
-        
         _context.publisher.publish(
                 session="test_runnumber_session",
                 application="test_runnumber_app",
-                message=message
+                message = TestInfo(
+                    string_example=run_type, 
+                    float_example=trigger_rate,
+                    int_example=run_number, 
+                    bool_example=disable_data_storage
+                    )
             )
 
         return _input_data
-
-
-def init_simple_msg(test_string = "kafkaopmon_drunc_python_test_runnumber",
-    test_float = 123.456789,
-    test_int = 0,
-    test_bool = False) -> TestInfo:
-
-    test_info = TestInfo(
-        string_example=test_string,
-        float_example=test_float,
-        int_example=test_int,
-        bool_example=test_bool
-    )
-    return test_info
