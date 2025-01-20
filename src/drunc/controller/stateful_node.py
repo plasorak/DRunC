@@ -25,11 +25,11 @@ class Observed:
         )
 
 
-        self._opmon_publisher.publish(
-            session="test_Session",
-            application="test_Controller",
-            message=init_simple_msg()
-        )
+        #self._opmon_publisher.publish(
+            #session="test_Session",
+            #application="test_Controller",
+            #message=init_simple_msg()
+        #)
 
         self._value = value
 
@@ -106,7 +106,7 @@ class StatefulNode(abc.ABC):
 
         self.publisher = publisher
 
-        self.__fsm = FSM(fsm_configuration)
+        self.__fsm = FSM(fsm_configuration, publisher=self.publisher)
 
         from logging import getLogger
         self.logger = getLogger('StatefulNode')
