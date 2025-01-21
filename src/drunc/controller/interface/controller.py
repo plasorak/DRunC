@@ -1,6 +1,8 @@
 import click
 import signal
-from drunc.utils.utils import log_levels,  update_log_level, validate_command_facility
+from drunc.utils.utils import log_levels, setup_logger, validate_command_facility
+import os
+import logging
 
 @click.command()
 @click.argument('configuration', type=str)
@@ -13,8 +15,9 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
     from rich.console import Console
     console = Console()
 
-    update_log_level(log_level)
-
+    setup_logger(log_level)
+    from logging import getLogger
+    log = getLogger('controller_cli')
     from drunc.controller.controller import Controller
     from drunc.controller.configuration import ControllerConfHandler
     from druncschema.controller_pb2_grpc import add_ControllerServicer_to_server
@@ -30,7 +33,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         type = conf_type,
         data = conf_path,
         oks_key = OKSKey(
-            schema_file='schema/coredal/dunedaq.schema.xml',
+            schema_file='schema/confmodel/dunedaq.schema.xml',
             class_name="RCApplication",
             obj_uid=name,
             session=session, # some of the function for enable/disable require the full dal of the session
@@ -44,45 +47,51 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
         token = token,
     )
 
+    #if name == 'ru-controller': exit()
+
     def serve(listen_addr:str) -> None:
         import grpc
         from concurrent import futures
         server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
 
         add_ControllerServicer_to_server(ctrlr, server)
-
-        import socket
-        server.add_insecure_port(listen_addr)
+        port = server.add_insecure_port(listen_addr)
 
         server.start()
-
-        console.print(f'{ctrlr.name} was started on {listen_addr}')
-
-        return server
+        log.info(f'\'{ctrlr.name}\' was started on \'{port}\'')
+        return server, port
 
     def controller_shutdown():
         console.print('Requested termination')
         ctrlr.terminate()
 
+    def kill_me(sig, frame):
+        l = logging.getLogger("kill_me")
+        l.info('Sending SIGKILL')
+        pgrp = os.getpgid(os.getpid())
+        os.killpg(pgrp, signal.SIGKILL)
+
     def shutdown(sig, frame):
-        console.print(f'Received {sig}')
+        l = logging.getLogger("shutdown")
+        l.info('Shutting down gracefully')
         try:
             controller_shutdown()
         except:
             from drunc.utils.utils import print_traceback
             print_traceback()
+            kill_me(sig, frame)
 
-        import os
-        os.kill(os.getpid(), signal.SIGQUIT)
-
-
-    terminate_signals = [signal.SIGHUP, signal.SIGPIPE]
-    # terminate_signals = set(signal.Signals) - set([signal.SIGKILL, signal.SIGSTOP])
-    for sig in terminate_signals:
-        signal.signal(sig, shutdown)
+    signal.signal(signal.SIGHUP, kill_me)
+    signal.signal(signal.SIGINT, shutdown)
 
     try:
-        server = serve(command_facility)
+        from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip
+        command_facility = resolve_localhost_and_127_ip_to_network_ip(command_facility)
+        server_name = command_facility.split(':')[0]
+        server, port = serve(command_facility)
+
+        ctrlr.advertise_control_address(f'grpc://{server_name}:{port}')
+
         server.wait_for_termination(timeout=None)
 
     except Exception as e:

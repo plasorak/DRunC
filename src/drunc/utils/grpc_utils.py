@@ -1,5 +1,6 @@
-
 from drunc.exceptions import DruncCommandException,DruncException
+from druncschema.request_response_pb2 import Response, ResponseFlag
+from druncschema.generic_pb2 import PlainText
 
 class UnpackingError(DruncCommandException):
     def __init__(self, data, format):
@@ -44,8 +45,22 @@ def unpack_request_data_to(data_type=None, pass_token=False):
             if pass_token:
                 kwargs = {'token': request.token}
 
+            data = None
             if data_type is not None:
-                data = unpack_any(request.data, data_type)
+                try:
+                    data = unpack_any(request.data, data_type)
+                except UnpackingError as e:
+                    return Response(
+                        name = obj.__class__.__name__,
+                        token = request.token,
+                        data = PlainText(
+                            text = str(e)
+                        ),
+                        flag = ResponseFlag.NOT_EXECUTED_BAD_REQUEST_FORMAT,
+                        children = []
+                    )
+
+            if data is not None:
                 ret = cmd(obj, data, **kwargs)
             else:
                 ret = cmd(obj, **kwargs)
@@ -76,8 +91,22 @@ def async_unpack_request_data_to(data_type=None, pass_token=False):
             if pass_token:
                 kwargs = {'token': request.token}
 
+            data = None
             if data_type is not None:
-                data = unpack_any(request.data, data_type)
+                try:
+                    data = unpack_any(request.data, data_type)
+                except UnpackingError as e:
+                    yield Response(
+                        name = obj.__class__.__name__,
+                        token = request.token,
+                        data = PlainText(
+                            text = str(e)
+                        ),
+                        flag = ResponseFlag.NOT_EXECUTED_BAD_REQUEST_FORMAT,
+                        children = []
+                    )
+
+            if data is not None:
                 async for a in cmd(obj, data, **kwargs):
                     yield a
             else:
@@ -91,7 +120,8 @@ def async_unpack_request_data_to(data_type=None, pass_token=False):
     return decor
 
 
-def pack_response(cmd):
+def pack_response(cmd, with_children_responses=False):
+    raise DeprecationWarning('This function is deprecated, pack your responses yourself')
 
     import functools
 
@@ -106,14 +136,24 @@ def pack_response(cmd):
         from google.protobuf.any_pb2 import Any
 
         log.debug('Executing wrapped function')
-        ret = cmd(obj, *arg, **kwargs)
+        out = cmd(obj, *arg, **kwargs)
+        self_response = out
+        response_children = {}
+
+        if with_children_responses:
+            self_response = out[0]
+            response_children = out[1]
+
 
         new_token = Token() # empty token
         data = Any()
-        data.Pack(ret)
+        data.Pack(self_response)
         ret = Response(
+            name = obj.__class__.__name__,
             token = new_token,
-            data = data
+            data = data,
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = response_children,
         )
 
         log.debug('Exiting')
@@ -123,7 +163,8 @@ def pack_response(cmd):
 
 
 
-def async_pack_response(cmd):
+def async_pack_response(cmd, with_children_responses=False):
+    raise DeprecationWarning('This function is deprecated, pack your responses yourself')
 
     import functools
 
@@ -152,7 +193,6 @@ def async_pack_response(cmd):
     return pack_response
 
 
-# A simpler exception for simple error please!
 class ServerUnreachable(DruncException):
     def __init__(self, message):
         self.message = message
@@ -166,7 +206,7 @@ def server_is_reachable(grpc_error):
         if grpc_error._state.code == grpc.StatusCode.UNAVAILABLE:
             return False
 
-    elif hasattr(grpc_error, '_code'): # the async server case AC#%4tg%^1:"|5!!!!
+    elif hasattr(grpc_error, '_code'):
         if grpc_error._code == grpc.StatusCode.UNAVAILABLE:
             return False
 
@@ -174,20 +214,18 @@ def server_is_reachable(grpc_error):
 
 
 def rethrow_if_unreachable_server(grpc_error):
-    # Come on ! Such a common error and I need to do all this crap to get the address of the service, not even it's own pre-defined message
     if not server_is_reachable(grpc_error):
         if hasattr(grpc_error, '_state'):
             raise ServerUnreachable(grpc_error._state.details) from grpc_error
-        elif hasattr(grpc_error, '_details'): # -1 for gRPC not throwing the same exception in case the server is async
+        elif hasattr(grpc_error, '_details'):
             raise ServerUnreachable(grpc_error._details) from grpc_error
 
 
 def interrupt_if_unreachable_server(grpc_error):
-    # Come on ! Such a common error and I need to do all this crap to get the address of the service, not even it's own pre-defined message
     if not server_is_reachable(grpc_error):
         if hasattr(grpc_error, '_state'):
             return grpc_error._state.details
-        elif hasattr(grpc_error, '_details'): # -1 for gRPC not throwing the same exception in case the server is async
+        elif hasattr(grpc_error, '_details'):
             return grpc_error._details
 
 

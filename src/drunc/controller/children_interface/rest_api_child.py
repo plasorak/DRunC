@@ -1,7 +1,16 @@
-from drunc.controller.children_interface.child_node import ChildNode, ChildNodeType
-
+from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
+from drunc.exceptions import DruncSetupException
+from drunc.utils.utils import ControlType
+from drunc.utils.grpc_utils import pack_to_any
+from druncschema.controller_pb2 import Status
+from druncschema.generic_pb2 import PlainText, Stacktrace
+from druncschema.request_response_pb2 import Response, ResponseFlag, Description
+from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
+from druncschema.token_pb2 import Token
 import threading
 from typing import NoReturn
+import os
 
 class ResponseDispatcher(threading.Thread):
 
@@ -41,57 +50,61 @@ class ResponseDispatcher(threading.Thread):
 class ResponseListener:
     _instance = None
     manager = None
+    import threading
+    _lock = threading.Lock()
+
     def __init__(self):
         from drunc.exceptions import DruncSetupException
         raise DruncSetupException('Call get() instead')
 
     @classmethod
     def get(cls):
-        from logging import getLogger
-        log = getLogger('ResponseListener.get')
-        if cls._instance is None:
-            cls._instance = cls.__new__(cls)
-            from drunc.utils.utils import get_new_port
-            cls.port = get_new_port()
-            from flask import Flask
-            from flask_restful import Api
-            cls.app = Flask('response-listener')
-            cls.api = Api(cls.app)
-            from multiprocessing import Queue
-            cls.queue = Queue()
-            cls.handlers = {}
+        with cls._lock:
+            from logging import getLogger
+            log = getLogger('ResponseListener.get')
+            if cls._instance is None:
+                cls._instance = cls.__new__(cls)
+                from drunc.utils.utils import get_new_port
+                cls.port = get_new_port()
+                from flask import Flask
+                from flask_restful import Api
+                cls.app = Flask('response-listener')
+                cls.api = Api(cls.app)
+                from multiprocessing import Queue
+                cls.queue = Queue()
+                cls.handlers = {}
 
-            cls.dispatcher = ResponseDispatcher(cls)
-            cls.dispatcher.start()
+                cls.dispatcher = ResponseDispatcher(cls)
+                cls.dispatcher.start()
 
-            from flask import request
-            def index():
-                from logging import getLogger
-                log = getLogger('ResponseListener.index')
-                json = request.get_json(force=True)
-                log.debug(f'Received {json}')
-                # enqueue command reply
-                cls.queue.put(json)
-                log.debug(f'Queue size {cls.queue.qsize()}')
-                log.debug(f'Queue pointer {cls.queue}')
-                return "Response received"
+                from flask import request
+                def index():
+                    from logging import getLogger
+                    log = getLogger('ResponseListener.index')
+                    json = request.get_json(force=True)
+                    log.debug(f'Received {json}')
+                    # enqueue command reply
+                    cls.queue.put(json)
+                    log.debug(f'Queue size {cls.queue.qsize()}')
+                    log.debug(f'Queue pointer {cls.queue}')
+                    return "Response received"
 
-            def get():
-                return "ready"
+                def get():
+                    return "ready"
 
-            cls.app.add_url_rule("/response", "index", index, methods=["POST"])
-            cls.app.add_url_rule("/", "get", get, methods=["GET"])
-            from drunc.utils.flask_manager import FlaskManager
-            cls.manager = FlaskManager(
-                port = cls.port,
-                app = cls.app,
-                name = "response-listener-flaskmanager"
-            )
+                cls.app.add_url_rule("/response", "index", index, methods=["POST"])
+                cls.app.add_url_rule("/", "get", get, methods=["GET"])
+                from drunc.utils.flask_manager import FlaskManager
+                cls.manager = FlaskManager(
+                    port = cls.port,
+                    app = cls.app,
+                    name = "response-listener-flaskmanager"
+                )
 
-            cls.manager.start()
-            while not cls.manager.is_ready():
-                from time import sleep
-                sleep(0.1)
+                cls.manager.start()
+                while not cls.manager.is_ready():
+                    from time import sleep
+                    sleep(0.1)
 
         return cls._instance
 
@@ -162,9 +175,12 @@ class ResponseListener:
 
         cls.handlers[app].notify(reply)
 
-class ResponseTimeout(Exception):
+from drunc.controller.exceptions import ChildError
+class ResponseTimeout(ChildError):
     pass
-class NoResponse(Exception):
+class NoResponse(ChildError):
+    pass
+class CouldnotSendCommand(ChildError):
     pass
 
 class AppCommander:
@@ -222,7 +238,7 @@ class AppCommander:
             self.log.debug(f'\'{self.app}\' pings')
             return True
         except Exception as e:
-            self.log.debug(f'\'{self.app}\' does not ping, reason: \'{str(e)}\'')
+            self.log.error(f'\'{self.app}\' does not ping, reason: \'{str(e)}\'')
             return False
 
     def send_command(
@@ -259,16 +275,20 @@ class AppCommander:
 
         self.log.debug(headers)
         import requests
-        ack = requests.post(
-            self.app_url,
-            data=json.dumps(cmd),
-            headers=headers,
-            timeout=1.,
-            proxies={
-                'http': f'socks5h://{self.response_host}:{self.response_port}',
-                'https': f'socks5h://{self.response_host}:{self.response_port}'
-            } if self.proxy_host else None
-        )
+        try:
+            ack = requests.post(
+                self.app_url,
+                data=json.dumps(cmd),
+                headers=headers,
+                timeout=1.,
+                proxies={
+                    'http': f'socks5h://{self.response_host}:{self.response_port}',
+                    'https': f'socks5h://{self.response_host}:{self.response_port}'
+                } if self.proxy_host else None
+            )
+        except requests.ConnectionError as e:
+            self.log.error(f'Connection error to {self.app_url}')
+            raise CouldnotSendCommand(f'Connection error to {self.app_url}')
 
         self.log.debug(f"Ack to {self.app}: {ack.status_code}")
         self.sent_cmd = cmd_id
@@ -291,10 +311,11 @@ class AppCommander:
         try:
             # self.log.info(f"Checking for answers from {self.app} {self.sent_cmd}")
             r = self.response_queue.get(block=(timeout>0), timeout=timeout)
-            self.log.debug(f"Received reply from {self.app} to {self.sent_cmd}")
+            self.log.info(f"Received reply from {self.app} to {self.sent_cmd}")
             self.sent_cmd = None
 
         except queue.Empty:
+            self.log.info(f"Queue empty! {self.app} to {self.sent_cmd}")
             if not timeout:
                 raise NoResponse(f"No response available from {self.app} for command {self.sent_cmd}")
             else:
@@ -302,7 +323,6 @@ class AppCommander:
                 raise ResponseTimeout(
                     f"Timeout while waiting for a reply from {self.app} for command {self.sent_cmd}"
                 )
-
         return r
 
 
@@ -310,65 +330,7 @@ class AppCommander:
 This is a very simple FSM, because it doesn't exist on the server side (appfwk),
 and hence cannot be figured from there
 '''
-class StateRESTAPI:
 
-    def __init__(self, initial_state='initial'):
-        # We'll wrap all these in a mutex for good measure
-        from threading import Lock
-        self._state_lock = Lock()
-        self._executing_command = False
-        self._assumed_operational_state = initial_state
-        self._included = True
-        self._errored = False
-
-
-    def executing_command_mark(self):
-        with self._state_lock:
-            self._executing_command = True
-
-    def end_command_execution_mark(self):
-        with self._state_lock:
-            self._executing_command = False
-
-    def new_operational_state(self, new_state):
-        with self._state_lock:
-            self._assumed_operational_state = new_state
-
-    def get_operational_state(self):
-        with self._state_lock:
-            return self._assumed_operational_state
-
-    def get_executing_command(self):
-        with self._state_lock:
-            return self._executing_command
-
-    def include(self):
-        with self._state_lock:
-            self._included = True
-
-    def exclude(self):
-        with self._state_lock:
-            self._included = False
-
-    def included(self):
-        with self._state_lock:
-            return self._included
-
-    def excluded(self):
-        with self._state_lock:
-            return not self._included
-
-    def to_error(self):
-        with self._state_lock:
-            self._errored = True
-
-    def fix_error(self):
-        with self._state_lock:
-            self._errored = False
-
-    def in_error(self):
-        with self._state_lock:
-            return self._errored
 
 from drunc.utils.configuration import ConfHandler
 
@@ -381,11 +343,14 @@ class RESTAPIChildNodeConfHandler(ConfHandler):
 
 from drunc.fsm.configuration import FSMConfHandler
 
-class RESTAPIChildNode(ChildNode):
-    def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration:FSMConfHandler):
-        super(RESTAPIChildNode, self).__init__(
+
+class RESTAPIChildNode(ClientSideChild):
+    def __init__(self, name, configuration:RESTAPIChildNodeConfHandler, fsm_configuration:FSMConfHandler, uri):
+        super().__init__(
             name = name,
-            node_type = ChildNodeType.REST_API
+            node_type = ControlType.REST_API,
+            configuration = configuration,
+            fsm_configuration = fsm_configuration,
         )
 
         from logging import getLogger
@@ -393,11 +358,22 @@ class RESTAPIChildNode(ChildNode):
 
         self.response_listener = ResponseListener.get()
 
+        from drunc.fsm.core import FSM
+        if fsm_configuration:
+            fsmch = FSMConfHandler(fsm_configuration)
+            self.fsm = FSM(conf=fsmch)
+
         import socket
         response_listener_host = socket.gethostname()
-        self.app_host, self.app_port = configuration.get_host_port()
 
-        proxy_host, proxy_port = getattr(configuration.data, "proxy", [None, None])
+        self.app_host, app_port = uri.split(":")
+        self.app_port = int(app_port)
+
+        if self.app_port == 0:
+            from drunc.exceptions import DruncSetupException
+            raise DruncSetupException(f"Application {name} does not expose a control service in the configuration, or has not advertised itself to the application registry service, or the application registry service is not reachable.")
+
+        proxy_host, proxy_port = getattr(self.configuration.data, "proxy", [None, None])
         proxy_port = int(proxy_port) if proxy_port is not None else None
 
         self.commander = AppCommander(
@@ -410,60 +386,101 @@ class RESTAPIChildNode(ChildNode):
             proxy_port = proxy_port,
         )
 
-        from drunc.fsm.core import FSM
-        from drunc.fsm.configuration import FSMConfHandler
-        fsmch = FSMConfHandler(fsm_configuration)
-
-        self.fsm = FSM(conf=fsmch)
-
         self.response_listener.register(self.name, self.commander)
 
-        self.state = StateRESTAPI()
 
     def __str__(self):
         return f'\'{self.name}@{self.app_host}:{self.app_port}\' (type {self.node_type})'
 
-    def terminate(self):
-        pass
+    # def terminate(self):
+    #     pass
 
-    def get_status(self, token):
-        from druncschema.controller_pb2 import Status
+    def get_endpoint(self):
+        return f'rest://{self.app_host}:{self.app_port}'
 
-        return Status(
-            name = self.name,
-            state = self.state.get_operational_state(),
-            sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',
-            in_error = self.state.in_error() or not self.commander.ping(), # meh
-            included = self.state.included(),
-        )
+    # def get_status(self, token):
 
-    def propagate_command(self, command, data, token):
+    #     status = Status(
+    #         state = self.state.get_operational_state(),
+    #         sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',
+    #         in_error = self.state.in_error() or not self.commander.ping(), # meh
+    #         included = self.state.included(),
+    #     )
+    #     return Response(
+    #         name = self.name,
+    #         token = None,
+    #         data = pack_to_any(status),
+    #         flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #         children = [],
+    #     )
 
-        if command == 'exclude':
-            self.state.exclude()
-        elif command == 'include':
-            self.state.include()
+    # def propagate_command(self, command:str, data, token:Token) -> Response:
+    #     if command == 'exclude':
+    #         self.state.exclude()
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 PlainText(
+    #                     text=f"\'{self.name}\' excluded"
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
+    #     elif command == 'include':
+    #         self.state.include()
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 PlainText(
+    #                     text=f"\'{self.name}\' included"
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
 
-        if self.state.excluded():
-            return
+    #     if self.state.excluded():
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = pack_to_any(
+    #                 FSMCommandResponse(
+    #                     flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
+    #                     command_name = data.command_name,
+    #                     data = None
+    #                 )
+    #             ),
+    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+    #             children = []
+    #         )
 
-        # here lies the mother of all the problems
-        if command != 'execute_fsm_command':
-            self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
-            return None
+    #     # here lies the mother of all the problems
+    #     if command == 'execute_fsm_command':
+    #         return self.propagate_fsm_command(command, data, token)
+    #     elif command == 'describe':
+    #         return self.describe(token)
+    #     else:
+    #         self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
+    #         return Response(
+    #             name = self.name,
+    #             token = token,
+    #             data = None,
+    #             flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+    #             children = []
+    #         )
 
-        self.log.info(f'Sending \'{command}\' to \'{self.name}\'')
-
-        # from drunc.utils.grpc_utils import unpack_any
-        # from druncschema.controller_pb2 import FSMCommand
-        # fsm_command = unpack_any(data, FSMCommand)
-        from druncschema.controller_pb2 import FSMCommandResponseCode
+    def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
         from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)
         self.state.executing_command_mark()
         import json
+        self.log.info(f'Sending \'{data.command_name}\' to \'{self.name}\'')
+
         try:
             self.commander.send_command(
                 cmd_id = data.command_name,
@@ -471,15 +488,45 @@ class RESTAPIChildNode(ChildNode):
                 entry_state = entry_state.upper(),
                 exit_state = exit_state.upper(),
             )
-            r = self.commander.check_response(10)
-            if not r['success']:
+            self.log.debug(f'Sent \'{data.command_name}\' to \'{self.name}\'')
+            r = self.commander.check_response(150)
+
+            self.log.debug(f'Got response from \'{data.command_name}\' to \'{self.name}\'')
+
+            success = r['success']
+
+            response_data = pack_to_any(
+                PlainText(
+                    text = json.dumps(r)
+                )
+            )
+
+            fsm_data = FSMCommandResponse(
+                flag = FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY if success else FSMResponseFlag.FSM_FAILED,
+                command_name = data.command_name,
+                data = response_data
+            )
+            response = Response(
+                name = self.name,
+                token = token,
+                data = pack_to_any(fsm_data),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = {}
+            )
+
+            if not success:
                 self.log.error(r['result'])
                 self.state.to_error()
-                return FSMCommandResponseCode.UNSUCCESSFUL
-        except DruncException as e:
-            self.log.error(str(e))
+                response.flag = ResponseFlag.EXECUTED_SUCCESSFULLY # /!\ The command executed successfully, but the FSM command was not successful
+                return response
+
+        except Exception as e: # OK, we catch all exceptions here, but that's because REST-API are stateless, and we so we need to put the application in error.
+            self.log.error(f'Got error from \'{data.command_name}\' to \'{self.name}\': {str(e)}')
             self.state.to_error()
-            return FSMCommandResponseCode.UNSUCCESSFUL
+            from drunc.utils.utils import print_traceback # for good measure, since I'm not sure the stack will be printed in propagate_to_child in the controller
+            print_traceback()
+            raise e
+
         self.state.end_command_execution_mark()
         self.state.new_operational_state(exit_state)
-        return FSMCommandResponseCode.SUCCESSFUL
+        return response

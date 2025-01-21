@@ -1,9 +1,9 @@
 from druncschema.request_response_pb2 import Request, Response, Description
 from druncschema.generic_pb2 import PlainText, PlainTextVector
-from druncschema.controller_pb2 import Status, ChildrenStatus
+from druncschema.controller_pb2 import Status
 
 from drunc.utils.grpc_utils import unpack_any
-from drunc.utils.shell_utils import GRPCDriver
+from drunc.utils.shell_utils import GRPCDriver, DecodedResponse
 
 
 class ControllerDriver(GRPCDriver):
@@ -19,42 +19,37 @@ class ControllerDriver(GRPCDriver):
         from druncschema.controller_pb2_grpc import ControllerStub
         return ControllerStub(channel)
 
-    def describe(self, rethrow=None) -> Description:
-        return self.send_command('describe', rethrow = rethrow, outformat = Description)
+    def describe(self) -> DecodedResponse:
+        return self.send_command('describe', outformat = Description)
 
-    def describe_fsm(self, rethrow=None) -> Description:
+    def describe_fsm(self, key:str=None) -> DecodedResponse: # key can be: a state name, a transition name, none to get the currently accessible transitions, or all-transition for all the transitions
         from druncschema.controller_pb2 import FSMCommandsDescription
-        return self.send_command('describe_fsm', rethrow = rethrow, outformat = FSMCommandsDescription)
+        input = PlainText(text = key)
+        return self.send_command('describe_fsm', data = input, outformat = FSMCommandsDescription)
 
-    def ls(self, rethrow=None) -> Description:
-        return self.send_command('ls', rethrow = rethrow, outformat = PlainTextVector)
+    def status(self) -> DecodedResponse:
+        return self.send_command('status', outformat = Status)
 
-    def get_status(self, rethrow=None) -> Description:
-        return self.send_command('get_status', rethrow = rethrow, outformat = Status)
+    def take_control(self) -> DecodedResponse:
+        return self.send_command('take_control', outformat = PlainText)
 
-    def get_children_status(self, rethrow=None) -> Description:
-        return self.send_command('get_children_status', rethrow = rethrow, outformat = ChildrenStatus)
+    def who_is_in_charge(self, rethrow=None) -> DecodedResponse:
+        return self.send_command('who_is_in_charge', outformat = PlainText)
 
-    def take_control(self, rethrow=None) -> Description:
-        return self.send_command('take_control', rethrow = rethrow, outformat = PlainText)
+    def surrender_control(self) -> DecodedResponse:
+        return self.send_command('surrender_control')
 
-    def who_is_in_charge(self, rethrow=None) -> Description:
-        return self.send_command('who_is_in_charge', rethrow = rethrow, outformat = PlainText)
-
-    def surrender_control(self, rethrow=None) -> Description:
-        return self.send_command('surrender_control', rethrow = rethrow)
-
-    def execute_fsm_command(self, arguments, rethrow=None) -> Description:
+    def execute_fsm_command(self, arguments) -> DecodedResponse:
         from druncschema.controller_pb2 import FSMCommandResponse
-        return self.send_command('execute_fsm_command', data = arguments, rethrow = rethrow, outformat = FSMCommandResponse)
+        return self.send_command('execute_fsm_command', data = arguments, outformat = FSMCommandResponse)
 
-    def include(self, arguments, rethrow=None) -> Description:
+    def include(self, arguments) -> DecodedResponse:
         from druncschema.controller_pb2 import FSMCommandResponse
-        return self.send_command('include', data = arguments, rethrow = rethrow, outformat = PlainText)
+        return self.send_command('include', data = arguments, outformat = PlainText)
 
-    def exclude(self, arguments, rethrow=None) -> Description:
+    def exclude(self, arguments) -> DecodedResponse:
         from druncschema.controller_pb2 import FSMCommandResponse
-        return self.send_command('exclude', data = arguments, rethrow = rethrow, outformat = PlainText)
+        return self.send_command('exclude', data = arguments, outformat = PlainText)
 
 
 

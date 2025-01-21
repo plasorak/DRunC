@@ -198,7 +198,7 @@ class FlaskManager(threading.Thread):
 
 def main():
     from drunc.utils.utils import get_new_port
-    from flask import Flask, make_response, jsonify
+    from flask import Flask, make_response, jsonify, request
     from flask_restful import Api, Resource
 
     class DummyEndpoint(Resource):

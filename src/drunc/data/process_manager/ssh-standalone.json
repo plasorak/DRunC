@@ -1,0 +1,8 @@
+{
+    "type": "ssh",
+    "name": "SSHProcessManager",
+
+    "authoriser": {
+        "type": "dummy"
+    }
+}

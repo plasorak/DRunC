@@ -17,7 +17,7 @@ def CLI_to_ConfTypes(scheme:str) -> ConfTypes:
     match scheme:
         case 'file':
             return ConfTypes.JsonFileName
-        case 'oksconfig':
+        case 'oksconflibs':
             return ConfTypes.OKSFileName
         case _:
             raise DruncSetupException(f'{scheme} configuration type is not understood')
@@ -51,7 +51,6 @@ def find_configuration(path:str) -> str:
         return expanded_path
 
     configuration_files = []
-    print(path)
     for dir in os.getenv('DUNEDAQ_DB_PATH').split(":"):
         tentative = os.path.join(dir, path)
 
@@ -87,9 +86,13 @@ class ConfHandler:
     def __init__(self, data=None, type=ConfTypes.PyObject, oks_key:OKSKey=None, *args, **kwargs):
         from logging import getLogger
         self.class_name = self.__class__.__name__
-        self.log = getLogger(self.class_name)
+        self.log = getLogger(f'drunc.{self.class_name}')
         self.initial_type = type
         self.initial_data = data
+        self.root_id = 0
+        self.controller_id = 0
+        self.process_id = 0
+        self.process_id_infra = 0
 
         if type == ConfTypes.OKSFileName and oks_key is None:
             raise DruncSetupException('Need to provide a key for the OKS file')
@@ -105,11 +108,10 @@ class ConfHandler:
         from drunc.exceptions import DruncSetupException
 
         try:
-            import oksdbinterfaces
-            self.dal = oksdbinterfaces.dal.module('x', self.oks_key.schema_file)
-            self.oks_path = f"oksconfig:{oks_path}"
-            self.log.info(f'Using {self.oks_path} to configure')
-            self.db = oksdbinterfaces.Configuration(self.oks_path)
+            import conffwk
+            self.oks_path = f"oksconflibs:{oks_path}"
+            self.log.debug(f'Using {self.oks_path} to configure')
+            self.db = conffwk.Configuration(self.oks_path)
             return self.db.get_dal(
                 class_name=self.oks_key.class_name,
                 uid=self.oks_key.obj_uid
@@ -119,7 +121,7 @@ class ConfHandler:
            raise DruncSetupException(f'OKS is not setup in this python environment, cannot parse OKS configurations') from e
 
         except KeyError as e:
-           raise DruncSetupException(f'OKS params where not passed to theis ConfigurationHandler, cannot parse OKS configurations') from e
+           raise DruncSetupException(f'OKS params where not passed to this ConfigurationHandler, cannot parse OKS configurations') from e
 
 
     def _post_process_oks(self):

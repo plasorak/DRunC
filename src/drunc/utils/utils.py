@@ -1,5 +1,8 @@
 import logging
 from rich.theme import Theme
+from enum import Enum
+from drunc.connectivity_service.client import ConnectivityServiceClient
+from drunc.exceptions import DruncSetupException
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 CONSOLE_THEMES = Theme({
@@ -7,6 +10,7 @@ CONSOLE_THEMES = Theme({
     "warning": "magenta",
     "danger": "bold red"
 })
+
 log_levels = {
     'CRITICAL': logging.CRITICAL,
     'ERROR'   : logging.ERROR,
@@ -28,20 +32,27 @@ def regex_match(regex, string):
 
 log_level = logging.INFO
 
-def print_traceback():
-    from rich.console import Console
-    c = Console()
+def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
+    if with_rich:
+        from rich.console import Console
+        c = Console()
+        import os
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 300
+        c.print_exception(width=width)
+    # else: # RETURNTOME
+    #     import sys
+    #     sys.traceback # FIX THISNOW
+
+
+def setup_logger(log_level:str, log_path:str = None):
     import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 150
-    c.print_exception(width=width)
+    if log_path and os.path.isfile(log_path):
+        os.remove(log_path)
 
-
-def update_log_level(loglevel):
-    log_level = log_levels[loglevel]
-    #logging.basicConfig(level=log_level)
+    log_level = log_levels[log_level]
     # Update log level for root logger
     logger = logging.getLogger('drunc')
     logger.setLevel(log_level)
@@ -65,21 +76,36 @@ def update_log_level(loglevel):
         handler.setLevel(kafka_command_level)
 
     from rich.logging import RichHandler
+    from rich.console import Console
     import os
     try:
-        width = os.get_terminal_size()[1]
+        width = os.get_terminal_size()[0]
     except:
         width = 150
 
     logging.basicConfig(
         level=log_level,
-        format="\"%(name)s\": %(message)s",
+        format="%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
         datefmt="[%X]",
         handlers=[
             #logging.StreamHandler(),
-            RichHandler(rich_tracebacks=False, tracebacks_width=width) # Make this True, and everything crashes on exceptions (no clue why)
+            RichHandler(
+                console=Console(width=width),
+                rich_tracebacks=False,
+                show_path=False,
+                tracebacks_width=width
+            ) # Make this True, and everything crashes on exceptions (no clue why)
         ]
     )
+    if (log_path):
+        fileHandler = logging.FileHandler(filename = log_path)
+        fileHandler.setLevel(log_level)
+        fileHandlerFormatter = logging.Formatter(
+            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
+            datefmt="[%X]"
+        )
+        fileHandler.setFormatter(fileHandlerFormatter)
+        logger.addHandler(fileHandler)
 
 def get_new_port():
     import socket
@@ -101,9 +127,30 @@ def run_coroutine(f):
     import asyncio
     @wraps(f)
     def wrapper(*args, **kwargs):
-        return asyncio.get_event_loop().run_until_complete(f(*args, **kwargs))
+        loop = asyncio.get_event_loop()
+
+        ret = None
+        import signal
+
+        main_task = asyncio.ensure_future(f(*args, **kwargs))
+        wanna_catch_during_command = [signal.SIGINT]
+
+        for sig in wanna_catch_during_command:
+            loop.add_signal_handler(sig, main_task.cancel)
+
+        try:
+            ret = loop.run_until_complete(main_task)
+        except asyncio.exceptions.CancelledError as e:
+            print("Command cancelled")
+        finally:
+            for sig in wanna_catch_during_command:
+                loop.remove_signal_handler(sig)
+
+        if ret:
+            return ret
 
     return wrapper
+
 
 def expand_path(path, turn_to_abs_path=False):
     from os.path import abspath, expanduser, expandvars
@@ -128,12 +175,70 @@ def validate_command_facility(ctx, param, value):
 
     match parsed.scheme:
         case 'grpc':
-            return parsed.netloc
+            return str(parsed.netloc)
         case _:
             raise BadParameter(message=f'Command factory for drunc-controller only allows \'grpc\'', ctx=ctx, param=param)
 
 
+def resolve_localhost_to_hostname(address):
+    from socket import gethostbyname, gethostname
+    hostname = gethostname()
+    if 'localhost' in address:
+        address = address.replace('localhost', hostname)
 
+    import re
+    ip_match = re.search(
+        "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
+        address
+    )
+    # https://stackoverflow.com/a/25969006
+
+    if not ip_match:
+        return address
+
+    if ip_match.group(0).startswith('127.'):
+        address = address.replace(ip_match.group(0), hostname)
+
+    if ip_match.group(0).startswith('0.'):
+        address = address.replace(ip_match.group(0), hostname)
+
+    return address
+
+
+def resolve_localhost_and_127_ip_to_network_ip(address):
+    from socket import gethostbyname, gethostname
+    this_ip = gethostbyname(gethostname())
+    if 'localhost' in address:
+        address = address.replace('localhost', this_ip)
+
+    import re
+    ip_match = re.search(
+        "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
+        address
+    )
+    # https://stackoverflow.com/a/25969006
+
+    if not ip_match:
+        return address
+
+    if ip_match.group(0).startswith('127.'):
+        address = address.replace(ip_match.group(0), this_ip)
+
+    if ip_match.group(0).startswith('0.'):
+        address = address.replace(ip_match.group(0), this_ip)
+
+    return address
+
+def host_is_local(host):
+    from socket import gethostname, gethostbyname
+
+    if host in ['localhost', gethostname(), gethostbyname(gethostname())]:
+        return True
+
+    if host.startswith('127.') or host.startswith('0.'):
+        return True
+
+    return False
 
 
 def pid_info_str():
@@ -164,3 +269,156 @@ def parent_death_pact(signal=signal.SIGHUP):
     retcode = libc.prctl(PR_SET_PDEATHSIG, signal, 0, 0, 0)
     if retcode != 0:
         raise Exception("prctl() returned nonzero retcode %d" % retcode)
+
+from drunc.exceptions import DruncException
+class IncorrectAddress(DruncException):
+    pass
+
+def https_or_http_present(address:str):
+    if not address.startswith('https://') and not address.startswith('http://'):
+        raise IncorrectAddress('Endpoint should start with http:// or https://')
+
+
+def http_post(address, data, as_json=True, ignore_errors=False, **post_kwargs):
+    https_or_http_present(address)
+
+    from requests import post
+    if as_json:
+        r = post(address, json=data, **post_kwargs)
+    else:
+        r = post(address, data=data, **post_kwargs)
+
+    if not ignore_errors:
+        r.raise_for_status()
+    return r
+
+def http_get(address, data, as_json=True, ignore_errors=False, **post_kwargs):
+    https_or_http_present(address)
+
+    from requests import get
+    log = logging.getLogger("http_get")
+
+    log.debug(f"GETTING {address} {data}")
+    if as_json:
+        r = get(address, json=data, **post_kwargs)
+    else:
+        r = get(address, data=data, **post_kwargs)
+
+    log.debug(r.text)
+    log.debug(r.status_code)
+
+    if not ignore_errors:
+        log.error(r.text)
+        r.raise_for_status()
+    return r
+
+
+def http_patch(address, data, as_json=True, ignore_errors=False, **post_kwargs):
+    https_or_http_present(address)
+
+    from requests import patch
+    if as_json:
+        r = patch(address, json=data, **post_kwargs)
+    else:
+        r = patch(address, data=data, **post_kwargs)
+
+    if not ignore_errors:
+        r.raise_for_status()
+    return r
+
+
+def http_delete(address, data, as_json=True, ignore_errors=False, **post_kwargs):
+    https_or_http_present(address)
+
+    from requests import delete
+    if as_json:
+        r = delete(address, json=data, **post_kwargs)
+    else:
+        r = delete(address, data=data, **post_kwargs)
+
+    if not ignore_errors:
+        r.raise_for_status()
+
+class ControlType(Enum):
+    Unknown = 0
+    gRPC = 1
+    REST_API = 2
+    Direct = 3
+
+
+def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
+    for CLA in CLAs:
+        if   CLA.startswith("rest://"): return ControlType.REST_API, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("rest://", ""))
+        elif CLA.startswith("grpc://"): return ControlType.gRPC, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("grpc://", ""))
+
+    raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
+
+def get_control_type_and_uri_from_connectivity_service(
+    connectivity_service:ConnectivityServiceClient,
+    name:str,
+    timeout:int=10, # seconds
+    retry_wait:float=0.1, # seconds
+    progress_bar:bool=False,
+    title:str=None,
+) -> tuple[ControlType, str]:
+
+    uris = []
+    from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
+    logger = logging.getLogger('get_control_type_and_uri_from_connectivity_service')
+    import time
+
+    start = time.time()
+    elapsed = 0
+
+    if progress_bar:
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeRemainingColumn(),
+            TimeElapsedColumn()
+        ) as progress:
+
+            task = progress.add_task(f'[yellow]{title}', total=timeout, visible=progress_bar)
+
+            while elapsed < timeout:
+                progress.update(task, completed=elapsed)
+
+                try:
+                    uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
+                    if len(uris) == 0:
+                        raise ApplicationLookupUnsuccessful
+                    else:
+                        break
+
+                except ApplicationLookupUnsuccessful as e:
+                    elapsed = time.time() - start
+                    logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
+                    time.sleep(retry_wait)
+
+            progress.update(task, completed=timeout)
+
+    else:
+        while elapsed < timeout:
+            try:
+                uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
+                if len(uris) == 0:
+                    raise ApplicationLookupUnsuccessful
+                else:
+                    break
+
+            except ApplicationLookupUnsuccessful as e:
+                elapsed = time.time() - start
+                logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
+                time.sleep(retry_wait)
+                
+
+
+    if len(uris) != 1:
+        raise ApplicationLookupUnsuccessful(f"Could not resolve the URI for \'{name}_control\' in the connectivity service, got response {uris}")
+
+    uri = uris[0]['uri']
+
+    return get_control_type_and_uri_from_cli([uri])
