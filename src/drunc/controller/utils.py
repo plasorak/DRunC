@@ -1,4 +1,10 @@
 from drunc.controller.stateful_node import StatefulNode
+from druncschema.request_response_pb2 import Response, ResponseFlag, Request
+from druncschema.token_pb2 import Token
+from drunc.utils.grpc_utils import pack_to_any
+
+import logging
+log = logging.getLogger('controller_utils')
 
 def get_status_message(stateful:StatefulNode):
     from druncschema.controller_pb2 import Status
@@ -13,8 +19,17 @@ def get_status_message(stateful:StatefulNode):
         included = stateful.node_is_included(),
     )
 
+def get_detector_name(configuration) -> str:
+    detector_name = None
+    if hasattr(configuration.data, "contains") and len(configuration.data.contains) > 0:
+        if len(configuration.data.contains) > 0:
+            log.debug(f"Application {configuration.data.id} has multiple contains, using the first one")
+        detector_name = configuration.data.contains[0].id.replace("-", "_").replace("_", " ")
+    else:
+        log.debug(f"Application {configuration.data.id} has no \"contains\" relation, hence no detector")
+    return detector_name
+
 def send_command(controller, token, command:str, data=None, rethrow=False):
-    from druncschema.request_response_pb2 import Request
     import grpc
     from google.protobuf import any_pb2
 
@@ -61,7 +76,8 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
         if hasattr(status, 'details'):
             for detail in status.details:
                 if detail.Is(Stacktrace.DESCRIPTOR):
-                    text = 'Stacktrace [bold red]on remote server![/]\n'
+                    # text = '[bold red]Stacktrace on remote server![/bold red]\n' # Temporary - bold red doesn't work
+                    text = 'Stacktrace on remote server!\n'
                     stack = unpack_any(detail, Stacktrace)
                     for l in stack.text:
                         text += l+"\n"
@@ -75,3 +91,20 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
         return None
 
     return response
+
+
+def get_segment_lookup_timeout(segment_conf, base_timeout=60):
+
+    def recurse_segment(segment, recursion_count:int=1) -> int:
+        if segment.segments == []:
+            return recursion_count
+
+        max_recursion = 0
+        for child_segment in segment.segments:
+            child_recursion_count = recurse_segment(child_segment, recursion_count+1)
+            if child_recursion_count > max_recursion:
+                max_recursion = child_recursion_count
+        return max_recursion
+
+    recursion_count = recurse_segment(segment_conf, 1)
+    return base_timeout * recursion_count

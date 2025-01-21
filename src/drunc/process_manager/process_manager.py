@@ -1,19 +1,21 @@
-from druncschema.request_response_pb2 import Request, Response
-from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.authoriser_pb2 import ActionType, SystemType
-
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessRestriction, ProcessDescription, ProcessUUID, ProcessInstanceList, LogRequest
+from druncschema.broadcast_pb2 import BroadcastType
+from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessRestriction, ProcessDescription, ProcessUUID, ProcessInstanceList, LogRequest, LogLine
 from druncschema.process_manager_pb2_grpc import ProcessManagerServicer
-from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
-from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to, pack_response, async_pack_response
-import abc
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag
 
 from drunc.authoriser.decorators import authentified_and_authorised, async_authentified_and_authorised
-from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
-
-
+from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
 from drunc.exceptions import DruncCommandException
+from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
+from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
+from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
+from drunc.utils.utils import setup_logger, pid_info_str
 
+import abc
+import os
+import getpass
+import logging
 
 class BadQuery(DruncCommandException):
     def __init__(self, txt):
@@ -22,13 +24,16 @@ class BadQuery(DruncCommandException):
 
 class ProcessManager(abc.ABC, ProcessManagerServicer):
 
-    def __init__(self, configuration:ProcessManagerConfHandler, name, session=None, **kwargs):
+    def __init__(self, configuration:ProcessManagerConfHandler, name:str, session:str=None, **kwargs):
         super().__init__()
+        self.log = logging.getLogger("drunc.process_manager")
+        self.log.debug(pid_info_str())
+        self.log.debug("Initialized ProcessManager")
 
         self.configuration = configuration
-
         self.name = name
         self.session = session
+
         from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
         from drunc.utils.configuration import ConfTypes
         bsch = BroadcastSenderConfHandler(
@@ -41,10 +46,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             name = name,
             session = session,
             configuration = bsch,
-        )
-
-        from logging import getLogger
-        self.log = getLogger("process_manager")
+        ) if bsch.data else None
 
         from drunc.authoriser.configuration import DummyAuthoriserConfHandler
         from drunc.utils.configuration import ConfTypes
@@ -97,6 +99,13 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             ),
 
             CommandDescription(
+                name = 'terminate',
+                data_type = ['process_manager_pb2.ProcessQuery'],
+                help = 'Kill all processes in session.',
+                return_type = 'process_manager_pb2.ProcessInstanceList'
+            ),
+
+            CommandDescription(
                 name = 'flush',
                 data_type = ['process_manager_pb2.ProcessQuery'],
                 help = 'Remove the processes from the list that are dead',
@@ -122,39 +131,32 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             message = 'ready',
             btype = BroadcastType.SERVER_READY
         )
-
-    def terminate(self):
-        self.broadcast(
-            message='over_and_out',
-            btype=BroadcastType.SERVER_SHUTDOWN
-        )
-        self._terminate()
-
-    @abc.abstractmethod
-    def _terminate(self):
-        pass
-
     '''
     A couple of simple pass-through functions to the broadcasting service
     '''
     def broadcast(self, *args, **kwargs):
-        return self.broadcast_service.broadcast(*args, **kwargs)
+        self.log.debug(f"{self.name} broadcasting")
+        return self.broadcast_service.broadcast(*args, **kwargs) if self.broadcast_service else None
 
     def can_broadcast(self, *args, **kwargs):
-        return self.broadcast_service.can_broadcast(*args, **kwargs)
+        self.log.debug(f"Checking if {self.name} can broadcast")
+        return self.broadcast_service.can_broadcast(*args, **kwargs) if self.broadcast_service else False
 
     def describe_broadcast(self, *args, **kwargs):
-        return self.broadcast_service.describe_broadcast(*args, **kwargs)
+        self.log.debug(f"Describing {self.name} broadcast")
+        return self.broadcast_service.describe_broadcast(*args, **kwargs) if self.broadcast_service else None
 
     def interrupt_with_exception(self, *args, **kwargs):
-        return self.broadcast_service._interrupt_with_exception(*args, **kwargs)
+        self.log.debug(f"Interrupting {self.name} broadcast with exception")
+        return self.broadcast_service._interrupt_with_exception(*args, **kwargs) if self.broadcast_service else None
 
     def async_interrupt_with_exception(self, *args, **kwargs):
-        return self.broadcast_service._async_interrupt_with_exception(*args, **kwargs)
+        self.log.debug(f"Interrupting {self.name} broadcast asynchronously with exception")
+        return self.broadcast_service._async_interrupt_with_exception(*args, **kwargs) if self.broadcast_service else None
 
 
     @abc.abstractmethod
-    def _boot_impl(self, br:BootRequest) -> ProcessUUID:
+    def _boot_impl(self, br:BootRequest) -> ProcessInstance:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -164,13 +166,60 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(BootRequest) # 3rd step
-    @pack_response # 4th step
     def boot(self, br:BootRequest) -> Response:
-        return self._boot_impl(br)
+        self.log.debug(f"{self.name} booting \'{br.process_description.metadata.name}\' from session \'{br.process_description.metadata.session}\'")
+        try:
+            resp = self._boot_impl(br)
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = [],
+            )
+        except NotImplementedError:
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
 
 
     @abc.abstractmethod
-    def _restart_impl(self, q:ProcessQuery) -> ProcessInstance:
+    def _terminate_impl(self) -> ProcessInstanceList:
+        raise NotImplementedError
+
+    # ORDER MATTERS!
+    @broadcasted # outer most wrapper 1st step
+    @authentified_and_authorised(
+        action=ActionType.DELETE,
+        system=SystemType.PROCESS_MANAGER
+    ) # 2nd step
+    @unpack_request_data_to(None) # 3rd step
+    def terminate(self) -> Response:
+        self.log.info(f"{self.name} terminating")
+        try:
+            resp = self._terminate_impl()
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = [],
+            )
+        except NotImplementedError:
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
+
+    @abc.abstractmethod
+    def _restart_impl(self, q:ProcessQuery) -> ProcessInstanceList:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -180,13 +229,29 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
-    @pack_response # 4th step
     def restart(self, q:ProcessQuery)-> Response:
-        return self._restart_impl(q)
+        self.log.info(f"{self.name} running restart")
+        try:
+            resp = self._restart_impl(q)
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = [],
+            )
+        except NotImplementedError:
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
 
 
     @abc.abstractmethod
-    def _kill_impl(self, q:ProcessQuery) -> Response:
+    def _kill_impl(self, q:ProcessQuery) -> ProcessInstanceList:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -196,13 +261,29 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
-    @pack_response # 4th step
     def kill(self, q:ProcessQuery) -> Response:
-        return self._kill_impl(q)
+        self.log.info(f"{self.name} running kill")
+        try:
+            resp = self._kill_impl(q)
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = [],
+            )
+        except NotImplementedError:
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
 
 
     @abc.abstractmethod
-    def _ps_impl(self, q:ProcessQuery) -> Response:
+    def _ps_impl(self, q:ProcessQuery) -> ProcessInstanceList:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -212,10 +293,25 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
-    @pack_response # 4th step
     def ps(self, q:ProcessQuery) -> Response:
-        return self._ps_impl(q)
-
+        self.log.debug(f"{self.name} running ps")
+        try:
+            resp = self._ps_impl(q)
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = [],
+            )
+        except NotImplementedError:
+            return Response(
+                name = self.name,
+                token = None,
+                data = pack_to_any(resp),
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
 
     # ORDER MATTERS!
     @broadcasted # outer most wrapper 1st step
@@ -224,8 +320,8 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(ProcessQuery) # 3rd step
-    @pack_response # 4th step
     def flush(self, query:ProcessQuery) -> Response:
+        self.log.debug(f"{self.name} running flush")
         ret = []
 
         for uuid in self._get_process_uid(query):
@@ -269,7 +365,15 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         pil = ProcessInstanceList(
             values=ret
         )
-        return pil
+
+        return Response(
+            name = self.name,
+            token = None,
+            data = pack_to_any(pil),
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = [],
+        )
+
 
     # ORDER MATTERS!
     @broadcasted # outer most wrapper 1st step
@@ -278,8 +382,8 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @unpack_request_data_to(None) # 3rd step
-    @pack_response # 4th step
     def describe(self) -> Response:
+        self.log.debug(f"{self.name} running describe")
         from druncschema.request_response_pb2 import Description
         from drunc.utils.grpc_utils import pack_to_any
         bd = self.describe_broadcast()
@@ -291,10 +395,19 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         )
         if bd:
             d.broadcast.CopyFrom(pack_to_any(bd))
-        return d
+
+        return Response(
+            name = self.name,
+            token = None,
+            data = pack_to_any(d),
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = [],
+        )
+
+
 
     @abc.abstractmethod
-    async def _logs_impl(self, req:Request, context) -> Response:
+    async def _logs_impl(self, req:Request, context) -> LogLine:
         raise NotImplementedError
 
     # ORDER MATTERS!
@@ -304,11 +417,25 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         system=SystemType.PROCESS_MANAGER
     ) # 2nd step
     @async_unpack_request_data_to(LogRequest) # 3rd step
-    @async_pack_response # 4th step
     async def logs(self, lr:LogRequest) -> Response:
-        async for r in self._logs_impl(lr):
-            yield r
-
+        self.log.debug(f"Getting logs")
+        try:
+            async for r in self._logs_impl(lr):
+                yield Response(
+                    name = self.name,
+                    token = None,
+                    data = pack_to_any(r),
+                    flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                    children = [],
+                )
+        except NotImplementedError:
+            yield Response(
+                name = self.name,
+                token = None,
+                data = None,
+                flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+                children = [],
+            )
 
     def _ensure_one_process(self, uuids:[str], in_boot_request:bool=False) -> str:
         if uuids == []:
@@ -358,24 +485,21 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
         return processes
 
-
-    def get_address(self):
-        return self.configuration.data.command_address
-
     @staticmethod
     def get(conf, **kwargs):
-        from rich.console import Console
-        console = Console()
+        from logging import getLogger
+        log = getLogger("ProcessManager_get")
 
         if conf.data.type == ProcessManagerTypes.SSH:
-            console.print(f'Starting \'SSHProcessManager\'')
+            log.info(f'Starting \'SSHProcessManager\'')
             from drunc.process_manager.ssh_process_manager import SSHProcessManager
             return SSHProcessManager(conf, **kwargs)
         elif conf.data.type == ProcessManagerTypes.K8s:
-            console.print(f'Starting \'K8sProcessManager\'')
+            log.info(f'Starting \'K8sProcessManager\'')
             from drunc.process_manager.k8s_process_manager import K8sProcessManager
             return K8sProcessManager(conf, **kwargs)
         else:
+            log.error(f'ProcessManager type {conf.get("type")} is unsupported!')
             raise RuntimeError(f'ProcessManager type {conf.get("type")} is unsupported!')
 
 

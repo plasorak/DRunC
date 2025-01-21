@@ -1,7 +1,3 @@
-
-
-
-
 def main():
     from drunc.process_manager.interface.process_manager import process_manager_cli
     try:

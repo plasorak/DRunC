@@ -4,9 +4,12 @@ from queue import Queue
 from druncschema.broadcast_pb2_grpc import BroadcastSenderServicer
 from druncschema.broadcast_pb2 import BroadcastRequest
 from druncschema.request_response_pb2 import Request, Response
-from druncschema.generic_pb2 import PlainText
+from druncschema.generic_pb2 import PlainText, StringStringMap
 from druncschema.broadcast_pb2 import BroadcastMessage, BroadcastType
 from druncschema.authoriser_pb2 import ActionType
+from drunc.utils.grpc_utils import unpack_any
+from google.protobuf.any_pb2 import Any
+import drunc.controller.exceptions as ctler_excpt
 
 class ListenerRepresentation:
 
@@ -115,7 +118,7 @@ class GRCPBroadcastSender(BroadcastSenderServicer):
 
 
     def remove_from_broadcast_list(self, request:Request, context) -> Response:
-        r = unpack_any(data, BroadcastRequest)
+        r = unpack_any(request, BroadcastRequest)
         if not self.broadcaster.rm_listener(r.broadcast_receiver_address):
             raise ctler_excpt.ControllerException(f'Failed to remove {r.broadcast_receiver_address} from broadcast list')
         return PlainText(text = f'Removed {r.broadcast_receiver_address} to broadcast list')
@@ -242,10 +245,10 @@ def main():
         try:
             server_thread = Thread(target=serve, kwargs={'port':port}, name=f'serve_thread_{port}')
             server_thread.start()
-            receiver_threads.append(serve_thread)
+            receiver_threads.append(server_thread)
         except:
             pass
-
+    from drunc.broadcast.server.broadcast_sender import BroadcastSender
     broadcaster = BroadcastSender()
     for port in port_list:
         broadcaster.add_listener(f'[::]:{port}')

@@ -1,4 +1,7 @@
-
+from druncschema.request_response_pb2 import Response, ResponseFlag
+from druncschema.generic_pb2 import Stacktrace
+from drunc.utils.grpc_utils import pack_to_any
+import traceback
 
 def broadcasted(cmd):
 
@@ -26,18 +29,23 @@ def broadcasted(cmd):
             log.debug('Executing wrapped function')
             ret = cmd(obj, request) # we strip the context here, no need for that anymore
 
-        except DruncCommandException as e:
-            obj.interrupt_with_exception(
-                exception = e,
-                context = context
-            )
-
         except Exception as e:
-            import traceback
-            obj.interrupt_with_exception(
-                exception = e,
-                stack = traceback.format_exc(),
-                context = context
+            from drunc.utils.utils import print_traceback
+            print_traceback()
+
+            stack = traceback.format_exc().split("\n")
+            from drunc.exceptions import DruncException
+            flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
+            return Response(
+                name = obj.name,
+                token = request.token,
+                data = pack_to_any(
+                    Stacktrace(
+                        text = stack,
+                    )
+                ),
+                flag = flag,
+                children = []
             )
 
         obj.broadcast(
@@ -73,19 +81,25 @@ def async_broadcasted(cmd):
             async for a in cmd(obj, request):
                 yield a
 
-        except DruncCommandException as e:
-            await obj.async_interrupt_with_exception(
-                exception = e,
-                context = context
+        except Exception as e:
+            stack = traceback.format_exc().split("\n")
+            from drunc.utils.utils import print_traceback
+            print_traceback()
+            from drunc.exceptions import DruncException
+            flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
+
+            yield Response(
+                name = obj.name,
+                token = request.token,
+                data = pack_to_any(
+                    Stacktrace(
+                        text = stack
+                    )
+                ),
+                flag = flag,
+                children = []
             )
 
-        except Exception as e:
-            import traceback
-            await obj.async_interrupt_with_exception(
-                exception = e,
-                stack = traceback.format_exc(),
-                context = context
-            )
 
         obj.broadcast(
             message = f'User \'{request.token.user_name}\' successfully executed \'{cmd.__name__}\'',

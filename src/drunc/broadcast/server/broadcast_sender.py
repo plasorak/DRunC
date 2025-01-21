@@ -24,13 +24,12 @@ class BroadcastSender:
         # TODO
         # self.broadcast_types_loglevels.update(self.configuration.get_raw('broadcast_types_loglevels', {}))
 
-        #self.logger.debug(f'{broadcast_configuration.data}, {self.identifier}')
         self.impl_technology = self.configuration.get_impl_technology()
 
         self.implementation = None
 
         if self.impl_technology is None:
-            self.logger.warning('There is no broadcasting service!')
+            self.logger.info('There is no broadcasting service!')
             return
 
         from drunc.broadcast.types import BroadcastTypes

@@ -10,8 +10,40 @@ class InterruptedCommand(DruncShellException):
     '''
     pass
 
+
+class DecodedResponse:
+    ## Warning! This should be kept in sync with druncschema/request_response.proto/Response class
+    name = None
+    token = None
+    data = None
+    flag = None
+    children = []
+
+    def __init__(self, name, token, flag, data=None, children=None):
+        self.name = name
+        self.token = token
+        self.flag = flag
+        self.data = data
+        if children is None:
+            self.children = []
+        else:
+            self.children = children
+
+    @staticmethod
+    def str(obj, prefix=""):
+        text = f'{prefix} {obj.name} -> {obj.flag}\n'
+        for v in obj.children:
+            if v is None:
+                continue
+            text += DecodedResponse.str(v, prefix+"  ")
+        return text
+
+    def __str__(self):
+        return DecodedResponse.str(self)
+
+
 class GRPCDriver:
-    def __init__(self, name:str, address:str, token:Token, aio_channel=False, rethrow_by_default=False):
+    def __init__(self, name:str, address:str, token:Token, aio_channel=False):
         import logging
         self._log = logging.getLogger(name)
         import grpc
@@ -31,7 +63,6 @@ class GRPCDriver:
         self.stub = self.create_stub(self.channel)
         self.token = Token()
         self.token.CopyFrom(token)
-        self.rethrow_by_default = rethrow_by_default
 
     @abc.abstractmethod
     def create_stub(self, channel):
@@ -56,53 +87,96 @@ class GRPCDriver:
                 token = token2
             )
 
-    def __handle_grpc_error(self, error, command, rethrow):
-        if rethrow is None:
-            rethrow = self.rethrow_by_default
+    def __handle_grpc_error(self, error, command):
+        from drunc.utils.grpc_utils import rethrow_if_unreachable_server#, interrupt_if_unreachable_server
+        rethrow_if_unreachable_server(error)
+        # else:
+        #     text = interrupt_if_unreachable_server(error)
+        #     if text:
+        #         self._log.error(text)
 
-        from drunc.utils.grpc_utils import rethrow_if_unreachable_server, interrupt_if_unreachable_server
-        if rethrow:
-            rethrow_if_unreachable_server(error)
+        # if hasattr(error, 'details'): #ARGG asyncio gRPC so different from synchronous one!!
+        #     self._log.error(error.details())
+
+        #     # of course, right now asyncio servers are not able to reply with a stacktrace (yet)
+        #     # we just throw the client-side error and call it a day for now
+        #     if rethrow:
+        #         raise error
+
+    def handle_response(self, response, command, outformat):
+        from druncschema.request_response_pb2 import ResponseFlag, Response
+        from drunc.utils.grpc_utils import unpack_any
+        dr = DecodedResponse(
+            name = response.name,
+            token = response.token,
+            flag = response.flag,
+        )
+        if response.flag == ResponseFlag.EXECUTED_SUCCESSFULLY:
+            if response.data not in [None, ""]:
+                dr.data = unpack_any(response.data, outformat)
+
+            from drunc.exceptions import DruncServerSideError
+            for c_response in response.children:
+                try:
+                    dr.children.append(self.handle_response(c_response, command, outformat))
+                except DruncServerSideError as e:
+                    self._log.error(f"Exception thrown from child: {e}")
+            return dr
+
         else:
-            text = interrupt_if_unreachable_server(error)
-            if text:
-                self._log.error(text)
+            def text(verb="not executed"):
+                return f'Command \'{command}\' {verb} on \'{response.name}\' (response flag \'{ResponseFlag.Name(response.flag)}\')'
+            if response.flag in [
+                ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+            ]:
+                self._log.debug(text())
+            elif response.flag in [
+                ResponseFlag.NOT_EXECUTED_NOT_IN_CONTROL,
+            ]:
+                self._log.warn(text())
+            else:
+                self._log.error(text("failed"))
 
-        # from grpc_status import rpc_status
-        # status = rpc_status.from_call(error)
+            if not response.HasField("data"): return None
+            from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
+            from drunc.utils.grpc_utils import unpack_any
 
-        # self._log.error(f'Error sending command "{command}" to stub')
+            error_txt = ''
+            stack_txt = None
 
-        # from druncschema.generic_pb2 import Stacktrace, PlainText
-        # from drunc.utils.grpc_utils import unpack_any
+            if response.data.Is(Stacktrace.DESCRIPTOR):
+                stack = unpack_any(response.data, Stacktrace)
+                #stack_txt = 'Stacktrace [bold red]on remote server![/bold red]\n' # Temporary - bold doesn't work
+                stack_txt = 'Stacktrace on remote server!\n'
+                last_one = ""
+                for l in stack.text:
+                    stack_txt += l+"\n"
+                    if l != "":
+                        last_one = l
+                error_txt = last_one
 
-        # if hasattr(status, 'details'):
-        #     for detail in status.details:
-        #         if detail.Is(Stacktrace.DESCRIPTOR):
-        #             stack = unpack_any(detail, Stacktrace)
-        #             text = ''
-        #             if rethrow:
-        #                 text += 'Stacktrace [bold red]on remote server![/]\n'
-        #                 for l in stack.text:
-        #                     text += l+"\n"
-        #             else:
-        #                 text += 'Error [bold red]on remote server![/]\n'+'\n'.join(stack.text[:-2])
-        #             self._log.error(text, extra={"markup": True})
-        #             return
-        #         elif detail.Is(PlainText.DESCRIPTOR):
-        #             txt = unpack_any(detail, PlainText)
-        #             self._log.error(txt)
+            elif response.data.Is(PlainText.DESCRIPTOR):
+                txt = unpack_any(response.data, PlainText)
+                error_txt = txt.text
 
-        if hasattr(error, 'details'): #ARGG asyncio gRPC so different from synchronous one!!
-            self._log.error(error.details())
-
-            # of course, right now asyncio servers are not able to reply with a stacktrace (yet)
-            # we just throw the client-side error and call it a day for now
-            if rethrow:
-                raise error
+            # if rethrow:
+            #     from drunc.exceptions import DruncServerSideError
+            #     raise DruncServerSideError(error_txt, stack_txt)
 
 
-    def send_command(self, command:str, data=None, rethrow=None, outformat=None):
+            dr.data = response.data
+            from drunc.exceptions import DruncServerSideError
+            for c_response in response.children:
+                try:
+                    dr.children.append(self.handle_response(c_response, command, outformat))
+                except DruncServerSideError as e:
+                    self._log.error(f"Exception thrown from child: {e}")
+            return dr
+
+            # raise DruncServerSideError(error_txt, stack_txt, server_response=dr)
+
+
+    def send_command(self, command:str, data=None, outformat=None, decode_children=False):
         import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
@@ -112,18 +186,13 @@ class GRPCDriver:
         request = self._create_request(data)
 
         try:
-            a = cmd(request)
-            if outformat:
-                from drunc.utils.grpc_utils import unpack_any
-                return unpack_any(a.data, outformat)
-            else:
-                return a
-
+            response = cmd(request)
         except grpc.RpcError as e:
-            self.__handle_grpc_error(e, command, rethrow = rethrow)
+            self.__handle_grpc_error(e, command)
+        return self.handle_response(response, command, outformat)
 
 
-    async def send_command_aio(self, command:str, data=None, rethrow=None, outformat=None):
+    async def send_command_aio(self, command:str, data=None, outformat=None):
         import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
@@ -133,18 +202,14 @@ class GRPCDriver:
         request = self._create_request(data)
 
         try:
-            a = await cmd(request)
-            if outformat:
-                from drunc.utils.grpc_utils import unpack_any
-                return unpack_any(a.data, outformat)
-            else:
-                return a
+            response = await cmd(request)
 
         except grpc.aio.AioRpcError as e:
-            self.__handle_grpc_error(e, command, rethrow = rethrow)
+            self.__handle_grpc_error(e, command)
+        return self.handle_response(response, command, outformat)
 
 
-    async def send_command_for_aio(self, command:str, data=None, rethrow=None, outformat=None):
+    async def send_command_for_aio(self, command:str, data=None, outformat=None):
         import grpc
         if not self.stub:
             raise DruncShellException('No stub initialised')
@@ -155,20 +220,15 @@ class GRPCDriver:
 
         try:
             async for s in cmd(request):
-                if outformat:
-                    from drunc.utils.grpc_utils import unpack_any
-                    yield unpack_any(s.data, outformat)
-                else:
-                    yield s
+                yield self.handle_response(s, command, outformat)
 
         except grpc.aio.AioRpcError as e:
-            self.__handle_grpc_error(e, command, rethrow = rethrow)
+            self.__handle_grpc_error(e, command)
 
 
 
 class ShellContext:
-    def _reset(self, name:str, print_traceback:bool=False, token_args:dict={}, driver_args:dict={}):
-        self.print_traceback = print_traceback
+    def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
         from rich.console import Console
         self._console = Console()
         from logging import getLogger
@@ -206,12 +266,21 @@ class ShellContext:
         self._drivers[name] = driver
 
     def get_driver(self, name:str=None) -> GRPCDriver:
-        if name:
-            return self._drivers[name]
-        elif len(self._drivers)>1:
-            raise DruncShellException(f'More than one driver in this context')
-        return list(self._drivers.values())[0]
+        try:
+            if name:
+                return self._drivers[name]
+            elif len(self._drivers)>1:
+                raise DruncShellException(f'More than one driver in this context')
+            return list(self._drivers.values())[0]
+        except KeyError:
+            self._log.error(f'Driver {name} commands are not available right now')
+            raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
 
+    def delete_driver(self, name: str) -> None:
+        if name in self._drivers:
+            del self._drivers[name]
+            self._log.info(f"Driver {name} has been deleted.")
+    
     def get_token(self) -> Token:
         return self._token
 
@@ -235,6 +304,16 @@ class ShellContext:
 
     def critical(self, *args, **kwargs) -> None:
         self._log.critical(*args, **kwargs)
+
+
+    def print_status_summary(self) -> None:
+        status = self.get_driver('controller').status().data
+        if status.in_error:
+            self.print(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
+        else:
+            available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
+            self.print(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
+
 
 def create_dummy_token_from_uname() -> Token:
     from drunc.utils.shell_utils import create_dummy_token_from_uname

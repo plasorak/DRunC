@@ -1,19 +1,24 @@
 import asyncio
+import tempfile
+
+from typing import Dict
+
 from druncschema.request_response_pb2 import Request, Response, Description
 from druncschema.process_manager_pb2 import BootRequest, ProcessUUID, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
 
+from drunc.controller.utils import get_segment_lookup_timeout
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
+from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
 
 from drunc.exceptions import DruncSetupException, DruncShellException
-
 
 class ProcessManagerDriver(GRPCDriver):
     controller_address = ''
 
     def __init__(self, address:str, token, **kwargs):
         super(ProcessManagerDriver, self).__init__(
-            name = 'process_manager_driver',
+            name = 'drunc.process_manager_driver',
             address = address,
             token = token,
             **kwargs
@@ -25,36 +30,39 @@ class ProcessManagerDriver(GRPCDriver):
         return ProcessManagerStub(channel)
 
 
-    async def _convert_oks_to_boot_request(self, oks_conf, user, session) -> BootRequest:
-        from drunc.process_manager.oks_parser import process_segment
-        import oksdbinterfaces
-        from drunc.utils.configuration import find_configuration
-        oks_conf = find_configuration(oks_conf)
-        from logging import getLogger
-        log = getLogger('_convert_oks_to_boot_request')
-        log.info(oks_conf)
-        db = oksdbinterfaces.Configuration(f"oksconfig:{oks_conf}")
-        session_dal = db.get_dal(class_name="Session", uid=session)
+    async def _convert_oks_to_boot_request(
+        self,
+        oks_conf:str,
+        user:str,
+        session_dal,
+        db,
+        session_name:str,
+        override_logs:bool
+        ) -> BootRequest:
 
-        apps = process_segment(db, session_dal, session_dal.segment)
+        from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps
+        from drunc.process_manager.oks_parser import collect_variables
 
-        def get_controller_address(top_controller_conf):
-            service_id = top_controller_conf.id + "_control"
-            port_number = None
-            protocol = None
-            for service in top_controller_conf.exposes_service:
-                if service.id == service_id:
-                    port_number = service.port
-                    protocol = service.protocol
-                    break
-            if port_number is None or protocol is None:
-                return None
-            return f'{top_controller_conf.runs_on.runs_on.id}:{port_number}'
+        env = {
+            'DUNEDAQ_SESSION': session_name,
+        }
 
-        self.controller_address = get_controller_address(session_dal.segment.controller)
-        self._log.debug(f"{apps=}")
+        apps = collect_apps(db, session_dal, session_dal.segment, env, tree_prefix=[0,])
+        # Next line gets the max of all the first number in the tree id, and adds 1 to it.
+        next_tree_id = max([int(app['tree_id'].split('.')[0]) for app in apps])+1
+        infra_apps = collect_infra_apps(session_dal, env, tree_prefix=[next_tree_id])
+
+        apps = infra_apps+apps
+
+        import json
+        self._log.debug(f"{json.dumps(apps, indent=4)}")
+
         import os
         pwd = os.getcwd()
+
+        session_log_path = session_dal.log_path
+        if session_log_path == './':
+            session_log_path = pwd
 
         for app in apps:
             host = app['restriction']
@@ -62,9 +70,11 @@ class ProcessManagerDriver(GRPCDriver):
             exe = app['type']
             args = app['args']
             env = app['env']
-
-            self._log.debug(f"{app=}")
-
+            app_log_path = app['log_path']
+            env['DUNE_DAQ_BASE_RELEASE'] = os.getenv("DUNE_DAQ_BASE_RELEASE")
+            env['SPACK_RELEASES_DIR'] = os.getenv("SPACK_RELEASES_DIR")
+            tree_id = app['tree_id']
+            self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
             if session_dal.rte_script:
@@ -72,37 +82,48 @@ class ProcessManagerDriver(GRPCDriver):
                     exec='source',
                     args=[session_dal.rte_script]))
 
-            elif os.getenv("DBT_INSTALL_DIR") is not None:
-                self._log.info(f'RTE script was not supplied in the OKS configuration, using the one from local enviroment instead')
-                rte = os.getenv("DBT_INSTALL_DIR") + "/daq_app_rte.sh"
+            else:
+                from drunc.process_manager.utils import get_rte_script
+                rte_script = get_rte_script()
+                if not rte_script:
+                    raise DruncSetupException("No RTE script found.")
 
                 executable_and_arguments.append(ProcessDescription.ExecAndArgs(
                     exec='source',
-                    args=[rte]))
-            else:
-                self._log.warning(f'RTE was not supplied in the OKS configuration or in the environment, running without it')
-
-            executable_and_arguments.append(
-                ProcessDescription.ExecAndArgs(
-                    exec = "env",
-                    args = []
-                )
-            )
+                    args=[rte_script]))
 
             executable_and_arguments.append(ProcessDescription.ExecAndArgs(
                 exec=exe,
                 args=args))
 
-
             from drunc.utils.utils import now_str
-            log_path = f'{pwd}/log_{user}_{session}_{name}_{now_str(True)}.log'
+            if app_log_path == './':
+                app_log_path = pwd
 
+            from drunc.process_manager.utils import get_log_path
+            log_path = get_log_path(
+                user = user,
+                session_name = session_name,
+                application_name = name,
+                override_logs = override_logs,
+                app_log_path = app_log_path,
+                session_log_path = session_log_path
+            )
+
+            import os, socket
+            from drunc.utils.utils import host_is_local
+            if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
+                raise DruncShellException(f"Log path {log_path} does not exist.")
+
+            self._log.debug(f'{name}\'s env:\n{env}')
             breq =  BootRequest(
                 process_description = ProcessDescription(
                     metadata = ProcessMetadata(
                         user = user,
-                        session = session,
+                        session = session_name,
                         name = name,
+                        hostname = "",
+                        tree_id = tree_id
                     ),
                     executable_and_arguments = executable_and_arguments,
                     env = env,
@@ -116,83 +137,232 @@ class ProcessManagerDriver(GRPCDriver):
             self._log.debug(f"{breq=}\n\n")
             yield breq
 
+    async def boot(
+        self,
+        conf:str,
+        user:str,
+        session_name:str,
+        log_level:str,
+        override_logs:bool=True,
+        **kwargs
+        ) -> ProcessInstance:
+        self._log.info(f"Booting session {session_name}")
+        import conffwk
+        from drunc.utils.configuration import find_configuration
+        oks_conf = find_configuration(conf)
 
-    async def boot(self, conf:str, user:str, session_name:str, log_level:str, rethrow=None) -> ProcessInstance:
-        from drunc.exceptions import DruncShellException
-        if rethrow is None:
-            rethrow = self.rethrow_by_default
+        with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
+            f.flush()
+            f.seek(0)
+            fname = f.name
+            try:
+                from daqconf.consolidate import consolidate_db
+                consolidate_db(oks_conf, f"{fname}")
+            except Exception as e:
+                self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+{e}
+To debug it, close drunc and run the following command:
 
+[yellow]oks_dump --files-only {oks_conf}[/]
+
+''', extra={'markup': True})
+                return
+
+        db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
+        session_dal = db.get_dal(class_name="Session", uid=session_name)
+
+
+        async for br in self._convert_oks_to_boot_request(
+            oks_conf = conf,
+            user = user,
+            session_dal = session_dal,
+            session_name = session_name,
+            db = db,
+            override_logs = override_logs,
+            **kwargs,
+            ):
+            yield await self.send_command_aio(
+                'boot',
+                data = br,
+                outformat = ProcessInstance,
+            )
+
+        top_controller_name = session_dal.segment.controller.id
+
+        def get_controller_address(session_dal, session_name):
+            from drunc.process_manager.oks_parser import collect_variables
+            env = {}
+            collect_variables(session_dal.environment, env)
+            if session_dal.connectivity_service:
+                connection_server = session_dal.connectivity_service.host
+                connection_port = session_dal.connectivity_service.service.port
+
+                from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
+                csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
+
+                from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
+                try:
+                    timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
+                    self._log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
+                    _, uri = get_control_type_and_uri_from_connectivity_service(
+                        csc,
+                        name = top_controller_name,
+                        timeout = timeout,
+                        retry_wait = 1,
+                        progress_bar = True,
+                        title = f'Looking for [green]{top_controller_name}[/] on the connectivity service...',
+                    )
+                except ApplicationLookupUnsuccessful as e:
+                    import getpass
+                    self._log.error(f'''
+Could not find \'{top_controller_name}\' on the connectivity service.
+
+Two possibilities:
+
+1. The most likely, the controller died. You can check that by looking for error like:
+[yellow]Process \'{top_controller_name}\' (session: \'{session_name}\', user: \'{getpass.getuser()}\') process exited with exit code 1).[/]
+Try running [yellow]ps[/] to see if the {top_controller_name} is still running.
+You may also want to check the logs of the controller, try typing:
+[yellow]logs --name {top_controller_name} --how-far 1000[/]
+If that's not helping, you can restart this shell with [yellow]--log-level debug[/], and look out for \'STDOUT\' and \'STDERR\'.
+
+2. The controller did not die, but is still setting up and has not advertised itself on the connection service.
+You may be able to connect to the {top_controller_name} in a bit. Check the logs of the controller:
+[yellow]logs --name {top_controller_name} --grep grpc[/]
+And look for messages like:
+[yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
+To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
+''', extra={"markup": True})
+                    return
+
+                return uri.replace('grpc://', '')
+
+            service_id = top_controller_name + "_control"
+            port_number = None
+            protocol = None
+
+            for service in session_dal.segment.controller.exposes_service:
+                if service.id == service_id:
+                    port_number = service.port
+                    protocol = service.protocol
+                    break
+            if port_number is None or protocol is None:
+                return None
+
+            ip = resolve_localhost_and_127_ip_to_network_ip(session_dal.segment.controller.runs_on.runs_on.id)
+            return f'{ip}:{port_number}'
+
+        import signal
+        def keyboard_interrupt_on_sigint(signal, frame):
+            self._log.warning("Interrupted")
+            raise KeyboardInterrupt
+
+        original_sigint_handler = signal.getsignal(signal.SIGINT)
+        signal.signal(signal.SIGINT, keyboard_interrupt_on_sigint)
         try:
-            async for br in self._convert_oks_to_boot_request(
-                oks_conf = conf,
-                user = user,
-                session = session_name,
-                # log_level = log_level
-                ):
-                yield await self.send_command_aio(
-                    'boot',
-                    data = br,
-                    outformat = ProcessInstance,
-                    rethrow = rethrow,
+            self.controller_address = get_controller_address(session_dal, session_name)
+        except KeyboardInterrupt:
+            if session_dal.connectivity_service:
+                connection_server = session_dal.connectivity_service.host
+                connection_port = session_dal.connectivity_service.service.port
+                self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
+To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
+[yellow]connect {{controller_address}}:{{controller_port}}>[/]
+""", extra={"markup": True}
                 )
-        except DruncShellException as e:
-            if rethrow:
-                raise e
             else:
-                self._log.error(e)
-                from drunc.utils.shell_utils import InterruptedCommand
-                raise InterruptedCommand()
+                self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+        finally:
+            signal.signal(signal.SIGINT, original_sigint_handler)
 
 
-    async def kill(self, query:ProcessQuery, rethrow=None) -> ProcessInstance:
+    async def dummy_boot(self, user:str, session_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:
+        import os
+        pwd = os.getcwd()
+
+        # Construct the list of commands to send to the dummy_boot process
+        executable_and_arguments = [ProcessDescription.ExecAndArgs(exec='echo',args=["Starting dummy_boot."])]
+        for i in range(1,n_sleeps+1):
+            executable_and_arguments += [ProcessDescription.ExecAndArgs(exec='sleep',args=[str(sleep)+"s"]), ProcessDescription.ExecAndArgs(exec='echo',args=[str(sleep*i)+"s"])]
+        executable_and_arguments.append(ProcessDescription.ExecAndArgs(exec='echo',args=["Exiting."]))
+
+        for process in range(n_processes):
+            breq =  BootRequest(
+                process_description = ProcessDescription(
+                    metadata = ProcessMetadata(
+                        user = user,
+                        session = session_name,
+                        name = "dummy_boot_"+str(process),
+                        hostname = ""
+                    ),
+                    executable_and_arguments = executable_and_arguments,
+                    env = {},
+                    process_execution_directory = pwd,
+                    process_logs_path = f'{pwd}/log_{user}_{session_name}_dummy-boot_'+str(process)+'.log',
+                ),
+                process_restriction = ProcessRestriction(
+                    allowed_hosts = ["localhost"]
+                )
+            )
+            self._log.debug(f"{breq=}\n\n")
+
+            yield await self.send_command_aio(
+                'boot',
+                data = breq,
+                outformat = ProcessInstance,
+            )
+
+    async def terminate(self, ) -> ProcessInstanceList:
+        return await self.send_command_aio(
+            'terminate',
+            outformat = ProcessInstanceList
+        )
+
+    async def kill(self, query:ProcessQuery) -> ProcessInstance:
         return await self.send_command_aio(
             'kill',
             data = query,
             outformat = ProcessInstanceList,
-            rethrow = rethrow,
         )
 
 
-    async def logs(self, req:LogRequest, rethrow=None) -> LogLine:
+    async def logs(self, req:LogRequest) -> LogLine:
         async for stream in self.send_command_for_aio(
             'logs',
             data = req,
             outformat = LogLine,
-            rethrow = rethrow,):
+            ):
             yield stream
 
 
-    async def ps(self, query:ProcessQuery, rethrow=None) -> ProcessInstanceList:
+    async def ps(self, query:ProcessQuery) -> ProcessInstanceList:
         return await self.send_command_aio(
             'ps',
             data = query,
             outformat = ProcessInstanceList,
-            rethrow = rethrow,
         )
 
 
 
-    async def flush(self, query:ProcessQuery, rethrow=None) -> ProcessInstanceList:
+    async def flush(self, query:ProcessQuery) -> ProcessInstanceList:
         return await self.send_command_aio(
             'flush',
             data = query,
             outformat = ProcessInstanceList,
-            rethrow = rethrow,
         )
 
 
-    async def restart(self, query:ProcessQuery, rethrow=None) -> ProcessInstance:
+    async def restart(self, query:ProcessQuery) -> ProcessInstance:
         return await self.send_command_aio(
             'restart',
             data = query,
             outformat = ProcessInstance,
-            rethrow = rethrow,
         )
 
 
-    async def describe(self, rethrow=None) -> Description:
+    async def describe(self) -> Description:
         return await self.send_command_aio(
             'describe',
             outformat = Description,
-            rethrow = rethrow,
         )
