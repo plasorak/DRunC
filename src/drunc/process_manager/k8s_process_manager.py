@@ -167,8 +167,9 @@ class K8sProcessManager(ProcessManager):
         hostname = socket.gethostname()
         #/ HACK
 
-        # pod_image = boot_request.{where_pod_image_is}
+        # pod_image = self.configuration.data.image
         pod_image="ghcr.io/dune-daq/alma9:latest"
+
 
         pod = self._pod_v1_api(
             api_version="v1",
