@@ -1,4 +1,4 @@
-port abc
+import abc
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Request
 from typing import Mapping
