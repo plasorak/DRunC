@@ -4,21 +4,44 @@ from drunc.utils.configuration import find_configuration
 import json
 import os
 import requests
+import logging
 
 class ElisaLogbook(FSMAction):
     def __init__(self, configuration):
         super().__init__(name = "elisa-logbook")
+        self._log = logging.getLogger('elisa-logbook')
 
         from drunc.utils.utils import expand_path
         f = open(expand_path("~/.drunc.json"))
         dotdrunc = json.load(f)
-        self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
-        self.API_USER =  dotdrunc["elisa_configuration"]["user"]
-        self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
+
+        if (dotdrunc["elisa_configuration"].get("socket") and
+            dotdrunc["elisa_configuration"].get("user") and
+            dotdrunc["elisa_configuration"].get("password")):
+            self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
+            self.API_USER   = dotdrunc["elisa_configuration"]["user"]
+            self.API_PASS   = dotdrunc["elisa_configuration"]["password"]
+            if len(configuration.parameters)>0:
+                self._log.error(f"You need to update your ~/.drunc.json: you have specified an ELisA logbook ({configuration.parameters[0].value}) in your configuration, but your current ~/.drunc.json doesn't support this (if you run with this, you will get ELisA logging on whichever you have specified in your ~/.drunc.json). Contact Pierre Lasorak for help.")
+            else:
+                self._log.warning(f"Using the following ELisA endpoint: {self.API_SOCKET} (note, you can update your ~/.drunc.json and configuration to support logging on different ELisA logbooks). Contact Pierre Lasorak for help.")
+        else:
+            elisa_hardware = list(dotdrunc["elisa_configuration"].keys())[0]
+            if len(configuration.parameters)>0:
+                elisa_hardware_tmp = configuration.parameters[0].value
+                if elisa_hardware_tmp not in dotdrunc["elisa_configuration"]:
+                    self._log.error(f"The ELisA logbook you specified in your configuration \'{elisa_hardware_tmp}\' was not found in \'~/.drunc.json\'. I will use the first one in your ~/.drunc.json. You will log on the ELisA logbook \'{elisa_hardware}\'. Contact Pierre Lasorak for help.")
+                else:
+                    elisa_hardware = elisa_hardware_tmp
+            else:
+                self._log.error(f"ELisA logbook not specified in the configuration, using the first one in from your \'~/.drunc.json\'. You will log on the ELisA logbook \'{elisa_hardware}\'. Contact Pierre Lasorak for help.")
+            self.API_SOCKET = dotdrunc["elisa_configuration"][elisa_hardware]["socket"]
+            self.API_USER   = dotdrunc["elisa_configuration"][elisa_hardware]["user"]
+            self.API_PASS   = dotdrunc["elisa_configuration"][elisa_hardware]["password"]
+            self._log.info(f"Using the following ELisA logbook \'{elisa_hardware}\'.")
+
         self.timeout = 5
 
-        import logging
-        self._log = logging.getLogger('microservice')
 
     def post_start(self, _input_data:dict, _context, elisa_post:str='', **kwargs):
         from drunc.fsm.exceptions import CannotSendElisaMessage
