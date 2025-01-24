@@ -88,6 +88,8 @@ async def terminate(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
 
+    obj.delete_driver('controller')
+
 @click.command('kill')
 @add_query_options(at_least_one=False)
 @click.pass_obj
@@ -102,6 +104,7 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     from drunc.process_manager.utils import tabulate_process_instance_list
     obj.print(tabulate_process_instance_list(result.data, 'Killed process', False))
 
+    obj.delete_driver('controller')
 
 @click.command('flush')
 @add_query_options(at_least_one=False, all_processes_by_default=True)

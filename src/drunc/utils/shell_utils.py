@@ -273,8 +273,13 @@ class ShellContext:
                 raise DruncShellException(f'More than one driver in this context')
             return list(self._drivers.values())[0]
         except KeyError:
-            self._log.error(f'FSM Commands cannot be sent until the Session is booted')
+            self._log.error(f'{name} commands are not available right now')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
+
+    def delete_driver(self, name: str) -> None:
+        if name in self._drivers:
+            del self._drivers[name]
+            self._log.info(f"{name} commands are no longer available")
 
     def get_token(self) -> Token:
         return self._token
