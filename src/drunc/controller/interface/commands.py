@@ -1,6 +1,6 @@
 import click
 from drunc.controller.interface.context import ControllerContext
-
+from drunc.controller.interface.shell_utils import print_status
 @click.command('list-transitions')
 @click.option('--all', is_flag=True, help='List all transitions (available and unavailable)')
 @click.pass_obj
@@ -51,43 +51,8 @@ def status(obj:ControllerContext) -> None:
     status = obj.get_driver('controller').get_status().data
 
     if not status: return
+    print_status(status, obj)
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
-
-    from rich.table import Table
-    t = Table(title=f'{status.name} status')
-    t.add_column('Name')
-    t.add_column('State')
-    t.add_column('Substate')
-    t.add_column('In error', justify='center')
-    t.add_column('Included', justify='center')
-    t.add_row(
-        status.name,
-        status.state,
-        status.sub_state,
-        format_bool(status.in_error, false_is_good = True),
-        format_bool(status.included),
-    )
-
-    statuses = obj.get_driver('controller').get_children_status().data
-
-    if not statuses:
-        statuses = []
-
-    how_many = len(statuses.children_status)
-
-    for i, c_status in enumerate(statuses.children_status):
-        first_column = tree_prefix(i, how_many)+c_status.name
-
-        t.add_row(
-            first_column,
-            c_status.state,
-            c_status.sub_state,
-            format_bool(c_status.in_error, false_is_good=True),
-            format_bool(c_status.included)
-        )
-    obj.print(t)
-    obj.print_status_summary()
     return
 
 @click.command('connect')
