@@ -104,8 +104,16 @@ class Controller(ControllerServicer):
             data = self.configuration.data.controller.fsm,
         )
 
+        from kafkaopmon.OpMonPublisher import OpMonPublisher
+
+        self.opmon_publisher = OpMonPublisher(
+            default_topic = 'opmon_drunc.test',
+            bootstrap = 'monkafka.cern.ch:30092'
+        )
+
         self.stateful_node = StatefulNode(
             fsm_configuration = fsmch,
+            publisher = self.opmon_publisher,
             broadcaster = self.broadcast_service
         )
 
