@@ -1,6 +1,5 @@
 import sys
 
-import appmodel
 import confmodel
 import conffwk
 
@@ -92,12 +91,8 @@ def collect_apps(db, session, segment, env:Dict[str,str]) -> List[Dict]:
 
   # Get all the enabled applications of this segment
   for app in segment.applications:
-    if 'ResourceBase' in app.oksTypes():
-      enabled = not confmodel.component_disabled(db._obj, session.id, app.id)
-      log.debug(f"{app.id} {enabled=}")
-    else:
-      enabled = True
-      log.debug(f"{app.id} {enabled=}")
+    enabled = not confmodel.component_disabled(db._obj, session.id, app.id)
+    log.debug(f"{app.id} {enabled=}")
 
     if not enabled:
       log.info(f"Ignoring disabled app {app.id}")
@@ -193,7 +188,7 @@ def find_controlled_apps(db, session, mycontroller, segment):
   else:
     for seg in segment.segments:
       if not confmodel.component_disabled(db._obj, session.id, seg.id):
-        aps, controllers = find_controlled_apps(db, session, mycontroller, seg)
+        apps, controllers = find_controlled_apps(db, session, mycontroller, seg)
         if len(apps) > 0:
           break
   return apps, controllers
