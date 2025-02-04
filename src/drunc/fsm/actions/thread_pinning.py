@@ -3,6 +3,10 @@ from drunc.utils.configuration import find_configuration
 from drunc.fsm.exceptions import ThreadPinningFailed
 from drunc.exceptions import DruncSetupException
 
+import conffwk
+import getpass
+from sh import ssh, ErrorReturnCode, Command
+
 
 class ThreadPinning(FSMAction):
     def __init__(self, configuration):
@@ -15,7 +19,6 @@ class ThreadPinning(FSMAction):
 
     def pin_thread(self, thread_pinning_file, configuration, session):
         from drunc.process_manager.oks_parser import collect_apps
-        import conffwk
         db = conffwk.Configuration(f"oksconflibs:{configuration}")
         session_dal = db.get_dal(class_name="Session", uid=session)
 
@@ -38,13 +41,11 @@ class ThreadPinning(FSMAction):
         cmd = f"source {rte}; " if rte else ""
         cmd += f"readout-affinity.py --pinfile {thread_pinning_file}"
 
-        import getpass
         user = getpass.getuser()
 
         hosts = set()
         for app in apps:
             hosts.add(app["host"])
-        from sh import ssh, ErrorReturnCode, Command
         my_ssh = Command('/usr/bin/ssh')
 
         failed_hosts = set()
