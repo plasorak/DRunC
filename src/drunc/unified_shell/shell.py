@@ -186,11 +186,12 @@ def unified_shell(
 
 
     from drunc.controller.interface.commands import (
-        status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
+        status, connect, disconnect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
     )
 
     ctx.command.add_command(status, 'status')
     ctx.command.add_command(connect, 'connect')
+    ctx.command.add_command(disconnect, 'disconnect')
     ctx.command.add_command(take_control, 'take-control')
     ctx.command.add_command(surrender_control, 'surrender-control')
     ctx.command.add_command(who_am_i, 'whoami')

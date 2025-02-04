@@ -58,6 +58,10 @@ def connect(obj:ControllerContext, controller_address:str) -> None:
     from drunc.controller.interface.shell_utils import controller_setup
     controller_setup(obj, controller_address)
 
+@click.command('disconnect')
+@click.pass_obj
+def disconnect(obj:ControllerContext):
+    obj.set_controller_driver(None)
 
 @click.command('take-control')
 @click.pass_obj
