@@ -145,7 +145,7 @@ class ClientSideChild(ChildNode):
                 children = []
             )
 
-        if self.state.excluded():
+        if self.state.excluded() and command == 'execute_fsm_command':
             return Response(
                 name = self.name,
                 token = token,

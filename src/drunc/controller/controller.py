@@ -566,7 +566,7 @@ class Controller(ControllerServicer):
             )
 
         if not self.stateful_node.node_is_included():
-            self.logger.error(f"Node is not included, not executing command {fsm_command.command_name}.")
+            self.logger.info(f"Node is not included, not executing command {fsm_command.command_name}.")
             fsm_result = FSMCommandResponse(
                 flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
                 command_name = fsm_command.command_name,
