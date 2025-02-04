@@ -127,3 +127,6 @@ class DotDruncJsonNotFound(FSMException):
 
 class DotDruncJsonIncorrectFormat(FSMException):
     pass
+
+class InvalidRunType(FSMException):
+    pass
