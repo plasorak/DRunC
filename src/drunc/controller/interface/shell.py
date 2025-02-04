@@ -25,10 +25,9 @@ def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     transitions = ctx.obj.get_driver('controller').describe_fsm(key="all-transitions").data
 
     from drunc.controller.interface.commands import (
-        describe, status, connect, disconnect, take_control, surrender_control, who_am_i, who_is_in_charge, fsm, include, exclude, wait
+        status, connect, disconnect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
     )
 
-    ctx.command.add_command(describe, 'describe')
     ctx.command.add_command(status, 'status')
     ctx.command.add_command(connect, 'connect')
     ctx.command.add_command(disconnect, 'disconnect')
