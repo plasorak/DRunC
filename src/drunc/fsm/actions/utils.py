@@ -1,4 +1,7 @@
+from drunc.fsm.exceptions import DotDruncJsonNotFound, DotDruncJsonIncorrectFormat
+from drunc.utils.utils import expand_path
 
+import json
 
 def validate_run_type(run_type: str) -> str:
     """
@@ -11,3 +14,24 @@ def validate_run_type(run_type: str) -> str:
         from drunc.exceptions import DruncException
         raise DruncException(f"Invalid run type: {run_type}. Must be one of {RUN_TYPES}")
     return run_type
+
+
+def get_dotdrunc_json(path: str="~/.drunc.json"):
+    try:
+        f = open(expand_path(path))
+        dotdrunc = json.load(f)
+    except FileNotFoundError:
+        raise DotDruncJsonNotFound(f"dotdrunc file not found: {path}")
+    except json.JSONDecodeError as exc:
+        raise DotDruncJsonIncorrectFormat(f"dotdrunc file is not a valid JSON: {path}") from exc
+
+    expected_keys = [
+        "run_registry_configuration",
+        "run_number_configuration",
+        "elisa_configuration"
+    ]
+
+    if not all(key in dotdrunc for key in expected_keys):
+        raise DotDruncJsonIncorrectFormat(f"dotdrunc file is missing some expected keys: {expected_keys}")
+
+    return dotdrunc

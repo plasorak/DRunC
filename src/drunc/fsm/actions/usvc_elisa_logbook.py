@@ -1,23 +1,26 @@
 
 from drunc.fsm.core import FSMAction
 from drunc.utils.configuration import find_configuration
+from drunc.fsm.exceptions import DotDruncJsonIncorrectFormat
+from drunc.fsm.actions.utils import get_dotdrunc_json
 import json
 import os
+import logging
 import requests
 
 class ElisaLogbook(FSMAction):
     def __init__(self, configuration):
         super().__init__(name = "elisa-logbook")
 
-        from drunc.utils.utils import expand_path
-        f = open(expand_path("~/.drunc.json"))
-        dotdrunc = json.load(f)
-        self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
-        self.API_USER =  dotdrunc["elisa_configuration"]["user"]
-        self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
+        dotdrunc = get_dotdrunc_json()
+        try:
+            self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
+            self.API_USER =  dotdrunc["elisa_configuration"]["user"]
+            self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
+        except KeyError as exc:
+            raise DotDruncJsonIncorrectFormat() from exc
         self.timeout = 5
 
-        import logging
         self._log = logging.getLogger('microservice')
 
     def post_start(self, _input_data:dict, _context, elisa_post:str='', **kwargs):
