@@ -1,11 +1,12 @@
-from drunc.controller.interface.context import ControllerContext
-from drunc.controller.interface.shell_utils import controller_setup, controller_cleanup_wrapper, generate_fsm_command
-from drunc.utils.utils import log_levels, validate_command_facility, CONTEXT_SETTINGS, get_logger
-
 import click
 import click_shell
 import os
 import logging
+
+from drunc.controller.interface.context import ControllerContext
+from drunc.controller.interface.shell_utils import controller_cleanup_wrapper, controller_setup, generate_fsm_command
+from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, validate_command_facility
+
 
 @click_shell.shell(prompt='drunc-controller > ', chain=True, context_settings=CONTEXT_SETTINGS, hist_file=os.path.expanduser('~')+'/.drunc-controller-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')

@@ -11,7 +11,6 @@ from druncschema.generic_pb2 import PlainText, Stacktrace
 from druncschema.request_response_pb2 import Request, Response, ResponseFlag
 from druncschema.token_pb2 import Token
 
-log = get_logger('controller_utils')
 
 def get_status_message(stateful:StatefulNode):
     state_string = stateful.get_node_operational_state()
@@ -27,6 +26,7 @@ def get_status_message(stateful:StatefulNode):
 
 def get_detector_name(configuration) -> str:
     detector_name = None
+    log = get_logger("controller_utils.get_detector_name")
     if hasattr(configuration.data, "contains") and len(configuration.data.contains) > 0:
         if len(configuration.data.contains) > 0:
             log.debug(f"Application {configuration.data.id} has multiple contains, using the first one")
@@ -36,7 +36,7 @@ def get_detector_name(configuration) -> str:
     return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):
-    log = get_logger("send_command")
+    log = get_logger("controller_utils.send_command")
 
     # Grab the command from the controller stub in the context
     # Add the token to the data (which can be of any protobuf type)

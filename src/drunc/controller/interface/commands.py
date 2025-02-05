@@ -1,17 +1,23 @@
 import click
+from rich.table import Table
+from time import sleep
+
 from drunc.controller.interface.context import ControllerContext
+from drunc.controller.interface.shell_utils import controller_setup, print_status_table
+from drunc.exceptions import DruncException
+
+from druncschema.controller_pb2 import FSMCommand
+
 
 @click.command('list-transitions')
 @click.option('--all', is_flag=True, help='List all transitions (available and unavailable)')
 @click.pass_obj
 def list_transitions(obj:ControllerContext, all:bool) -> None:
     desc = obj.get_driver('controller').describe_fsm('all-transitions' if all else None)
-
     if not desc:
         obj.print('Could not get the list of commands available')
         return
 
-    from rich.table import Table
     if all:
         obj.print(f'\nAvailable transitions on \'{desc.name}\' are ([underline]some may not be accessible now, use list-transition without --all to see what transitions can be issued now[/]):')
     else:
@@ -20,31 +26,21 @@ def list_transitions(obj:ControllerContext, all:bool) -> None:
     for c in desc.data.commands:
         obj.print(f' - [yellow]{c.name.replace("_","-").lower()}[/]')
 
-
     obj.print('\nUse [yellow]help <command>[/] for more information on a command.\n')
-
 
 @click.command('wait')
 @click.argument("sleep_time", type=int, default=1)
 @click.pass_obj
 def wait(obj:ControllerContext, sleep_time:int) -> None:
-    # Requested to "allow processing of commands to pause for a specified number of seconds"
-    from time import sleep
     obj.print(f"Command [green]wait[/green] running for {sleep_time} seconds.")
-    sleep(sleep_time)
+    sleep(sleep_time) # seconds
     obj.print(f"Command [green]wait[/green] ran for {sleep_time} seconds.")
-
-
-
 
 @click.command('status')
 @click.pass_obj
 def status(obj:ControllerContext) -> None:
-    # Get the dynamic system information
-    statuses = obj.get_driver('controller').status()
-    # Get the static system information
-    descriptions = obj.get_driver('controller').describe()
-    from drunc.controller.interface.shell_utils import print_status_table
+    statuses = obj.get_driver('controller').status() # Get the dynamic system information
+    descriptions = obj.get_driver('controller').describe() # Get the static system information
     print_status_table(obj, statuses, descriptions)
 
 @click.command('connect')
@@ -52,10 +48,7 @@ def status(obj:ControllerContext) -> None:
 @click.pass_obj
 def connect(obj:ControllerContext, controller_address:str) -> None:
     obj.print(f'Connecting this shell to it...')
-    from drunc.exceptions import DruncException
-
     obj.set_controller_driver(controller_address)
-    from drunc.controller.interface.shell_utils import controller_setup
     controller_setup(obj, controller_address)
 
 
@@ -87,10 +80,7 @@ def who_is_in_charge(obj:ControllerContext) -> None:
 @click.command('include')
 @click.pass_obj
 def include(obj:ControllerContext) -> None:
-    from druncschema.controller_pb2 import FSMCommand
-    data = FSMCommand(
-        command_name = 'include',
-    )
+    data = FSMCommand(command_name = 'include')
     result = obj.get_driver('controller').include(arguments=data).data
     if not result: return
     obj.print(result.text)
@@ -99,10 +89,7 @@ def include(obj:ControllerContext) -> None:
 @click.command('exclude')
 @click.pass_obj
 def exclude(obj:ControllerContext) -> None:
-    from druncschema.controller_pb2 import FSMCommand
-    data = FSMCommand(
-        command_name = 'exclude',
-    )
+    data = FSMCommand(command_name = 'exclude')
     result = obj.get_driver('controller').exclude(arguments=data).data
     if not result: return
     obj.print(result.text)

@@ -1,9 +1,19 @@
 import click
-import signal
-from drunc.utils.utils import log_levels, setup_root_logger, validate_command_facility, get_logger
-from drunc.utils.configuration import find_configuration, CLI_to_ConfTypes
-import os
+import concurrent
+import grpc
 import logging
+import os
+from rich.console import Console
+import signal
+
+from drunc.controller.controller import Controller
+from drunc.controller.configuration import ControllerConfHandler
+from drunc.utils.configuration import CLI_to_ConfTypes, find_configuration, OKSKey, parse_conf_url
+from drunc.utils.utils import get_logger, log_levels, print_traceback, resolve_localhost_and_127_ip_to_network_ip, setup_root_logger, validate_command_facility
+
+from druncschema.controller_pb2_grpc import add_ControllerServicer_to_server
+from druncschema.token_pb2 import Token
+
 
 @click.command()
 @click.argument('boot-configuration', type=str)
@@ -20,22 +30,14 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     application_name - Name of application, e.g. 'root-controller'\n
     session - Name of session in boot-configuration, e.g. 'local-2x3-config'
     """
-    from rich.console import Console
     console = Console()
-
     setup_root_logger(log_level)
     log = get_logger(logger_name = 'controller.controller_cli')
-
-    from drunc.controller.controller import Controller
-    from drunc.controller.configuration import ControllerConfHandler
-    from druncschema.controller_pb2_grpc import add_ControllerServicer_to_server
-    from druncschema.token_pb2 import Token
     token = Token(
         user_name = "controller_init_token",
         token = '',
     )
 
-    from drunc.utils.configuration import parse_conf_url, OKSKey
     boot_configuration = find_configuration(boot_configuration)
     conf_path, conf_type = parse_conf_url(boot_configuration)
     controller_configuration = ControllerConfHandler(
@@ -46,7 +48,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
             class_name="RCApplication",
             obj_uid=application_name,
             session=session, # some of the function for enable/disable require the full dal of the session
-        ),
+        )
     )
 
     ctrlr = Controller(
@@ -57,10 +59,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     )
 
     def serve(listen_addr:str) -> None:
-        import grpc
-        from concurrent import futures
-        server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
-
+        server = grpc.server(concurrent.futures.ThreadPoolExecutor(max_workers=1))
         add_ControllerServicer_to_server(ctrlr, server)
         port = server.add_insecure_port(listen_addr)
 
@@ -83,7 +82,6 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         try:
             controller_shutdown()
         except:
-            from drunc.utils.utils import print_traceback
             print_traceback()
             kill_me(sig, frame)
 
@@ -91,17 +89,14 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     signal.signal(signal.SIGINT, shutdown)
 
     try:
-        from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip
         command_facility = resolve_localhost_and_127_ip_to_network_ip(command_facility)
         server_name = command_facility.split(':')[0]
         server, port = serve(command_facility)
 
         ctrlr.advertise_control_address(f'grpc://{server_name}:{port}')
-
         server.wait_for_termination(timeout=None)
 
     except Exception as e:
-        from drunc.utils.utils import print_traceback
         print_traceback()
 
 

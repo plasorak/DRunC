@@ -1,194 +1,27 @@
-from rich import print
-from druncschema.controller_pb2 import FSMCommandsDescription
-from druncschema.request_response_pb2 import Description
-from drunc.utils.shell_utils import DecodedResponse
-import logging
+import click
+from functools import partial
+from google.protobuf.any_pb2 import Any
+import grpc
 import inspect
+import logging
+from rich import print
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
+from rich.table import Table
+import time
+
+from drunc.controller.exceptions import MalformedCommand
+from drunc.controller.interface.context import ControllerContext
+from drunc.exceptions import DruncSetupException, DruncShellException
+from drunc.utils.grpc_utils import pack_to_any, ServerUnreachable, unpack_any
+from drunc.utils.shell_utils import DecodedResponse
+
+from druncschema.controller_pb2 import Argument, FSMCommand, FSMCommandDescription, FSMCommandsDescription, FSMCommandResponse, FSMResponseFlag, Status
+from druncschema.generic_pb2 import bool_msg, float_msg, int_msg, string_msg
+from druncschema.request_response_pb2 import Description, ResponseFlag
+
+
 log = logging.getLogger('controller_shell_utils')
 
-def match_children(statuses:list, descriptions:list) -> list:
-    def check_message_type(message:Description, expected_type:str) -> None:
-        if message.data.DESCRIPTOR.name != expected_type:
-            raise TypeError("Message {message.name} is not of type 'Description'!")
-        return
-
-    children = []
-    for status in statuses:
-        check_message_type(status, "Status")
-        child = {}
-        child_name = status.name
-        for description in descriptions:
-            if description.name == child_name:
-                check_message_type(description, "Description")
-                child["status"] = status
-                child["description"] = description
-                children.append(child)
-                break
-    if len(descriptions) != len(children):
-        from drunc.controller.exceptions import MalformedCommand
-        raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
-    return children
-
-def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
-    from druncschema.controller_pb2 import Status
-    if not statuses: return
-
-    if type(statuses.data) != Status:
-        from google.protobuf.any_pb2 import Any
-        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
-        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
-        return
-
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
-    from rich.table import Table
-
-    t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
-    t.add_column('Name')
-    t.add_column('Info')
-    t.add_column('State')
-    t.add_column('Substate')
-    t.add_column('In error')
-    t.add_column('Included')
-    t.add_column('Endpoint')
-
-    def add_status_to_table(table, status, description, prefix):
-        table.add_row(
-            prefix+status.name,
-            description.data.info,
-            status.data.state,
-            status.data.sub_state,
-            format_bool(status.data.in_error, false_is_good = True),
-            format_bool(status.data.included),
-            description.data.endpoint
-        )
-        for child in match_children(status.children, description.children):
-            add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
-    add_status_to_table(t, statuses, descriptions, prefix='')
-    obj.print(t)
-    obj.print_status_summary()
-
-def controller_cleanup_wrapper(ctx):
-    def controller_cleanup():
-        # remove the shell from the controller broadcast list
-        dead = False
-        import grpc
-        who = ''
-
-        from drunc.utils.grpc_utils import unpack_any
-        try:
-            who = ctx.get_driver('controller').who_is_in_charge().data
-
-        except grpc.RpcError as e:
-            dead = grpc.StatusCode.UNAVAILABLE == e.code()
-        except Exception as e:
-            log.error('Could not understand who is in charge from the controller.')
-            log.error(e)
-            who = 'no_one'
-
-        if dead:
-            log.error('Controller is dead. Exiting.')
-            return
-
-        if who == ctx.get_token().user_name and ctx.took_control:
-            log.info('You are in control. Surrendering control.')
-            try:
-                ctx.get_driver('controller').surrender_control()
-            except Exception as e:
-                log.error('Could not surrender control.')
-                log.error(e)
-            log.info('Control surrendered.')
-        ctx.terminate()
-    return controller_cleanup
-
-
-def controller_setup(ctx, controller_address):
-    if not hasattr(ctx, 'took_control'):
-        from drunc.exceptions import DruncSetupException
-        raise DruncSetupException('This context is not compatible with a controller, you need to add a \'took_control\' bool member')
-
-
-    from druncschema.request_response_pb2 import Description
-    desc = Description()
-
-    timeout = 60
-
-    from drunc.utils.grpc_utils import ServerUnreachable
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
-
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TimeRemainingColumn(),
-        TimeElapsedColumn(),
-        console=ctx._console,
-    ) as progress:
-
-        waiting = progress.add_task("[yellow]Trying to talk to the top controller...", total=timeout)
-
-        stored_exception = None
-        import time
-        start_time = time.time()
-        while time.time()-start_time < timeout:
-            progress.update(waiting, completed=time.time()-start_time)
-
-            try:
-                desc = ctx.get_driver('controller').describe().data
-                stored_exception = None
-                break
-            except ServerUnreachable as e:
-                stored_exception = e
-                time.sleep(1)
-
-            except Exception as e:
-                ctx.critical('Could not get the controller\'s status')
-                ctx.critical(e)
-                ctx.critical('Exiting.')
-                ctx.terminate()
-                raise e
-
-    if stored_exception is not None:
-        raise stored_exception
-
-    log.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
-    if desc.HasField('broadcast'):
-        ctx.start_listening_controller(desc.broadcast)
-
-    log.debug('Connected to the controller')
-
-    # children = ctx.get_driver('controller').ls().data
-    # ctx.print(f'{desc.name}.{desc.session}\'s children :family:: {children.text}')
-
-    log.debug(f'Taking control of the controller as {ctx.get_token()}')
-    try:
-        ret = ctx.get_driver('controller').take_control()
-        from druncschema.request_response_pb2 import ResponseFlag
-
-        if ret.flag == ResponseFlag.EXECUTED_SUCCESSFULLY:
-            log.debug('You are in control.')
-            ctx.took_control = True
-        else:
-            log.debug(f'You are NOT in control.')
-            ctx.took_control = False
-
-
-    except Exception as e:
-        log.error('You are NOT in control.')
-        ctx.took_control = False
-        raise e
-
-    return desc
-
-
-from drunc.controller.interface.context import ControllerContext
-from druncschema.controller_pb2 import FSMCommand
-def search_fsm_command(command_name:str, command_list:list[FSMCommand]):
-    for command in command_list:
-        if command_name == command.name:
-            return command
-    return None
-
-from drunc.exceptions import DruncShellException
 class ArgumentException(DruncShellException):
     pass
 
@@ -217,10 +50,181 @@ class UnhandledArguments(ArgumentException):
         message = f'These arguments are not handled by this command: {arguments_and_values}'
         super(UnhandledArguments, self).__init__(message)
 
-from druncschema.controller_pb2 import Argument
+def format_bool(b, format=['dark_green', 'red'], false_is_good = False):
+    index_true = 0 if not false_is_good else 1
+    index_false = 1 if not false_is_good else 0
+    return f'[{format[index_true]}]Yes[/]' if b else f'[{format[index_false]}]No[/]'
+
+def tree_prefix(i, n):
+    first_one = "└── "
+    first_many = "├── "
+    next = "├── "
+    last = "└── "
+    first_column = ''
+    if i==0 and n == 1:
+        return first_one
+    elif i==0:
+        return first_many
+    elif i == n-1:
+        return last
+    else:
+        return next
+
+def match_children(statuses:list, descriptions:list) -> list:
+    def check_message_type(message:Description, expected_type:str) -> None:
+        if message.data.DESCRIPTOR.name != expected_type:
+            raise TypeError("Message {message.name} is not of type 'Description'!")
+        return
+
+    children = []
+    for status in statuses:
+        check_message_type(status, "Status")
+        child = {}
+        child_name = status.name
+        for description in descriptions:
+            if description.name == child_name:
+                check_message_type(description, "Description")
+                child["status"] = status
+                child["description"] = description
+                children.append(child)
+                break
+    if len(descriptions) != len(children):
+        raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
+    return children
+
+def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
+    if not statuses: return
+
+    if type(statuses.data) != Status:
+        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
+        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
+        return
+
+    t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
+    t.add_column('Name')
+    t.add_column('Info')
+    t.add_column('State')
+    t.add_column('Substate')
+    t.add_column('In error')
+    t.add_column('Included')
+    t.add_column('Endpoint')
+
+    def add_status_to_table(table, status, description, prefix):
+        table.add_row(
+            prefix+status.name,
+            description.data.info,
+            status.data.state,
+            status.data.sub_state,
+            format_bool(status.data.in_error, false_is_good = True),
+            format_bool(status.data.included),
+            description.data.endpoint
+        )
+        for child in match_children(status.children, description.children):
+            add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
+
+    add_status_to_table(t, statuses, descriptions, prefix='')
+    obj.print(t)
+    obj.print_status_summary()
+
+def controller_cleanup_wrapper(ctx):
+    def controller_cleanup():
+        # remove the shell from the controller broadcast list
+        dead = False
+        who = ''
+
+        try:
+            who = ctx.get_driver('controller').who_is_in_charge().data
+
+        except grpc.RpcError as e:
+            dead = grpc.StatusCode.UNAVAILABLE == e.code()
+        except Exception as e:
+            log.error('Could not understand who is in charge from the controller.')
+            log.error(e)
+            who = 'no_one'
+
+        if dead:
+            log.error('Controller is dead. Exiting.')
+            return
+
+        if who == ctx.get_token().user_name and ctx.took_control:
+            log.info('You are in control. Surrendering control.')
+            try:
+                ctx.get_driver('controller').surrender_control()
+            except Exception as e:
+                log.error('Could not surrender control.')
+                log.error(e)
+            log.info('Control surrendered.')
+        ctx.terminate()
+    return controller_cleanup
+
+
+def controller_setup(ctx, controller_address):
+    if not hasattr(ctx, 'took_control'):
+        raise DruncSetupException('This context is not compatible with a controller, you need to add a \'took_control\' bool member')
+    desc = Description()
+    timeout = 60
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TimeRemainingColumn(),
+        TimeElapsedColumn(),
+        console=ctx._console,
+    ) as progress:
+        waiting = progress.add_task("[yellow]Trying to talk to the top controller...", total=timeout)
+        stored_exception = None
+        start_time = time.time()
+        while time.time()-start_time < timeout:
+            progress.update(waiting, completed=time.time()-start_time)
+            try:
+                desc = ctx.get_driver('controller').describe().data
+                stored_exception = None
+                break
+            except ServerUnreachable as e:
+                stored_exception = e
+                time.sleep(1)
+            except Exception as e:
+                ctx.critical('Could not get the controller\'s status')
+                ctx.critical(e)
+                ctx.critical('Exiting.')
+                ctx.terminate()
+                raise e
+    if stored_exception is not None:
+        raise stored_exception
+
+    log.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
+    if desc.HasField('broadcast'):
+        ctx.start_listening_controller(desc.broadcast)
+    log.debug('Connected to the controller')
+
+    # children = ctx.get_driver('controller').ls().data
+    # ctx.print(f'{desc.name}.{desc.session}\'s children :family:: {children.text}')
+
+    log.debug(f'Taking control of the controller as {ctx.get_token()}')
+    try:
+        ret = ctx.get_driver('controller').take_control()
+        if ret.flag == ResponseFlag.EXECUTED_SUCCESSFULLY:
+            log.debug('You are in control.')
+            ctx.took_control = True
+        else:
+            log.debug(f'You are NOT in control.')
+            ctx.took_control = False
+
+    except Exception as e:
+        log.error('You are NOT in control.')
+        ctx.took_control = False
+        raise e
+    return desc
+
+
+def search_fsm_command(command_name:str, command_list:list[FSMCommand]):
+    for command in command_list:
+        if command_name == command.name:
+            return command
+    return None
+
 def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Argument]):
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
-    from drunc.utils.grpc_utils import pack_to_any
     out_dict = {}
 
     arguments_left = arguments
@@ -248,82 +252,42 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
             del arguments_left[aname]
 
         match argument_desc.type:
-
             case Argument.Type.INT:
                 try:
                     value = int(value)
                 except Exception as e:
                     raise InvalidArgumentType(aname, value, atype) from e
                 value = int_msg(value=value)
-
-
             case Argument.Type.FLOAT:
                 try:
                     value = float(value)
                 except Exception as e:
                     raise InvalidArgumentType(aname, value, atype) from e
                 value = float_msg(value=value)
-
-
             case Argument.Type.STRING:
                 value = string_msg(value=value)
-
-
             case Argument.Type.BOOL:
                 bvalue = value#.lower() in ['true', '1', 't', 'y', 'yes', 'yeah', 'yup', 'certainly']
-
                 try:
                     value = bool_msg(value=bvalue)
                 except Exception as e:
                     raise InvalidArgumentType(aname, value, atype) from e
-
-
             case _:
                 try:
                     pretty_type = Argument.Type.Name(argument_desc.type)
                 except:
                     pretty_type = argument_desc.type
                 raise UnhandledArgumentType(argument_desc.name,  pretty_type)
-
-
         out_dict[aname] = pack_to_any(value)
 
     # if arguments_left:
     #     raise UnhandledArguments(arguments_left)
-
     return out_dict
-
-
-def format_bool(b, format=['dark_green', 'red'], false_is_good = False):
-    index_true = 0 if not false_is_good else 1
-    index_false = 1 if not false_is_good else 0
-
-    return f'[{format[index_true]}]Yes[/]' if b else f'[{format[index_false]}]No[/]'
-
-def tree_prefix(i, n):
-    first_one = "└── "
-    first_many = "├── "
-    next = "├── "
-    last = "└── "
-    first_column = ''
-    if i==0 and n == 1:
-        return first_one
-    elif i==0:
-        return first_many
-    elif i == n-1:
-        return last
-    else:
-        return next
 
 
 def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
     obj.print(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
-    from druncschema.controller_pb2 import FSMCommand
-
     fsm_description = obj.get_driver('controller').describe_fsm().data
-
-    from drunc.controller.interface.shell_utils import search_fsm_command, validate_and_format_fsm_arguments, ArgumentException
-
     command_desc = search_fsm_command(transition_name, fsm_description.commands)
 
     if command_desc is None:
@@ -344,17 +308,11 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
         return
 
     if not result: return
-
-    from drunc.utils.grpc_utils import unpack_any
-    from druncschema.controller_pb2 import FSMResponseFlag, FSMCommandResponse
-
-    from rich.table import Table
     t = Table(title=f'{transition_name} execution report')
     t.add_column('Name')
     t.add_column('Command execution')
     t.add_column('FSM transition')
 
-    from druncschema.request_response_pb2 import ResponseFlag
     def bool_to_success(flag_message, FSM):
         flag = False
         if FSM and flag_message == FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:
@@ -377,25 +335,11 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     statuses = obj.get_driver('controller').status()
     descriptions = obj.get_driver('controller').describe()
-
-    from drunc.controller.interface.shell_utils import print_status_table
     print_status_table(obj, statuses, descriptions)
 
-
-from druncschema.controller_pb2 import FSMCommandDescription
-
 def generate_fsm_command(ctx, transition:FSMCommandDescription, controller_name:str):
-    import click
-
-    from functools import partial
     cmd = partial(run_one_fsm_command, controller_name, transition.name)
-
     cmd = click.pass_obj(cmd)
-
-    from druncschema.controller_pb2 import Argument
-    from drunc.utils.grpc_utils import unpack_any
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
-
     for argument in transition.arguments:
         atype = None
         if argument.type == Argument.Type.STRING:
