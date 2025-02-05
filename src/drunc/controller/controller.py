@@ -1,42 +1,49 @@
+import multiprocessing
+import os
+import signal
+import threading
+import time
+import traceback
+from typing import List, Optional
+
+from drunc.authoriser.decorators import authentified_and_authorised
+from drunc.authoriser.dummy_authoriser import DummyAuthoriser
+from drunc.authoriser.configuration import DummyAuthoriserConfHandler
+from drunc.broadcast.server.broadcast_sender import BroadcastSender
+from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
+from drunc.broadcast.server.decorators import broadcasted
+from drunc.connectivity_service.client import ConnectivityServiceClient
+from drunc.controller.children_interface.child_node import ChildNode
+from drunc.controller.children_interface.rest_api_child import ResponseListener
+from drunc.controller.decorators import in_control
+from drunc.controller.exceptions import CannotSurrenderControl, OtherUserAlreadyInControl
+from drunc.controller.stateful_node import StatefulNode
+from drunc.controller.utils import get_detector_name, get_status_message
+from drunc.exceptions import DruncException
+from drunc.fsm.configuration import FSMConfHandler
+from drunc.fsm.utils import convert_fsm_transition
+from drunc.utils.grpc_utils import pack_response, pack_to_any, unpack_any, unpack_request_data_to
+from drunc.utils.utils import get_logger, print_traceback
+
 from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.controller_pb2 import Status, FSMCommand, FSMCommandResponse, FSMResponseFlag
-from druncschema.generic_pb2 import PlainText, PlainTextVector
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag, Status
+from druncschema.generic_pb2 import PlainText, PlainTextVector, Stacktrace
+from druncschema.request_response_pb2 import CommandDescription, Description, Request, Response, ResponseFlag
 from druncschema.token_pb2 import Token
 
-from drunc.authoriser.decorators import authentified_and_authorised
-from drunc.broadcast.server.broadcast_sender import BroadcastSender
-from drunc.broadcast.server.decorators import broadcasted
-from drunc.controller.children_interface.child_node import ChildNode
-from drunc.controller.decorators import in_control
-import drunc.controller.exceptions as ctler_excpt
-from drunc.controller.stateful_node import StatefulNode
-from drunc.exceptions import DruncException
-from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
-from drunc.utils.grpc_utils import unpack_any
-
-
-import signal
-from typing import Optional, List
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
-        from drunc.utils.utils import get_logger
         self.log = get_logger("ControllerActor")
-
         self._token = Token(
             token="",
-            user_name="",
+            user_name=""
         )
-
         if token is not None:
             self._token.CopyFrom(token)
-
-        from threading import Lock
-        self._lock = Lock()
+        self._lock = threading.Lock()
 
     def get_token(self) -> Token:
         return self._token
@@ -62,11 +69,11 @@ class ControllerActor:
         if self.compare_token(self._token, token):
             self._update_actor(Token())
             return
-        raise ctler_excpt.CannotSurrenderControl(f'Token {token} cannot release control of {self._token}')
+        raise CannotSurrenderControl(f'Token {token} cannot release control of {self._token}')
 
     def take_control(self, token) -> None:
         # if not self.compare_token(self._token, token):
-        #     raise ctler_excpt.OtherUserAlreadyInControl(f'Actor {self._token.user_name} is already in control')
+        #     raise OtherUserAlreadyInControl(f'Actor {self._token.user_name} is already in control')
         self._update_actor(token)
         return 0
 
@@ -82,12 +89,10 @@ class Controller(ControllerServicer):
         self.session = session
         self.broadcast_service = None
 
-        from drunc.utils.utils import get_logger
         self.log = get_logger('Controller')
         self.log.info(f'Initialising controller \'{name}\' with session \'{session}\'')
         self.configuration = configuration
 
-        from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
         bsch = BroadcastSenderConfHandler(
             data = self.configuration.data.controller.broadcaster,
         )
@@ -99,7 +104,6 @@ class Controller(ControllerServicer):
         )
 
 
-        from drunc.fsm.configuration import FSMConfHandler
         fsmch = FSMConfHandler(
             data = self.configuration.data.controller.fsm,
         )
@@ -109,13 +113,10 @@ class Controller(ControllerServicer):
             broadcaster = self.broadcast_service
         )
 
-        from drunc.authoriser.configuration import DummyAuthoriserConfHandler
         dach = DummyAuthoriserConfHandler(
             data = self.configuration.authoriser,
         )
 
-        from drunc.authoriser.dummy_authoriser import DummyAuthoriser
-        from druncschema.authoriser_pb2 import SystemType
         self.authoriser = DummyAuthoriser(
             dach,
             SystemType.CONTROLLER
@@ -127,12 +128,10 @@ class Controller(ControllerServicer):
         self.connectivity_service_thread = None
         self.uri = ''
         if self.configuration.session.connectivity_service:
-            import os
             connection_server = self.configuration.session.connectivity_service.host
             connection_port   = self.configuration.session.connectivity_service.service.port
             self.log.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
 
-            from drunc.connectivity_service.client import ConnectivityServiceClient
             self.connectivity_service = ConnectivityServiceClient(
                     session = self.session,
                     address = f'{connection_server}:{connection_port}',
@@ -161,7 +160,6 @@ class Controller(ControllerServicer):
                 self.log.info(child)
                 child.propagate_command('take_control', None, self.actor.get_token())
 
-        from druncschema.request_response_pb2 import CommandDescription
         # TODO, probably need to think of a better way to do this?
         # Maybe I should "bind" the commands to their methods, and have something looping over this list to generate the gRPC functions
         # Not particularly pretty...
@@ -284,7 +282,6 @@ class Controller(ControllerServicer):
 
         self.log.info(f'Registering {self.name} to the connectivity service at {address}')
 
-        from threading import Thread
         self.running = True
 
         def update_connectivity_service(
@@ -292,7 +289,6 @@ class Controller(ControllerServicer):
             connectivity_service,
             interval
         ):
-            import time
             while ctrler.running:
                 ctrler.connectivity_service.publish(
                     ctrler.name+"_control",
@@ -301,7 +297,7 @@ class Controller(ControllerServicer):
                 )
                 time.sleep(interval)
 
-        self.connectivity_service_thread = Thread(
+        self.connectivity_service_thread = threading.Thread(
             target = update_connectivity_service,
             args = (self, self.connectivity_service, 2),
             name = 'connectivity_service_updating_thread'
@@ -332,18 +328,15 @@ class Controller(ControllerServicer):
             child.terminate()
         self.children_nodes = []
 
-        from drunc.controller.children_interface.rest_api_child import ResponseListener
 
         if ResponseListener.exists():
             ResponseListener.get().terminate()
 
-        import threading
         self.log.debug("Threading threads")
         for t in threading.enumerate():
             self.log.debug(f'{t.getName()} TID: {t.native_id} is_alive: {t.is_alive}')
 
-        from multiprocessing import Manager
-        with Manager() as manager:
+        with multiprocessing.Manager() as manager:
             self.log.debug("Multiprocess threads")
             self.log.debug(manager.list())
 
@@ -359,8 +352,7 @@ class Controller(ControllerServicer):
         )
 
         response_children = []
-        from threading import Lock, Thread
-        response_lock = Lock()
+        response_lock = threading.Lock()
 
         def propagate_to_child(child, command, command_data, token, response_lock, response_children):
 
@@ -388,15 +380,10 @@ class Controller(ControllerServicer):
 
             except Exception as e: # Catch all, we are in a thread and want to do something sensible when an exception is thrown
                 self.log.error(f"Something wrong happened while sending the command to {child.name}: Error raised: {str(e)}")
-                from drunc.utils.utils import print_traceback
                 print_traceback()
-                from drunc.exceptions import DruncException
                 flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
 
                 with response_lock:
-                    from druncschema.request_response_pb2 import Response
-                    from druncschema.generic_pb2 import PlainText, Stacktrace
-                    import traceback
                     stack = traceback.format_exc().split("\n")
                     response_children.append(
                         Response(
@@ -420,7 +407,7 @@ class Controller(ControllerServicer):
         threads = []
         for child in node_to_execute:
             self.log.debug(f'Propagating to {child.name}')
-            t = Thread(
+            t = threading.Thread(
                 target = propagate_to_child,
                 kwargs = {
                     "child": child,
@@ -452,7 +439,6 @@ class Controller(ControllerServicer):
 
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def status(self, token:Token) -> Response:
-        from drunc.controller.utils import get_status_message
         status = get_status_message(self.stateful_node)
         return Response (
             name = self.name,
@@ -471,9 +457,6 @@ class Controller(ControllerServicer):
     ) # 2nd step
     @unpack_request_data_to(None, pass_token=True) # 3rd step
     def describe(self, token:Token) -> Response:
-        from druncschema.request_response_pb2 import Description
-        from drunc.utils.grpc_utils import pack_to_any
-        from drunc.controller.utils import get_detector_name
         bd = self.describe_broadcast()
         d = Description(
             type = 'controller',
@@ -511,7 +494,6 @@ class Controller(ControllerServicer):
     ) # 2nd step
     @unpack_request_data_to(PlainText) # 4th step
     def describe_fsm(self, input:PlainText) -> Response:
-        from drunc.fsm.utils import convert_fsm_transition
 
         if input.text == 'all-transitions':
             desc = convert_fsm_transition(self.stateful_node.get_all_fsm_transitions())
@@ -556,7 +538,6 @@ class Controller(ControllerServicer):
         2. Execute the command on children controller, app, and self
         3. Return the result
         """
-        from druncschema.request_response_pb2 import ResponseFlag
 
         if self.stateful_node.node_is_in_error():
             return self.construct_error_node_response(

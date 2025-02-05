@@ -1,12 +1,19 @@
+from google.protobuf import any_pb2
+import grpc
+from grpc_status import rpc_status
+
 from drunc.controller.stateful_node import StatefulNode
-from druncschema.request_response_pb2 import Response, ResponseFlag, Request
-from druncschema.token_pb2 import Token
-from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.grpc_utils import pack_to_any, rethrow_if_unreachable_server, unpack_any
 from drunc.utils.utils import get_logger
+
+from druncschema.controller_pb2 import Status
+from druncschema.generic_pb2 import PlainText, Stacktrace
+from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+from druncschema.token_pb2 import Token
+
 log = get_logger('controller_utils')
 
 def get_status_message(stateful:StatefulNode):
-    from druncschema.controller_pb2 import Status
     state_string = stateful.get_node_operational_state()
     if state_string != stateful.get_node_operational_sub_state():
         state_string += f' ({stateful.get_node_operational_sub_state()})'
@@ -29,10 +36,6 @@ def get_detector_name(configuration) -> str:
     return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):
-    import grpc
-    from google.protobuf import any_pb2
-
-    from drunc.utils.utils import get_logger
     log = get_logger("send_command")
 
     # Grab the command from the controller stub in the context
@@ -58,16 +61,9 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
 
         response = cmd(request)
     except grpc.RpcError as e:
-        from drunc.utils.grpc_utils import rethrow_if_unreachable_server
         rethrow_if_unreachable_server(e)
-
-        from grpc_status import rpc_status
         status = rpc_status.from_call(e)
-
         log.error(f'Error sending command "{command}" to controller')
-
-        from druncschema.generic_pb2 import Stacktrace, PlainText
-        from drunc.utils.grpc_utils import unpack_any
 
         if hasattr(status, 'message'):
             log.error(status.message)

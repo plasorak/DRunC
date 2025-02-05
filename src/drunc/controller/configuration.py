@@ -1,6 +1,13 @@
-from drunc.utils.configuration import ConfHandler
+import socket
+
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.utils import get_segment_lookup_timeout
+from drunc.exceptions import DruncSetupException
+from drunc.process_manager.configuration import get_cla
+from drunc.utils.configuration import ConfHandler
+
+import confmodel
+
 
 class ControllerConfData: # the bastardised OKS
     def __init__(self):
@@ -33,7 +40,6 @@ class ControllerConfHandler(ConfHandler):
         self.session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
         this_segment = ControllerConfHandler.find_segment(self.session.segment, self.oks_key.obj_uid)
         if this_segment is None:
-            from drunc.exceptions import DruncSetupException
             DruncSetupException(f"Could not find segment with oks_key.obj_uid: {self.oks_key.obj_uid}")
         return this_segment
 
@@ -44,7 +50,6 @@ class ControllerConfHandler(ConfHandler):
 
         self.this_host = self.data.controller.runs_on.runs_on.id
         if self.this_host in ['localhost'] or self.this_host.startswith('127.'):
-            import socket
             self.this_host = socket.gethostname()
 
 
@@ -63,7 +68,6 @@ class ControllerConfHandler(ConfHandler):
         session = None
 
         try:
-            import confmodel
             session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
 
         except ImportError as e:
@@ -81,7 +85,6 @@ class ControllerConfHandler(ConfHandler):
                 if confmodel.component_disabled(self.db._obj, session.id, segment.id):
                     continue
 
-            from drunc.process_manager.configuration import get_cla
             new_node = ChildNode.get_child(
                 cli = get_cla(self.db._obj, session.id, segment.controller),
                 init_token = init_token,
@@ -98,8 +101,6 @@ class ControllerConfHandler(ConfHandler):
             if enabled_only:
                 if confmodel.component_disabled(self.db._obj, session.id, app.id):
                     continue
-
-            from drunc.process_manager.configuration import get_cla
 
             new_node = ChildNode.get_child(
                 cli = get_cla(self.db._obj, session.id, app),
