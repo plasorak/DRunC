@@ -1,6 +1,7 @@
 """The session manager service."""
 
 from druncschema.request_response_pb2 import CommandDescription, Description, Response, ResponseFlag
+from druncschema.session_manager_pb2 import ActiveSession, AllActiveSessions, AllConfigKeys, ConfifKey
 from druncschema.session_manager_pb2_grpc import SessionManagerServicer
 from druncschema.token_pb2 import Token
 
@@ -68,12 +69,25 @@ class SessionManager(abc.ABC, SessionManagerServicer):
     def list_all_sessions(self, token: Token) -> Response:
         self.log.debug(f"{self.name} running list_all_sessions")
 
-        sessions = None
+        dummy_config = ConfifKey(
+            file="dummy_config_file",
+            session_id="dummy_config_session_id",
+        )
+
+        dummy_session = ActiveSession(
+            name="dummy_session",
+            user="dummy_user",
+            config_key=dummy_config,
+        )
+
+        all_sessions = AllActiveSessions(
+            active_sessions=[dummy_session],
+        )
 
         return Response(
             name=self.name,
             token=None,
-            data=pack_to_any(sessions),
+            data=pack_to_any(all_sessions),
             flag=ResponseFlag.EXECUTED_SUCCESSFULLY,
             children=[],
         )
