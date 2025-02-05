@@ -4,6 +4,7 @@ from druncschema.request_response_pb2 import CommandDescription, Description, Re
 from druncschema.session_manager_pb2_grpc import SessionManagerServicer
 from druncschema.token_pb2 import Token
 
+from drunc.session_manager.configuration import SessionManagerConfHandler
 from drunc.utils.grpc_utils import pack_to_any, unpack_request_data_to
 from drunc.utils.utils import pid_info_str
 
@@ -12,7 +13,7 @@ import logging
 
 class SessionManager(abc.ABC, SessionManagerServicer):
 
-    def __init__(self, configuration, name: str, session: str, **kwargs):
+    def __init__(self, configuration: SessionManagerConfHandler, name: str, session: str, **kwargs):
         super().__init__()
 
         self.log = logging.getLogger("drunc.session_manager")
