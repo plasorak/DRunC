@@ -48,7 +48,7 @@ class GRPCDriver:
         self._log = logging.getLogger(name)
         import grpc
         from druncschema.token_pb2 import Token
-
+        self.name = name
         if not address:
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f'You need to provide a valid IP address for the driver. Provided \'{address}\'')
@@ -274,13 +274,17 @@ class ShellContext:
             return list(self._drivers.values())[0]
         except KeyError:
             self._log.error(f'Driver {name} commands are not available right now')
+            self._log.debug(f'Drivers available are {self._drivers.keys()}')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
+
+    def has_driver(self, name:str) -> bool:
+        return name in self._drivers
 
     def delete_driver(self, name: str) -> None:
         if name in self._drivers:
+            self._log.info(f"You will not be able to issue command to {self._drivers[name].name} anymore.")
             del self._drivers[name]
-            self._log.info(f"Driver {name} has been deleted.")
-    
+
     def get_token(self) -> Token:
         return self._token
 
