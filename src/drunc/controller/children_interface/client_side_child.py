@@ -144,8 +144,10 @@ class ClientSideChild(ChildNode):
                 flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
                 children = []
             )
+        elif command == 'describe':
+            return self.describe(token)
 
-        if self.state.excluded():
+        if self.state.excluded() and command == 'execute_fsm_command':
             return Response(
                 name = self.name,
                 token = token,
@@ -163,8 +165,7 @@ class ClientSideChild(ChildNode):
         # here lies the mother of all the problems
         if command == 'execute_fsm_command':
             return self.propagate_fsm_command(command, data, token)
-        elif command == 'describe':
-            return self.describe(token)
+
         else:
             self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
             return Response(
