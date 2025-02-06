@@ -28,7 +28,7 @@ class DBRunRegistry(FSMAction):
             self.API_USER = rrc["user"]
             self.API_PSWD = rrc["password"]
         except KeyError as exc:
-            raise DotDruncJsonIncorrectFormat() from exc
+            raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'run_registry_configuration\' section, or the entire \'run_registry_configuration\' section') from exc
 
         self.timeout = 2
 

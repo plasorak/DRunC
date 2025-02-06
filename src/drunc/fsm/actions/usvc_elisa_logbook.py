@@ -20,11 +20,12 @@ class ElisaLogbook(FSMAction):
             dotdrunc["elisa_configuration"].get("user") or
             dotdrunc["elisa_configuration"].get("password")):
             try:
-                self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
-                self.API_USER   = dotdrunc["elisa_configuration"]["user"]
-                self.API_PASS   = dotdrunc["elisa_configuration"]["password"]
+                ec = dotdrunc["elisa_configuration"]
+                self.API_SOCKET = ec["socket"]
+                self.API_USER   = ec["user"]
+                self.API_PASS   = ec["password"]
             except KeyError as exc:
-                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the elisa_configuration section') from exc
+                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'elisa_configuration\' section, or the entire \'elisa_configuration\' section') from exc
 
             if len(configuration.parameters)>0:
                 self._log.error(f"You need to update your ~/.drunc.json: you have specified an ELisA logbook ({configuration.parameters[0].value}) in your configuration, but your current ~/.drunc.json doesn't support this (if you run with this, you will get ELisA logging on whichever you have specified in your ~/.drunc.json). Contact Pierre Lasorak for help.")
@@ -47,7 +48,7 @@ class ElisaLogbook(FSMAction):
                 self.API_USER   = dotdrunc["elisa_configuration"][elisa_hardware]["user"]
                 self.API_PASS   = dotdrunc["elisa_configuration"][elisa_hardware]["password"]
             except KeyError as exc:
-                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the elisa_configuration.{elisa_hardware} section') from exc
+                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'elisa_configuration.{elisa_hardware}\' section, or the entire \'elisa_configuration.{elisa_hardware}\' section') from exc
 
             self._log.info(f"Using the following ELisA logbook \'{elisa_hardware}\'.")
 
