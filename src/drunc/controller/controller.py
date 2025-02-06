@@ -632,14 +632,14 @@ class Controller(ControllerServicer):
 
         for response_child in response_children:
 
-            if response_child.flag != ResponseFlag.EXECUTED_SUCCESSFULLY:
+            if response_child.flag != ResponseFlag.EXECUTED_SUCCESSFULLY :
                 child_worst_response_flag = response_child.flag
                 continue
 
 
             fsm_response = unpack_any(response_child.data, FSMCommandResponse)
 
-            if fsm_response.flag != FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY:
+            if fsm_response.flag not in [FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY, FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED]:
                 child_worst_fsm_flag = fsm_response.flag
 
 
@@ -661,11 +661,6 @@ class Controller(ControllerServicer):
 
             self.stateful_node.to_error()
 
-        #     return self.construct_error_node_response(
-        #         fsm_command.command_name,
-        #         token,
-        #         cause = FSMResponseFlag.FSM_FAILED,
-        #     )
 
         self_response_fsm_flag = FSMResponseFlag.FSM_EXECUTED_SUCCESSFULLY # self has executed successfully, even if children have not
         fsm_result = FSMCommandResponse(
@@ -680,6 +675,50 @@ class Controller(ControllerServicer):
             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
             children = response_children,
         )
+
+
+    # ORDER MATTERS!
+    @broadcasted # outer most wrapper 1st step
+    @authentified_and_authorised(
+        action=ActionType.UPDATE,
+        system=SystemType.CONTROLLER
+    ) # 2nd step
+    @in_control
+    @unpack_request_data_to(pass_token=True) # 3rd step
+    def recompute_status(self, token:Token) -> Response:
+        from drunc.utils.grpc_utils import unpack_any
+
+        recomputed_statuses = []
+
+        for n in self.children_nodes:
+            pre_recompute_response = n.get_status(token)
+            pre_status = unpack_any(pre_recompute_response.data, Status)
+            if not pre_status.included:
+                continue
+            post_recompute_response = self.propagate('recompute_status', command_data=None, token=token)
+            post_status = unpack_any(post_recompute_response.data, Status)
+            recomputed_statuses += [post_status]
+
+        self_in_error = any(s.in_error for s in recomputed_statuses)
+        children_states = set([s.state for s in recomputed_statuses])
+        self_inconsistent_state = len(children_states) > 1
+
+        if not self_in_error and not self_inconsistent_state:
+            children_state = children_states.pop()
+            self.stateful_node.resolve_error()
+            self.stateful_node.force_set_node_operational_state(children_state)
+            self.stateful_node.force_set_node_operational_sub_state(children_state)
+
+        from drunc.controller.utils import get_status_message
+        status = get_status_message(self.stateful_node)
+        return Response (
+            name = self.name,
+            token = token,
+            data = pack_to_any(status),
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = [n.get_status(token) for n in self.children_nodes]
+        )
+
 
 
     # ORDER MATTERS!

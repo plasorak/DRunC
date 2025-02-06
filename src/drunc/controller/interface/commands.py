@@ -47,21 +47,69 @@ def status(obj:ControllerContext) -> None:
     from drunc.controller.interface.shell_utils import print_status_table
     print_status_table(obj, statuses, descriptions)
 
+
+@click.command('recompute-status')
+@click.pass_obj
+def recompute_status(obj:ControllerContext) -> None:
+    statuses = obj.get_driver('controller').recompute_status()
+    descriptions = obj.get_driver('controller').describe()
+    from drunc.controller.interface.shell_utils import print_status_table
+    print_status_table(obj, statuses, descriptions)
+
+
 @click.command('connect')
 @click.argument('controller_address', type=str)
+@click.option('-f', '--force', is_flag=True, help='Confirm the disconnect')
 @click.pass_obj
-def connect(obj:ControllerContext, controller_address:str) -> None:
-    obj.print(f'Connecting this shell to it...')
+def connect(obj:ControllerContext, controller_address:str, force:bool) -> None:
+    if obj.has_driver('controller'):
+        driver = obj.get_driver("controller")
+        obj.info(f'Already connected to a controller ({driver.name}@{driver.address})')
+        if not force:
+            click.confirm(f'Do you want to disconnect from it before?', abort=True)
+        obj.info(f'Disconnecting...')
+        obj.delete_driver('controller')
+
+    obj.info(f'Connecting this shell to the controller at {controller_address}...')
+
+    if controller_address.startswith('grpc://'):
+        controller_address = controller_address.replace('grpc://', '')
+
     from drunc.exceptions import DruncException
 
     obj.set_controller_driver(controller_address)
     from drunc.controller.interface.shell_utils import controller_setup
     controller_setup(obj, controller_address)
 
+
 @click.command('disconnect')
+@click.option('-f', '--force', is_flag=True, help='Confirm the disconnect')
 @click.pass_obj
-def disconnect(obj:ControllerContext):
-    obj.set_controller_driver(None)
+def disconnect(obj:ControllerContext, force:bool):
+    if not obj.has_driver('controller'):
+        obj.info('You are not connected to any controller.')
+        return
+
+    driver = obj.get_driver("controller")
+
+    if not force:
+        obj.info(f'''
+[red]You are about to disconnect from the {driver.name} controller.[/red]
+
+To reconnect to it, you will need to issue the following command:
+
+[yellow]connect {driver.address}[/yellow]
+
+To get the address of another controller, abort now and issue the command:
+
+[yellow]status[/yellow]
+
+You can also find the controller address on the connectivity service.
+''', extra={'markup': True})
+        click.confirm('Are you sure you want to disconnect from the controller?', abort=True)
+
+    obj.delete_driver('controller')
+
 
 @click.command('take-control')
 @click.pass_obj

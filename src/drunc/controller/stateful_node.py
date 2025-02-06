@@ -123,6 +123,12 @@ class StatefulNode(abc.ABC):
     def get_node_operational_sub_state(self):
         return self.__operational_sub_state.value
 
+    def force_set_node_operational_state(self, state):
+        self.__operational_state.value = state
+
+    def force_set_node_operational_sub_state(self, state):
+        self.__operational_sub_state.value = state
+
     def get_fsm_transitions(self):
         r = self.__fsm.get_executable_transitions(self.get_node_operational_state())
         return r
