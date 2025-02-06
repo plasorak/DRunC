@@ -1,43 +1,58 @@
 from rich import print
-from druncschema.controller_pb2 import FSMCommandsDescription
+from druncschema.controller_pb2 import FSMCommandsDescription, Status
 from druncschema.request_response_pb2 import Description
 from drunc.utils.shell_utils import DecodedResponse
 import logging
 import inspect
 log = logging.getLogger('controller_shell_utils')
 
+def generate_none_status()->Status:
+    return Status(
+        state = 'none',
+        sub_state = 'none',
+        in_error = False,
+        included = False,
+    )
+def generate_none_description()->Description:
+    return Description(
+        type = 'none',
+        name = 'none',
+        endpoint = 'none',
+        commands = [],
+        broadcast = None,
+    )
+
 def match_children(statuses:list, descriptions:list) -> list:
     def check_message_type(message:Description, expected_type:str) -> None:
         if message.data.DESCRIPTOR.name != expected_type:
-            raise TypeError("Message {message.name} is not of type 'Description'!")
-        return
+            return False
+        return True
 
-    children = []
+    children = {}
     for status in statuses:
-        check_message_type(status, "Status")
-        child = {}
-        child_name = status.name
-        for description in descriptions:
-            if description.name == child_name:
-                check_message_type(description, "Description")
-                child["status"] = status
-                child["description"] = description
-                children.append(child)
-                break
-    if len(descriptions) != len(children):
-        from drunc.controller.exceptions import MalformedCommand
-        raise MalformedCommand(f"Command {inspect.currentframe().f_code.co_name} has assigned the incorrect number of children!")
+        if not check_message_type(status, "Status"):
+            continue
+        children[status.name] = {"status": status}
+
+    for description in descriptions:
+        if not check_message_type(description, "Description"):
+            continue
+
+        if description.name not in children:
+            children[description.name] = {}
+        children[description.name].update({"description": description})
+
     return children
 
 def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
     from druncschema.controller_pb2 import Status
     if not statuses: return
 
-    if type(statuses.data) != Status:
-        from google.protobuf.any_pb2 import Any
-        data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
-        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
-        return
+    # if type(statuses.data) != Status:
+    #     from google.protobuf.any_pb2 import Any
+    #     data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
+    #     obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
+    #     return
 
     from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from rich.table import Table
@@ -61,8 +76,9 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
             format_bool(status.data.included),
             description.data.endpoint
         )
-        for child in match_children(status.children, description.children):
+        for child in match_children(status.children, description.children).values():
             add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
+
     add_status_to_table(t, statuses, descriptions, prefix='')
     obj.print(t)
     obj.print_status_summary()
@@ -124,7 +140,7 @@ def controller_setup(ctx, controller_address):
         console=ctx._console,
     ) as progress:
 
-        waiting = progress.add_task("[yellow]Trying to talk to the top controller...", total=timeout)
+        waiting = progress.add_task("[yellow]Trying to talk to the controller...", total=timeout)
 
         stored_exception = None
         import time
@@ -151,6 +167,7 @@ def controller_setup(ctx, controller_address):
         raise stored_exception
 
     log.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
+    ctx.get_driver('controller').name = f'{desc.name}.{desc.session}'
     if desc.HasField('broadcast'):
         ctx.start_listening_controller(desc.broadcast)
 
