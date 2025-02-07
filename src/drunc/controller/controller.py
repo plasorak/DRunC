@@ -15,11 +15,9 @@ import drunc.controller.exceptions as ctler_excpt
 from drunc.controller.stateful_node import StatefulNode
 from drunc.exceptions import DruncException
 from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
-from drunc.utils.grpc_utils import unpack_any
+from drunc.utils.grpc_utils import unpack_request_data_to, pack_response, UnpackingError, unpack_any
 
-
-import signal
+import copy
 from typing import Optional, List
 
 class ControllerActor:
@@ -688,22 +686,49 @@ class Controller(ControllerServicer):
     def recompute_status(self, token:Token) -> Response:
         from drunc.utils.grpc_utils import unpack_any
 
-        recomputed_statuses = []
+        pre_statuses = {n.name: n.get_status(token) for n in self.children_nodes}
+        children_names_to_execute = [n.name for n in self.children_nodes]
 
-        for n in self.children_nodes:
-            pre_recompute_response = n.get_status(token)
-            pre_status = unpack_any(pre_recompute_response.data, Status)
-            if not pre_status.included:
+        for n, s in pre_statuses.items():
+            if s.flag != ResponseFlag.EXECUTED_SUCCESSFULLY:
+                self.logger.warning(f"Failed to get an answer from {n}")
+                children_names_to_execute.remove(n)
                 continue
-            post_recompute_response = self.propagate('recompute_status', command_data=None, token=token)
-            post_status = unpack_any(post_recompute_response.data, Status)
-            recomputed_statuses += [post_status]
 
-        self_in_error = any(s.in_error for s in recomputed_statuses)
-        children_states = set([s.state for s in recomputed_statuses])
+            pre_statuses_decoded = None
+            try:
+                pre_statuses_decoded = unpack_any(s.data, Status)
+            except UnpackingError as e:
+                self.logger.warning(f"Failed to decode status for {n}: {e}")
+                children_names_to_execute.remove(n)
+                continue
+
+            if not pre_statuses_decoded.included:
+                children_names_to_execute.remove(n)
+                continue
+
+        children_to_execute = [n for n in self.children_nodes if n.name in children_names_to_execute]
+        post_recompute_response = self.propagate_to_list('recompute_status', command_data=None, token=token, node_to_execute=children_to_execute)
+        post_statuses = []
+
+        error = False
+        for r in post_recompute_response:
+            if r.flag != ResponseFlag.EXECUTED_SUCCESSFULLY:
+                error = True
+                continue
+
+            try:
+                post_statuses += [unpack_any(r.data, Status)]
+                self.logger.info(f"Decoded status: {post_statuses[-1]}")
+            except UnpackingError as e:
+                self.logger.warning(f"Failed to decode status for: {e}")
+                error = True
+
+        self_in_error = any(s.in_error for s in post_statuses)
+        children_states = set([s.state for s in post_statuses])
         self_inconsistent_state = len(children_states) > 1
 
-        if not self_in_error and not self_inconsistent_state:
+        if not error and not self_in_error and not self_inconsistent_state:
             children_state = children_states.pop()
             self.stateful_node.resolve_error()
             self.stateful_node.force_set_node_operational_state(children_state)

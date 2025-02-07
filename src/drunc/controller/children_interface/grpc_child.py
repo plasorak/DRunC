@@ -19,7 +19,7 @@ class gRPCChildNode(ChildNode):
     def __init__(self, name, configuration:gRCPChildConfHandler, init_token, uri):
         super().__init__(
             name = name,
-            node_type = ControlType.gRPC, 
+            node_type = ControlType.gRPC,
             configuration  = configuration
         )
 
