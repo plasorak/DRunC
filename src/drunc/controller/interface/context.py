@@ -19,7 +19,7 @@ class ControllerContext(ShellContext): # boilerplatefest
     def reset(self, address:str=None):
         self.address = resolve_localhost_to_hostname(address)
         super(ControllerContext, self)._reset(
-            name = 'controller',
+            name = 'controller_context',
             token_args = {},
             driver_args = {}
         )

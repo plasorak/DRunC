@@ -62,6 +62,8 @@ def unified_shell(
 
     # Set up process_manager logger
     conf = find_configuration(boot_configuration)
+    ctx.obj.boot_configuration = conf
+    ctx.obj.session_name = session_name
     db = conffwk.Configuration(f"oksconflibs:{conf}")
     app_log_path = db.get_dal(class_name="Session", uid=session_name).log_path
 
@@ -133,8 +135,6 @@ def unified_shell(
         unified_shell_log.exception(e)
         sys.exit()
 
-    ctx.obj.boot_configuration = find_configuration(boot_configuration)
-    ctx.obj.session_name = session_name
     if desc.HasField('broadcast'):
         unified_shell_log.debug("Broadcasting")
         ctx.obj.start_listening_pm(

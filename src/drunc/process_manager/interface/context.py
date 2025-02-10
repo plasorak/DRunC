@@ -19,7 +19,7 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
     def reset(self, address:str=None):
         self.address = resolve_localhost_to_hostname(address)
         super(ProcessManagerContext, self)._reset(
-            name = 'process_manager',
+            name = 'process_manager_context',
             token_args = {},
             driver_args = {},
         )

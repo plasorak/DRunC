@@ -1,7 +1,7 @@
 from rich import print as rprint
 
-from drunc.process_manager.interface.shell import process_manager_shell
 from drunc.process_manager.interface.context import ProcessManagerContext
+from drunc.process_manager.interface.shell import process_manager_shell
 from drunc.utils.utils import print_traceback
 
 

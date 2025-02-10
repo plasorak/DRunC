@@ -15,8 +15,7 @@ from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_ro
 def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> None:
     process_manager_shell_log = get_logger(
         logger_name = "process_manager_shell",
-        rich_handler = True,
-        rich_log_level = log_level # RETURNTOME - validate that the root logger is setup and it is not at the base level
+        rich_handler = True # RETURNTOME - validate that the root logger is setup and it is not at the base level
     )
 
     process_manager_shell_log.debug("Resetting the context instance address")

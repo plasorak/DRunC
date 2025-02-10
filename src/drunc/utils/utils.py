@@ -44,7 +44,14 @@ log_levels = {
     'NOTSET'  : logging.NOTSET,
 }
 
+def root_logger_is_setup() -> bool:
+    if "drunc" in logging.Logger.manager.loggerDict:
+        return True
+    return False
+
 def setup_root_logger(stream_log_level:str) -> None:
+    if root_logger_is_setup():
+        return
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
 
@@ -82,15 +89,19 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         raise DruncSetupException("The root logger has not been initialized, exiting.")
     if logger_name.split(".")[0] == "drunc":
         raise DruncSetupException(f"get_logger adds the root logger prefix, it is not required for {logger_name}")
+    if logger_name.count(".") > 1:
+        raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
+    if ("drunc." + logger_name) in logging.Logger.manager.loggerDict:
+        logger = logging.getLogger("drunc." + logger_name)
+        logger.debug("This logger has already been set up")
+        return logger
+    if logger_name.count(".") == 1 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
         if not log_file_path:
             raise DruncSetupException("process_manager setup requires a log path.")
         if not rich_handler:
             raise DruncSetupException("process_manager requires a rich handler.")
-    if logger_name.count(".") > 1:
-        raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-    if logger_name.count(".") == 1 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
-        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
 
     logger_level = logging.getLogger('drunc').level
 

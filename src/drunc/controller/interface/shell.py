@@ -15,8 +15,7 @@ from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, validate
 def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     controller_shell_log = get_logger(
         logger_name = "controller_shell",
-        rich_handler = True,
-        rich_log_level = log_level
+        rich_handler = True
     )
 
     ctx.obj.reset(address = controller_address)

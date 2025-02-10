@@ -28,7 +28,6 @@ def create_dummy_token_from_uname() -> Token:
         user_name = user
     )
 
-
 def add_traceback_flag():
     def wrapper(f0):
         f1 = click.option('-t/-nt','--traceback/--no-traceback', default=None, help='Print full exception traceback')(f0)
@@ -64,7 +63,6 @@ class DecodedResponse:
 
     def __str__(self):
         return DecodedResponse.str(self)
-
 
 class GRPCDriver:
     def __init__(self, name:str, address:str, token:Token, aio_channel=False):
