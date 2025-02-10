@@ -7,7 +7,8 @@ import socket
 import tempfile
 from typing import Dict
 
-from drunc.connectivity_service.client import ApplicationLookupUnsuccessful, ConnectivityServiceClient
+from drunc.connectivity_service.client import ConnectivityServiceClient
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
 from drunc.controller.utils import get_segment_lookup_timeout
 from drunc.exceptions import DruncSetupException, DruncShellException
 from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps, collect_variables

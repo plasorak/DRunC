@@ -2,7 +2,7 @@ import abc
 import logging
 import os
 
-from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
 from drunc.controller.utils import get_detector_name
 from drunc.exceptions import DruncSetupException
 from drunc.utils.configuration import ConfTypes

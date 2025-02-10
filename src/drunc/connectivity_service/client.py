@@ -1,19 +1,3 @@
-# define the connectivity service exceptions at the top to avoid circular references
-# TODO - define these in drunc.connectivity_service.exceptions
-from drunc.exceptions import DruncException
-class ApplicationRegistryNotPresent(DruncException):
-    pass
-
-class ApplicationRegistrationUnsuccessful(DruncException):
-    pass
-
-class ApplicationLookupUnsuccessful(DruncException):
-    pass
-
-class ApplicationUpdateUnsuccessful(DruncException):
-    pass
-
-
 import time
 from requests.exceptions import HTTPError, ConnectionError, ReadTimeout
 

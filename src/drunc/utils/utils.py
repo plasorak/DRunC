@@ -24,6 +24,7 @@ import sys
 import time
 from urllib.parse import urlparse
 
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
 from drunc.exceptions import DruncException, DruncSetupException
 
 
@@ -406,7 +407,7 @@ def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
     raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
 
 
-from drunc.connectivity_service.client import ApplicationLookupUnsuccessful, ConnectivityServiceClient
+from drunc.connectivity_service.client import ConnectivityServiceClient
 def get_control_type_and_uri_from_connectivity_service(
     connectivity_service:ConnectivityServiceClient,
     name:str,
