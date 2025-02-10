@@ -16,7 +16,6 @@ from druncschema.token_pb2 import Token
 
 
 class ClientSideState:
-
     def __init__(self, initial_state='initial'):
         # We'll wrap all these in a mutex for good measure
         self._state_lock = Lock()
@@ -24,7 +23,6 @@ class ClientSideState:
         self._assumed_operational_state = initial_state
         self._included = True
         self._errored = False
-
 
     def executing_command_mark(self):
         with self._state_lock:
@@ -82,13 +80,9 @@ class ClientSideChild(ChildNode):
             node_type = node_type,
             configuration = configuration
         )
-
         self.log = get_logger(f'{name}-client-side')
-
         self.state = ClientSideState()
-
         self.fsm_configuration = fsm_configuration
-
         if fsm_configuration:
             fsmch = FSMConfHandler(fsm_configuration)
             self.fsm = FSM(conf=fsmch)
@@ -103,7 +97,6 @@ class ClientSideChild(ChildNode):
         pass
 
     def get_status(self, token):
-
         status = Status(
             state = self.state.get_operational_state(),
             sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',

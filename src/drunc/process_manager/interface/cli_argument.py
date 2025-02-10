@@ -2,6 +2,7 @@ import click
 
 from drunc.process_manager.utils import generate_process_query
 
+
 def validate_conf_string(ctx, param, boot_configuration):
     return boot_configuration
 

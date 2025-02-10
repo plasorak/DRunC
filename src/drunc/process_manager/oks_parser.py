@@ -1,12 +1,13 @@
-import confmodel
-import conffwk
 import os
 import sys
-from typing import List, Dict, Any
+from typing import Any, Dict, List
 
 from drunc.exceptions import DruncException
 from drunc.process_manager.configuration import get_cla, ProcessManagerConfHandler
 from drunc.utils.utils import get_logger
+
+import confmodel
+import conffwk
 
 
 dal = conffwk.dal.module('x', 'schema/confmodel/dunedaq.schema.xml')

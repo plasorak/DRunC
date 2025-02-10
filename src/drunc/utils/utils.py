@@ -9,8 +9,13 @@ import logging
 import kafka
 import os
 import random
+from rich.console import Console
+from rich.theme import Theme
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
+from rich.logging import RichHandler
+from rich.console import Console
 import re
-from requests import delete, patch, get, post
+from requests import delete, get, patch, post
 import sh
 import signal
 import socket
@@ -19,14 +24,24 @@ import sys
 import time
 from urllib.parse import urlparse
 
-from rich.console import Console
-from rich.theme import Theme
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
-from rich.logging import RichHandler
-from rich.console import Console
-
-# from drunc.connectivity_service.client import ConnectivityServiceClient
 from drunc.exceptions import DruncException, DruncSetupException
+
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONSOLE_THEMES = Theme({
+    "info": "dim cyan",
+    "warning": "magenta",
+    "danger": "bold red"
+})
+
+log_levels = {
+    'CRITICAL': logging.CRITICAL,
+    'ERROR'   : logging.ERROR,
+    'WARNING' : logging.WARNING,
+    'INFO'    : logging.INFO,
+    'DEBUG'   : logging.DEBUG,
+    'NOTSET'  : logging.NOTSET,
+}
 
 def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
@@ -139,22 +154,6 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
 
     logger.debug(f"Finished setting up logger {logger_name}")
     return logger
-
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-CONSOLE_THEMES = Theme({
-    "info": "dim cyan",
-    "warning": "magenta",
-    "danger": "bold red"
-})
-
-log_levels = {
-    'CRITICAL': logging.CRITICAL,
-    'ERROR'   : logging.ERROR,
-    'WARNING' : logging.WARNING,
-    'INFO'    : logging.INFO,
-    'DEBUG'   : logging.DEBUG,
-    'NOTSET'  : logging.NOTSET,
-}
 
 def get_random_string(length):
     letters = string.ascii_lowercase
@@ -404,11 +403,12 @@ def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
     for CLA in CLAs:
         if   CLA.startswith("rest://"): return ControlType.REST_API, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("rest://", ""))
         elif CLA.startswith("grpc://"): return ControlType.gRPC, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("grpc://", ""))
-
     raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
 
+
+from drunc.connectivity_service.client import ApplicationLookupUnsuccessful, ConnectivityServiceClient
 def get_control_type_and_uri_from_connectivity_service(
-    connectivity_service,#:ConnectivityServiceClient,
+    connectivity_service:ConnectivityServiceClient,
     name:str,
     timeout:int=10, # seconds
     retry_wait:float=0.1, # seconds
@@ -417,7 +417,6 @@ def get_control_type_and_uri_from_connectivity_service(
 ) -> tuple[ControlType, str]:
 
     uris = []
-    from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
     logger = get_logger('utils.get_control_type_and_uri_from_connectivity_service')
 
     with Progress(

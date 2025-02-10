@@ -66,8 +66,6 @@ class ConnectivityServiceClient:
                 time.sleep(0.5)
                 continue
 
-
-
     def resolve(self, uid_regex:str, data_type:str) -> dict:
         data = {
             'data_type': data_type,
@@ -101,7 +99,6 @@ class ConnectivityServiceClient:
 
         self.log.debug(f'Could not find the address of \'{uid_regex}\' on the application registry')
         raise ApplicationLookupUnsuccessful
-
 
     def publish(self, uid, uri, data_type:str):
         for i in range(50):

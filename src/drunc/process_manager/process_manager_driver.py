@@ -1,6 +1,4 @@
 import asyncio
-import conffwk
-from daqconf.consolidate import consolidate_db
 import getpass
 import json
 import os
@@ -9,7 +7,7 @@ import socket
 import tempfile
 from typing import Dict
 
-from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
+from drunc.connectivity_service.client import ApplicationLookupUnsuccessful, ConnectivityServiceClient
 from drunc.controller.utils import get_segment_lookup_timeout
 from drunc.exceptions import DruncSetupException, DruncShellException
 from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps, collect_variables
@@ -17,11 +15,14 @@ from drunc.process_manager.utils import get_log_path, get_rte_script
 from drunc.utils.configuration import find_configuration
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
-from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname, host_is_local, now_str, get_control_type_and_uri_from_connectivity_service
+from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service, host_is_local, now_str, resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
 
-from druncschema.request_response_pb2 import Request, Response, Description
-from druncschema.process_manager_pb2 import BootRequest, ProcessUUID, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.request_response_pb2 import Description, Request, Response
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessQuery, ProcessRestriction, ProcessUUID
 from druncschema.process_manager_pb2_grpc import ProcessManagerStub
+
+import conffwk
+from daqconf.consolidate import consolidate_db
 
 
 class ProcessManagerDriver(GRPCDriver):

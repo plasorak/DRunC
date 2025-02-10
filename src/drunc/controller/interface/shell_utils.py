@@ -4,7 +4,6 @@ from google.protobuf.any_pb2 import Any
 import grpc
 import inspect
 import logging
-from rich import print
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 from rich.table import Table
 import time

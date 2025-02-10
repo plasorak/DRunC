@@ -3,15 +3,17 @@ import click
 import getpass
 from google.protobuf.any_pb2 import Any
 import grpc
+from rich.console import Console
 from typing import Mapping
+
+from drunc.exceptions import DruncSetupException, DruncShellException, DruncServerSideError
+from drunc.utils.grpc_utils import rethrow_if_unreachable_server, unpack_any
+from drunc.utils.utils import get_logger, print_traceback, setup_root_logger
 
 from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Request, ResponseFlag, Response
 
-from drunc.utils.grpc_utils import unpack_any
-from drunc.utils.utils import get_logger, setup_root_logger
-from drunc.exceptions import DruncShellException, DruncSetupException, DruncServerSideError
 
 class InterruptedCommand(DruncShellException):
     '''
@@ -19,6 +21,19 @@ class InterruptedCommand(DruncShellException):
     '''
     pass
 
+def create_dummy_token_from_uname() -> Token:
+    user = getpass.getuser()
+    return Token ( # fake token, but should be figured out from the environment/authoriser
+        token = f'{user}-token',
+        user_name = user
+    )
+
+
+def add_traceback_flag():
+    def wrapper(f0):
+        f1 = click.option('-t/-nt','--traceback/--no-traceback', default=None, help='Print full exception traceback')(f0)
+        return f1
+    return wrapper
 
 class DecodedResponse:
     ## Warning! This should be kept in sync with druncschema/request_response.proto/Response class
@@ -94,9 +109,9 @@ class GRPCDriver:
             )
 
     def __handle_grpc_error(self, error, command):
-        from drunc.utils.grpc_utils import rethrow_if_unreachable_server#, interrupt_if_unreachable_server
         rethrow_if_unreachable_server(error)
         # else:
+        #     from drunc.utils.grpc_utils import interrupt_if_server_unreachable
         #     text = interrupt_if_unreachable_server(error)
         #     if text:
         #         self.log.error(text)
@@ -174,7 +189,6 @@ class GRPCDriver:
 
             # raise DruncServerSideError(error_txt, stack_txt, server_response=dr)
 
-
     def send_command(self, command:str, data=None, outformat=None, decode_children=False):
         if not self.stub:
             raise DruncShellException('No stub initialised')
@@ -188,7 +202,6 @@ class GRPCDriver:
         except grpc.RpcError as e:
             self.__handle_grpc_error(e, command)
         return self.handle_response(response, command, outformat)
-
 
     async def send_command_aio(self, command:str, data=None, outformat=None):
         if not self.stub:
@@ -205,7 +218,6 @@ class GRPCDriver:
             self.__handle_grpc_error(e, command)
         return self.handle_response(response, command, outformat)
 
-
     async def send_command_for_aio(self, command:str, data=None, outformat=None):
         if not self.stub:
             raise DruncShellException('No stub initialised')
@@ -221,11 +233,8 @@ class GRPCDriver:
         except grpc.aio.AioRpcError as e:
             self.__handle_grpc_error(e, command)
 
-
-
 class ShellContext:
     def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
-        from rich.console import Console
         self._console = Console()
         self.log = get_logger(
             logger_name = f"{name}.ShellContext",
@@ -239,7 +248,6 @@ class ShellContext:
         try:
             self.reset(*args, **kwargs)
         except Exception as e:
-            from drunc.utils.utils import print_traceback
             print_traceback()
             exit(1)
 
@@ -299,7 +307,6 @@ class ShellContext:
     def critical(self, *args, **kwargs) -> None:
         self.log.critical(*args, **kwargs)
 
-
     def print_status_summary(self) -> None:
         status = self.get_driver('controller').status().data
         if status.in_error:
@@ -307,19 +314,3 @@ class ShellContext:
         else:
             available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
             self.print(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
-
-
-def create_dummy_token_from_uname() -> Token:
-    from drunc.utils.shell_utils import create_dummy_token_from_uname
-    user = getpass.getuser()
-    return Token ( # fake token, but should be figured out from the environment/authoriser
-        token = f'{user}-token',
-        user_name = user
-    )
-
-
-def add_traceback_flag():
-    def wrapper(f0):
-        f1 = click.option('-t/-nt','--traceback/--no-traceback', default=None, help='Print full exception traceback')(f0)
-        return f1
-    return wrapper

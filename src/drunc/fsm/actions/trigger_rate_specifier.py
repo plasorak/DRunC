@@ -1,8 +1,8 @@
 import json
-import tempfile
-import tarfile
 import os
 import requests
+import tempfile
+import tarfile
 
 from drunc.fsm.core import FSMAction
 

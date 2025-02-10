@@ -7,6 +7,7 @@ from drunc.fsm.core import FSMAction
 from drunc.fsm.exceptions import CannotGetRunNumber
 from drunc.utils.utils import expand_path, get_logger
 
+
 class UsvcProvidedRunNumber(FSMAction):
     def __init__(self, configuration):
         super().__init__(

@@ -1,6 +1,7 @@
 from drunc.fsm.actions.utils import validate_run_type
 from drunc.fsm.core import FSMAction
 
+
 class UserProvidedRunNumber(FSMAction):
     def __init__(self, configuration):
         super().__init__(

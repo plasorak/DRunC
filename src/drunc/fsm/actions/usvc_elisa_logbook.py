@@ -8,6 +8,7 @@ from drunc.fsm.exceptions import CannotSendElisaMessage
 from drunc.utils.configuration import find_configuration
 from drunc.utils.utils import expand_path, get_logger
 
+
 class ElisaLogbook(FSMAction):
     def __init__(self, configuration):
         super().__init__(name = "elisa-logbook")

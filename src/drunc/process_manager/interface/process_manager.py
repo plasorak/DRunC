@@ -8,13 +8,12 @@ import signal
 import socket
 from rich.logging import RichHandler
 
-from drunc.process_manager.configuration import get_process_manager_configuration
 from drunc.exceptions import DruncSetupException
-from drunc.process_manager.configuration import ProcessManagerConfHandler
+from drunc.process_manager.configuration import get_process_manager_configuration, ProcessManagerConfHandler
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.utils.configuration import parse_conf_url, OKSKey
-from drunc.utils.utils import setup_root_logger, parent_death_pact, log_levels, get_logger, ignore_sigint_sighandler
+from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, parent_death_pact, setup_root_logger
 
 from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_server
 

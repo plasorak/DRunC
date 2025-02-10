@@ -1,12 +1,13 @@
-import conffwk
 from enum import Enum
 import json
 import os
 from urllib.parse import urlparse
 
 from drunc.exceptions import DruncSetupException
-from drunc.utils.utils import expand_path
-from drunc.utils.utils import get_logger
+from drunc.utils.utils import expand_path, get_logger
+
+import conffwk
+
 
 class ConfTypes(Enum):
     Unknown = 0

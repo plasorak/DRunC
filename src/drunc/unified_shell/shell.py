@@ -1,7 +1,6 @@
 import asyncio
 import click
 import click_shell
-import conffwk
 import getpass
 import logging
 import multiprocessing as mp
@@ -11,7 +10,7 @@ import sys
 from urllib.parse import urlparse
 
 from drunc.controller.configuration import ControllerConfHandler
-from drunc.controller.interface.commands import status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
+from drunc.controller.interface.commands import connect, exclude, include, status, surrender_control, take_control, wait, who_am_i, who_is_in_charge
 from drunc.controller.interface.shell_utils import generate_fsm_command
 from drunc.controller.stateful_node import StatefulNode
 from drunc.exceptions import DruncSetupException
@@ -19,12 +18,15 @@ from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.utils import convert_fsm_transition
 from drunc.process_manager.configuration import get_process_manager_configuration
 from drunc.process_manager.interface.cli_argument import validate_conf_string
-from drunc.process_manager.interface.commands import kill, terminate, flush, logs, restart, ps, dummy_boot
+from drunc.process_manager.interface.commands import dummy_boot, flush, kill, logs, ps, restart, terminate
 from drunc.process_manager.interface.process_manager import run_pm
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.unified_shell.commands import boot
 from drunc.utils.configuration import find_configuration, OKSKey, parse_conf_url
-from drunc.utils.utils import validate_command_facility, log_levels, setup_root_logger, get_logger, pid_info_str, ignore_sigint_sighandler
+from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, pid_info_str, setup_root_logger, validate_command_facility
+
+import conffwk
+
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')

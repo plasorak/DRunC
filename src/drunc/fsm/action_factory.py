@@ -90,8 +90,6 @@ class FSMActionFactory:
 
         self._validate_action(iface)
         return iface
-
-
     _instance = None
 
     @classmethod

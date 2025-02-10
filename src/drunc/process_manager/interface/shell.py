@@ -1,12 +1,12 @@
 import asyncio
 import click
 import click_shell
-import os
 import getpass
+import os
 
-from drunc.process_manager.interface.commands import boot, terminate, kill, flush, logs, restart, ps, dummy_boot
+from drunc.process_manager.interface.commands import boot, dummy_boot, flush, kill, logs, ps, restart, terminate
 from drunc.utils.grpc_utils import ServerUnreachable
-from drunc.utils.utils import CONTEXT_SETTINGS, log_levels, validate_command_facility, setup_root_logger, get_logger
+from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_root_logger, validate_command_facility
 
 @click_shell.shell(prompt='drunc-process-manager > ', chain=True, context_settings=CONTEXT_SETTINGS, hist_file=os.path.expanduser('~')+'/.drunc-pm-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')

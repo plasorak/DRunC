@@ -11,12 +11,12 @@ import threading
 from time import sleep
 import uuid
 
-from drunc.exceptions import DruncException, DruncCommandException
+from drunc.exceptions import DruncCommandException, DruncException
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.utils.utils import now_str
 
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessMetadata, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
 from druncschema.broadcast_pb2 import BroadcastType
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessQuery, ProcessRestriction, ProcessUUID
 
 
 # # ------------------------------------------------

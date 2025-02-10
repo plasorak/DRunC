@@ -1,5 +1,5 @@
 
-from kubernetes import client, configuration
+from kubernetes import client, config
 import getpass
 import os
 import re
@@ -16,22 +16,18 @@ from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
 from drunc.utils.utils import get_logger
 
 from druncschema.authoriser_pb2 import ActionType, SystemType
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessQuery, ProcessRestriction, ProcessUUID
 from druncschema.request_response_pb2 import Response
 
 
 class K8sProcessManager(ProcessManager):
     def __init__(self, configuration, **kwargs):
-
         self.session = getpass.getuser() # unfortunate
-
         super().__init__(
             configuration = configuration,
             session = self.session,
             **kwargs
         )
-
-
         self.log = get_logger('k8s-process-manager')
         config.load_kube_config()
 

@@ -2,16 +2,17 @@ import click
 import getpass
 import logging
 from rich.markup import escape
+from rich.panel import Panel
 
-from drunc.utils.utils import run_coroutine, log_levels, get_logger
 from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
 from drunc.process_manager.utils import tabulate_process_instance_list
 from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import InterruptedCommand
+from drunc.utils.utils import run_coroutine, log_levels, get_logger
 
 from druncschema.process_manager_pb2 import LogRequest, LogLine, ProcessQuery, ProcessInstanceList
-from rich.panel import Panel
+
 
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')

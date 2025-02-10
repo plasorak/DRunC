@@ -1,5 +1,6 @@
 from drunc.exceptions import DruncException
 
+
 def validate_run_type(run_type: str) -> str:
     """
     Validate the run type

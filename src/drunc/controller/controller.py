@@ -6,9 +6,9 @@ import time
 import traceback
 from typing import List, Optional
 
+from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.authoriser.dummy_authoriser import DummyAuthoriser
-from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
 from drunc.broadcast.server.decorators import broadcasted
@@ -27,8 +27,8 @@ from drunc.utils.utils import get_logger, print_traceback
 
 from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
-from druncschema.controller_pb2_grpc import ControllerServicer
 from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag, Status
+from druncschema.controller_pb2_grpc import ControllerServicer
 from druncschema.generic_pb2 import PlainText, PlainTextVector, Stacktrace
 from druncschema.request_response_pb2 import CommandDescription, Description, Request, Response, ResponseFlag
 from druncschema.token_pb2 import Token

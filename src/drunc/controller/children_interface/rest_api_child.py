@@ -1,13 +1,13 @@
 
-import queue
-import json
-import multiprocessing
 from flask import Flask, request
 from flask_restful import Api
+import json
+import multiprocessing
 import os
 import queue
 import requests
-import socket, socks
+import socket
+import socks
 import threading
 import time
 from typing import NoReturn
@@ -20,8 +20,8 @@ from drunc.fsm.core import FSM
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.utils.configuration import ConfHandler
 from drunc.utils.flask_manager import FlaskManager
-from drunc.utils.utils import ControlType, get_logger, get_new_port, print_traceback
 from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.utils import ControlType, get_logger, get_new_port, print_traceback
 
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag, Status
 from druncschema.generic_pb2 import PlainText, Stacktrace
