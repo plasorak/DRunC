@@ -1,8 +1,11 @@
 
 from drunc.fsm.core import FSMAction
 from drunc.utils.configuration import find_configuration
+from drunc.fsm.exceptions import DotDruncJsonIncorrectFormat
+from drunc.fsm.actions.utils import get_dotdrunc_json
 import json
 import os
+import logging
 import requests
 import logging
 
@@ -11,16 +14,19 @@ class ElisaLogbook(FSMAction):
         super().__init__(name = "elisa-logbook")
         self._log = logging.getLogger('elisa-logbook')
 
-        from drunc.utils.utils import expand_path
-        f = open(expand_path("~/.drunc.json"))
-        dotdrunc = json.load(f)
+        dotdrunc = get_dotdrunc_json()
 
-        if (dotdrunc["elisa_configuration"].get("socket") and
-            dotdrunc["elisa_configuration"].get("user") and
+        if (dotdrunc["elisa_configuration"].get("socket") or
+            dotdrunc["elisa_configuration"].get("user") or
             dotdrunc["elisa_configuration"].get("password")):
-            self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
-            self.API_USER   = dotdrunc["elisa_configuration"]["user"]
-            self.API_PASS   = dotdrunc["elisa_configuration"]["password"]
+            try:
+                ec = dotdrunc["elisa_configuration"]
+                self.API_SOCKET = ec["socket"]
+                self.API_USER   = ec["user"]
+                self.API_PASS   = ec["password"]
+            except KeyError as exc:
+                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'elisa_configuration\' section, or the entire \'elisa_configuration\' section') from exc
+
             if len(configuration.parameters)>0:
                 self._log.error(f"You need to update your ~/.drunc.json: you have specified an ELisA logbook ({configuration.parameters[0].value}) in your configuration, but your current ~/.drunc.json doesn't support this (if you run with this, you will get ELisA logging on whichever you have specified in your ~/.drunc.json). Contact Pierre Lasorak for help.")
             else:
@@ -35,9 +41,15 @@ class ElisaLogbook(FSMAction):
                     elisa_hardware = elisa_hardware_tmp
             else:
                 self._log.error(f"ELisA logbook not specified in the configuration, using the first one in from your \'~/.drunc.json\'. You will log on the ELisA logbook \'{elisa_hardware}\'. Contact Pierre Lasorak for help.")
-            self.API_SOCKET = dotdrunc["elisa_configuration"][elisa_hardware]["socket"]
-            self.API_USER   = dotdrunc["elisa_configuration"][elisa_hardware]["user"]
-            self.API_PASS   = dotdrunc["elisa_configuration"][elisa_hardware]["password"]
+
+
+            try:
+                self.API_SOCKET = dotdrunc["elisa_configuration"][elisa_hardware]["socket"]
+                self.API_USER   = dotdrunc["elisa_configuration"][elisa_hardware]["user"]
+                self.API_PASS   = dotdrunc["elisa_configuration"][elisa_hardware]["password"]
+            except KeyError as exc:
+                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'elisa_configuration.{elisa_hardware}\' section, or the entire \'elisa_configuration.{elisa_hardware}\' section') from exc
+
             self._log.info(f"Using the following ELisA logbook \'{elisa_hardware}\'.")
 
         self.timeout = 5
