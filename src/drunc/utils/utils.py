@@ -164,7 +164,7 @@ def regex_match(regex, string):
     return re.match(regex, string) is not None
 
 def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
-    if with_rich:
+    if with_rich: # Try running this line without the if with_rich, get the exception
         c = Console()
         try:
             width = os.get_terminal_size()[0]

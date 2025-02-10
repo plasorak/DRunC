@@ -29,6 +29,15 @@ from druncschema.request_response_pb2 import Response, ResponseFlag, Description
 from druncschema.token_pb2 import Token
 
 
+class ResponseTimeout(ChildError):
+    pass
+
+class NoResponse(ChildError):
+    pass
+
+class CouldnotSendCommand(ChildError):
+    pass
+
 class ResponseDispatcher(threading.Thread):
 
     STOP="RESPONSE_QUEUE_STOP"
@@ -175,15 +184,7 @@ class ResponseListener:
 
         cls.handlers[app].notify(reply)
 
-class ResponseTimeout(ChildError):
-    pass
-class NoResponse(ChildError):
-    pass
-class CouldnotSendCommand(ChildError):
-    pass
-
 class AppCommander:
-
     def __init__(
             self,
             app_name: str,

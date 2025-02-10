@@ -87,9 +87,6 @@ class TransitionExecuting(StatefulNodeException):
     def __init__(self):
         super().__init__('A transition is already executing')
 
-
-
-
 class StatefulNode(abc.ABC):
     def __init__(self, fsm_configuration, broadcaster:Optional[BroadcastSender]=None):
         self.broadcast = broadcaster

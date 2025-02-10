@@ -37,7 +37,6 @@ class ControllerContext(ShellContext): # boilerplatefest
     def create_token(self, **kwargs) -> Token:
         return create_dummy_token_from_uname()
 
-
     def start_listening_controller(self, broadcaster_conf):
         bcch = BroadcastClientConfHandler(
             data = broadcaster_conf,
