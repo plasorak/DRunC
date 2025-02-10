@@ -1,15 +1,16 @@
+import click
 import conffwk
 import getpass
 import signal
 import os
-import click
 from rich import print as rprint
 from sh import Command
 
+from drunc.process_manager.oks_parser import collect_apps
+from drunc.process_manager.ssh_process_manager import on_parent_exit
 from drunc.utils.configuration import find_configuration
 from drunc.utils.utils import expand_path
-from drunc.process_manager.ssh_process_manager import on_parent_exit
-from drunc.process_manager.oks_parser import collect_apps
+
 
 def validate_ssh_connection(configuration:str, session_name:str):
     conf = find_configuration(configuration)

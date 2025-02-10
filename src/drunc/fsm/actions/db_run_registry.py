@@ -1,18 +1,23 @@
-from drunc.fsm.core import FSMAction
-from drunc.utils.configuration import find_configuration
-from daqconf.consolidate import consolidate_db
 import json
-import tempfile
-import tarfile
+import logging
 import os
 import requests
+import tarfile
+import tempfile
+
+from drunc.fsm.core import FSMAction
+from drunc.fsm.exceptions import CannotGetSoftwareVersion, CannotInsertRunNumber, CannotUpdateStopTime
+from drunc.utils.configuration import find_configuration
+from drunc.utils.utils import expand_path
+
+from daqconf.consolidate import consolidate_db
+
 
 class DBRunRegistry(FSMAction):
     def __init__(self, configuration):
         super().__init__(
             name = "db-run-registry"
-        )        
-        from drunc.utils.utils import expand_path
+        )
         f = open(expand_path("~/.drunc.json")) # cp /nfs/home/titavare/dunedaq_work_area/drunc-n24.5.26-1/.drunc.json        
         dotdrunc = json.load(f)
         self.API_SOCKET = dotdrunc["run_registry_configuration"]["socket"]
@@ -20,7 +25,6 @@ class DBRunRegistry(FSMAction):
         self.API_PSWD = dotdrunc["run_registry_configuration"]["password"]
         self.timeout = 2
 
-        import logging
         self.log = logging.getLogger('microservice-run-registry')
 
     def pre_start(self, _input_data:dict, _context, **kwargs):
@@ -29,7 +33,6 @@ class DBRunRegistry(FSMAction):
         run_type = _input_data.get("run_type", "TEST")
         det_id = _context.configuration.db.get_dal(class_name = "Session", uid = _context.configuration.oks_key.session).detector_configuration.id
         software_version = os.getenv("DUNE_DAQ_BASE_RELEASE")
-        from drunc.fsm.exceptions import CannotGetSoftwareVersion
         if software_version == None:
             raise CannotGetSoftwareVersion()
         with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
@@ -51,7 +54,6 @@ class DBRunRegistry(FSMAction):
                 "det_id": det_id,
                 "run_type": run_type,
                 "software_version": software_version}
-                from drunc.fsm.exceptions import CannotInsertRunNumber
                 try:
                     r = requests.post(self.API_SOCKET+"/runregistry/insertRun/",
                                       files=files,
@@ -76,7 +78,6 @@ class DBRunRegistry(FSMAction):
         
 
     def post_drain_dataflow(self, _input_data, _context, **kwargs):
-        from drunc.fsm.exceptions import CannotUpdateStopTime
         try:
             r = requests.get(self.API_SOCKET+"/runregistry/updateStopTime/"+str(self.run_number), 
             auth=(self.API_USER, self.API_PSWD),

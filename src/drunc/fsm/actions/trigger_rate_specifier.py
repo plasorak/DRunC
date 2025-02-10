@@ -1,10 +1,11 @@
-from drunc.fsm.core import FSMAction
-
 import json
 import tempfile
 import tarfile
 import os
 import requests
+
+from drunc.fsm.core import FSMAction
+
 
 class TriggerRateSpecifier(FSMAction):
     def __init__(self, configuration):

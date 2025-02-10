@@ -25,43 +25,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRe
 from rich.logging import RichHandler
 from rich.console import Console
 
-from drunc.connectivity_service.client import ConnectivityServiceClient
+# from drunc.connectivity_service.client import ConnectivityServiceClient
 from drunc.exceptions import DruncException, DruncSetupException
-
-CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
-CONSOLE_THEMES = Theme({
-    "info": "dim cyan",
-    "warning": "magenta",
-    "danger": "bold red"
-})
-
-log_levels = {
-    'CRITICAL': logging.CRITICAL,
-    'ERROR'   : logging.ERROR,
-    'WARNING' : logging.WARNING,
-    'INFO'    : logging.INFO,
-    'DEBUG'   : logging.DEBUG,
-    'NOTSET'  : logging.NOTSET,
-}
-
-def get_random_string(length):
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(length))
-
-def regex_match(regex, string):
-    return re.match(regex, string) is not None
-
-def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
-    if with_rich:
-        c = Console()
-        try:
-            width = os.get_terminal_size()[0]
-        except:
-            width = 300
-        c.print_exception(width=width)
-    # else: # RETURNTOME
-    #     import sys
-    #     sys.traceback # FIX THISNOW
 
 def setup_root_logger(stream_log_level:str) -> None:
     if stream_log_level not in log_levels.keys():
@@ -174,6 +139,42 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
 
     logger.debug(f"Finished setting up logger {logger_name}")
     return logger
+
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+CONSOLE_THEMES = Theme({
+    "info": "dim cyan",
+    "warning": "magenta",
+    "danger": "bold red"
+})
+
+log_levels = {
+    'CRITICAL': logging.CRITICAL,
+    'ERROR'   : logging.ERROR,
+    'WARNING' : logging.WARNING,
+    'INFO'    : logging.INFO,
+    'DEBUG'   : logging.DEBUG,
+    'NOTSET'  : logging.NOTSET,
+}
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
+
+def regex_match(regex, string):
+    return re.match(regex, string) is not None
+
+def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
+    if with_rich:
+        c = Console()
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 300
+        c.print_exception(width=width)
+    # else: # RETURNTOME
+    #     import sys
+    #     sys.traceback # FIX THISNOW
+
 
 def _get_stream_logging_format():
     return logging.Formatter(
@@ -407,7 +408,7 @@ def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
     raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
 
 def get_control_type_and_uri_from_connectivity_service(
-    connectivity_service:ConnectivityServiceClient,
+    connectivity_service,#:ConnectivityServiceClient,
     name:str,
     timeout:int=10, # seconds
     retry_wait:float=0.1, # seconds

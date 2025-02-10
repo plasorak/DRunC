@@ -1,6 +1,7 @@
 from drunc.fsm.core import FSMAction
 from drunc.utils.utils import now_str
 
+
 class FileLogbook(FSMAction):
     def __init__(self, configuration):
         super().__init__(

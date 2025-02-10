@@ -1,41 +1,46 @@
-from drunc.fsm.action_factory import FSMActionFactory
-from typing import List, Set, Dict, Tuple
-from inspect import signature, Parameter
-import drunc.fsm.exceptions as fsme
-from drunc.fsm.transition import Transition
-import traceback
-
+# Define the abcs first to avoid circular imports
 class FSMAction:
     '''Abstract class defining a generic action'''
     def __init__(self, name):
         self.name = name
-
-
 
 class Callback:
     def __init__(self, method, mandatory=True):
         self.method = method
         self.mandatory = mandatory
 
+from inspect import signature, Parameter
+import json
+import traceback
+from typing import Dict, List, Set, Tuple
+
+from drunc.exceptions import DruncSetupException
+from drunc.fsm.action_factory import FSMActionFactory
+import drunc.fsm.exceptions as fsme
+from drunc.fsm.transition import Transition
+from drunc.utils.utils import get_logger, regex_match
+from drunc.utils.grpc_utils import pack_to_any
+
+from druncschema.controller_pb2 import Argument
+from druncschema.generic_pb2 import bool_msg, float_msg, int_msg, string_msg
+
+
 
 class PreOrPostTransitionSequence:
     def __init__(self, transition:Transition, pre_or_post = "pre"):
         self.transition = transition
         if pre_or_post not in ['pre', 'post']:
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f"pre_or_post should be either 'pre' of 'post', you provided '{pre_or_post}'")
 
         self.prefix = pre_or_post
 
         self.sequence = []
-        from drunc.utils.utils import get_logger
         self.log = get_logger("PreOrPostTransitionSequence")
 
     def add_callback(self, action, mandatory=True):
         method = getattr(action, f'{self.prefix}_{self.transition.name}')
 
         if not method:
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f'{self.prefix}_{self.transition.name} method not found in {action.name}')
 
         self.sequence += [
@@ -51,7 +56,6 @@ class PreOrPostTransitionSequence:
 
     def execute(self, transition_data, transition_args, ctx=None):
         self.log.debug(f'{transition_data=}, {transition_args=}')
-        import json
         if not transition_data:
             transition_data = '{}'
 
@@ -61,21 +65,17 @@ class PreOrPostTransitionSequence:
             raise fsme.TransitionDataOfIncorrectFormat(transition_data)
 
         for callback in self.sequence:
-            from drunc.exceptions import DruncException
             try:
                 self.log.debug(f'data before callback: {input_data}')
                 self.log.info(f'executing the callback: {callback.method.__name__} from {callback.method.__module__}')
                 input_data = callback.method(_input_data=input_data, _context=ctx, **transition_args)
                 self.log.debug(f'data after callback: {input_data}')
-                from drunc.fsm.exceptions import InvalidDataReturnByFSMAction
                 try:
-                    import json
                     json.dumps(input_data)
                 except TypeError as e:
-                    raise InvalidDataReturnByFSMAction(input_data)
+                    raise fsme.InvalidDataReturnByFSMAction(input_data)
 
             except DruncException as e:
-                import traceback
                 self.log.error(traceback.format_exc())
                 if callback.mandatory:
                     raise e
@@ -92,7 +92,6 @@ class PreOrPostTransitionSequence:
         retr = []
         all_the_parameter_names = []
 
-        from druncschema.controller_pb2 import Argument
 
         for callback in self.sequence:
             method = callback.method
@@ -110,8 +109,6 @@ class PreOrPostTransitionSequence:
                 default_value = ''
 
                 t = Argument.Type.INT
-                from druncschema.generic_pb2 import string_msg, float_msg, int_msg, bool_msg
-                from drunc.utils.grpc_utils import pack_to_any
 
                 if p.annotation is str:
                     t = Argument.Type.STRING
@@ -160,7 +157,6 @@ class FSM:
 
         self.configuration = conf
 
-        from drunc.utils.utils import get_logger
         self.log = get_logger('FSM')
 
         self.initial_state = self.configuration.get_initial_state()
@@ -238,7 +234,6 @@ class FSM:
         '''
         Check that this transition is allowed given the source_state
         '''
-        from drunc.utils.utils import regex_match
         self.log.debug(f'can_execute_transition {str(transition.source)} {source_state}')
         return regex_match(transition.source, source_state)
 

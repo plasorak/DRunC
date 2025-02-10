@@ -1,9 +1,13 @@
+from threading import Lock
+
 from drunc.controller.children_interface.child_node import ChildNode
-from drunc.utils.utils import ControlType
 from drunc.controller.utils import send_command
-from drunc.utils.grpc_utils import pack_to_any
+from drunc.exceptions import DruncException
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.core import FSM
+from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.utils import ControlType, get_logger
+
 from druncschema.controller_pb2 import Status
 from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
@@ -11,12 +15,10 @@ from druncschema.generic_pb2 import PlainText, Stacktrace
 from druncschema.token_pb2 import Token
 
 
-
 class ClientSideState:
 
     def __init__(self, initial_state='initial'):
         # We'll wrap all these in a mutex for good measure
-        from threading import Lock
         self._state_lock = Lock()
         self._executing_command = False
         self._assumed_operational_state = initial_state
@@ -81,7 +83,6 @@ class ClientSideChild(ChildNode):
             configuration = configuration
         )
 
-        from drunc.utils.utils import get_logger
         self.log = get_logger(f'{name}-client-side')
 
         self.state = ClientSideState()
@@ -177,7 +178,6 @@ class ClientSideChild(ChildNode):
 
 
     def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
-        from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)

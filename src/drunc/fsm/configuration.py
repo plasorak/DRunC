@@ -1,5 +1,8 @@
-from drunc.utils.configuration import ConfHandler
+from drunc.fsm.action_factory import FSMActionFactory
 from drunc.fsm.core import PreOrPostTransitionSequence
+from drunc.fsm.transition import Transition
+from drunc.utils.configuration import ConfHandler
+
 
 class FSMConfHandler(ConfHandler):
     def _fill_pre_post_transition_sequence_oks(self, prefix, transition, data):
@@ -38,7 +41,6 @@ class FSMConfHandler(ConfHandler):
         self.states = self.data.states
         self.initial_state = self.data.initial_state
 
-        from drunc.fsm.action_factory import FSMActionFactory
 
         for action in self.data.actions:
             self.log.info(f'Setting up action \'{action.id}\'')
@@ -46,9 +48,6 @@ class FSMConfHandler(ConfHandler):
                 action.id,
                 action
             )
-
-
-        from drunc.fsm.transition import Transition
 
         for transition in self.data.transitions:
             tr = Transition(

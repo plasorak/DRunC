@@ -1,27 +1,26 @@
 
-from drunc.fsm.core import FSMAction
-from drunc.utils.configuration import find_configuration
 import json
 import os
 import requests
+
+from drunc.fsm.core import FSMAction
+from drunc.fsm.exceptions import CannotSendElisaMessage
+from drunc.utils.configuration import find_configuration
+from drunc.utils.utils import expand_path, get_logger
 
 class ElisaLogbook(FSMAction):
     def __init__(self, configuration):
         super().__init__(name = "elisa-logbook")
 
-        from drunc.utils.utils import expand_path
         f = open(expand_path("~/.drunc.json"))
         dotdrunc = json.load(f)
         self.API_SOCKET = dotdrunc["elisa_configuration"]["socket"]
         self.API_USER =  dotdrunc["elisa_configuration"]["user"]
         self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
         self.timeout = 5
-
-        from drunc.utils.utils import get_logger
         self.log = get_logger('microservice')
 
     def post_start(self, _input_data:dict, _context, elisa_post:str='', **kwargs):
-        from drunc.fsm.exceptions import CannotSendElisaMessage
         text = ""
         self.thread_id = None    #Clear this value here, so that if it fails stop can't reply to an old message
 
@@ -61,7 +60,6 @@ class ElisaLogbook(FSMAction):
         return _input_data
 
     def post_drain_dataflow(self, _input_data, _context, elisa_post:str='', **kwargs):
-        from drunc.fsm.exceptions import CannotSendElisaMessage
         text = ''
         if elisa_post != '':
             self.log.info(f"Adding the message:\n--------\n{elisa_post}\n--------\nto the logbook")

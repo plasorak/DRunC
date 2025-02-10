@@ -1,15 +1,17 @@
-from drunc.fsm.core import FSMAction
-import requests
-import os
 import json
+import os
+import requests
 
+from drunc.fsm.actions.utils import validate_run_type
+from drunc.fsm.core import FSMAction
+from drunc.fsm.exceptions import CannotGetRunNumber
+from drunc.utils.utils import expand_path, get_logger
 
 class UsvcProvidedRunNumber(FSMAction):
     def __init__(self, configuration):
         super().__init__(
             name = "usvc-provided-run-number"
         )
-        from drunc.utils.utils import expand_path
         f = open(expand_path("~/.drunc.json")) # cp /nfs/home/titavare/dunedaq_work_area/drunc-n24.5.26-1/.drunc.json
         dotdrunc = json.load(f)
         self.API_SOCKET = dotdrunc["run_number_configuration"]["socket"]
@@ -17,11 +19,9 @@ class UsvcProvidedRunNumber(FSMAction):
         self.API_PSWD = dotdrunc["run_number_configuration"]["password"]
         self.timeout = 0.5
 
-        from drunc.utils.utils import get_logger
         self.log = get_logger('microservice')
 
     def pre_start(self, _input_data:dict, _context, run_type:str="TEST", disable_data_storage:bool=False, trigger_rate:float=0., **kwargs):
-        from drunc.fsm.actions.utils import validate_run_type
         run_type = validate_run_type(run_type.upper())
         _input_data['production_vs_test'] = run_type
         _input_data["run"] = self._getnew_run_number()
@@ -30,7 +30,6 @@ class UsvcProvidedRunNumber(FSMAction):
         return _input_data
 
     def _getnew_run_number(self):
-        from drunc.fsm.exceptions import CannotGetRunNumber
         try:
             req = requests.get(self.API_SOCKET+"/runnumber/getnew",
                                auth=(self.API_USER, self.API_PSWD),

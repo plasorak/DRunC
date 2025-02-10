@@ -1,10 +1,21 @@
-import drunc.fsm.exceptions as fsme
 import inspect
+
+from drunc.exceptions import DruncSetupException
+import drunc.fsm.exceptions as fsme
+from drunc.fsm.actions.user_provided_run_number import UserProvidedRunNumber
+from drunc.fsm.actions.usvc_provided_run_number import UsvcProvidedRunNumber
+from drunc.fsm.actions.some_test_action import SomeTestAction
+from drunc.fsm.actions.file_logbook import FileLogbook
+from drunc.fsm.actions.usvc_elisa_logbook import ElisaLogbook
+from drunc.fsm.actions.file_run_registry import FileRunRegistry
+from drunc.fsm.actions.db_run_registry import DBRunRegistry
+from drunc.fsm.actions.thread_pinning import ThreadPinning
+from drunc.fsm.actions.timing.master_send_fl_command import MasterSendFLCommand
+from drunc.fsm.actions.trigger_rate_specifier import TriggerRateSpecifier
 
 
 class FSMActionFactory:
     def __init__(self):
-        from drunc.exceptions import DruncSetupException
         raise DruncSetupException('Call get() instead')
 
     def _get_pre_transitions(self, action):
@@ -55,34 +66,24 @@ class FSMActionFactory:
         iface = None
         match action_name:
             case "user-provided-run-number":
-                from drunc.fsm.actions.user_provided_run_number import UserProvidedRunNumber
                 iface = UserProvidedRunNumber(configuration)
             case "usvc-provided-run-number":
-                from drunc.fsm.actions.usvc_provided_run_number import UsvcProvidedRunNumber
                 iface = UsvcProvidedRunNumber(configuration)
             case 'test-action':
-                from drunc.fsm.actions.some_test_action import SomeTestAction
                 iface = SomeTestAction(configuration)
             case "file-logbook":
-                from drunc.fsm.actions.file_logbook import FileLogbook
                 iface = FileLogbook(configuration)
             case "elisa-logbook":
-                from drunc.fsm.actions.usvc_elisa_logbook import ElisaLogbook
                 iface = ElisaLogbook(configuration)
             case "file-run-registry":
-                from drunc.fsm.actions.file_run_registry import FileRunRegistry
                 iface = FileRunRegistry(configuration)
             case "db-run-registry":
-                from drunc.fsm.actions.db_run_registry import DBRunRegistry
                 iface = DBRunRegistry(configuration)
             case "thread-pinning":
-                from drunc.fsm.actions.thread_pinning import ThreadPinning
                 iface = ThreadPinning(configuration)
             case "master-send-fl-command":
-                from drunc.fsm.actions.timing.master_send_fl_command import MasterSendFLCommand
                 iface = MasterSendFLCommand(configuration)
             case "trigger-rate-specifier":
-                from drunc.fsm.actions.trigger_rate_specifier import TriggerRateSpecifier
                 iface = TriggerRateSpecifier(configuration)
             case _:
                 raise fsme.UnknownAction(action_name)

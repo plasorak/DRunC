@@ -1,6 +1,11 @@
+import drunc.fsm.exceptions as fsme
+from drunc.utils.grpc_utils import unpack_any
+from drunc.utils.utils import get_logger
+
+from druncschema.generic_pb2 import bool_msg, float_msg, int_msg, string_msg
+from druncschema.controller_pb2 import Argument, FSMCommandsDescription, FSMCommandDescription
 
 def convert_fsm_transition(transitions):
-    from druncschema.controller_pb2 import FSMCommandsDescription, FSMCommandDescription
     desc = FSMCommandsDescription()
     for t in transitions:
         desc.commands.append(
@@ -15,17 +20,12 @@ def convert_fsm_transition(transitions):
     return desc
 
 def decode_fsm_arguments(arguments, arguments_format):
-    from drunc.utils.grpc_utils import unpack_any
-    import drunc.fsm.exceptions as fsme
-    from druncschema.generic_pb2 import int_msg, float_msg, string_msg, bool_msg
-    from druncschema.controller_pb2 import Argument
 
     def get_argument(name, arguments):
         for n, k in arguments.items():
             if n == name:
                 return k
         return None
-
 
     out_dict = {}
     for arg in arguments_format:
@@ -48,7 +48,6 @@ def decode_fsm_arguments(arguments, arguments_format):
                 out_dict[arg.name] = unpack_any(arg_value, bool_msg).value
             case _:
                 raise fsme.UnhandledArgumentType(arg.type)
-    from drunc.utils.utils import get_logger
-    l = get_logger('decode_fsm_arguments')
-    l.debug(f'Parsed FSM arguments: {out_dict}')
+    log = get_logger('decode_fsm_arguments')
+    log.debug(f'Parsed FSM arguments: {out_dict}')
     return out_dict
