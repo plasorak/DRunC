@@ -44,27 +44,31 @@ log_levels = {
     'NOTSET'  : logging.NOTSET,
 }
 
-def root_logger_is_setup() -> bool:
+def root_logger_is_setup(stream_log_level:int) -> bool:
     if "drunc" in logging.Logger.manager.loggerDict:
+        root_logger = logging.getLogger("drunc")
+        if root_logger.level() == log_levels['NOTSET']:
+            root_logger.setLevel(stream_log_level)
+            root_logger.debug(f"Root logger level updated from 'NOTSET' to {logging.getLevelName(stream_log_level)}")
+        root_logger.debug("Root logger is already setup, not setting it up again")
         return True
     return False
 
 def setup_root_logger(stream_log_level:str) -> None:
-    if root_logger_is_setup():
-        return
+    tmp = stream_log_level
+    stream_log_level = stream_log_level.upper()
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+    stream_log_level = log_levels[stream_log_level]
 
-    root_logger = logging.getLogger('drunc')
-    if "drunc" in logging.Logger.manager.loggerDict:
-        if root_logger.level == log_levels["NOTSET"]:
-            root_logger.setLevel(stream_log_level)
-            root_logger.debug(f"logger level updated from 'NOTSET' to '{stream_log_level}'")
-        root_logger.debug("'drunc' logger already exists, skipping setup")
+    if root_logger_is_setup(stream_log_level):
         return
 
-    stream_log_level = log_levels[stream_log_level]
+    root_logger = logging.getLogger("drunc")
     root_logger.setLevel(stream_log_level)
+    root_logger.error(f"{tmp=}")
+    root_logger.error(f"{root_logger.level=}")
+
     for handler in root_logger.handlers:
         handler.setLevel(stream_log_level)
 
@@ -83,62 +87,58 @@ def setup_root_logger(stream_log_level:str) -> None:
         handler.setLevel(kafka_command_level)
 
 def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool = False, rich_handler:bool = False):
+    if "drunc" not in logging.Logger.manager.loggerDict:
+        raise DruncSetupException("Required root logger 'drunc' has not been initialized")
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, need to run `setup_root_logger` first.")
-    if "drunc" not in logging.Logger.manager.loggerDict:
-        raise DruncSetupException("The root logger has not been initialized, exiting.")
     if logger_name.split(".")[0] == "drunc":
         raise DruncSetupException(f"get_logger adds the root logger prefix, it is not required for {logger_name}")
-    if logger_name.count(".") > 1:
+    if logger_name.count(".") > 2:
         raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-    if ("drunc." + logger_name) in logging.Logger.manager.loggerDict:
-        logger = logging.getLogger("drunc." + logger_name)
-        logger.debug("This logger has already been set up")
-        return logger
-    if logger_name.count(".") == 1 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
-        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
     if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
         if not log_file_path:
-            raise DruncSetupException("process_manager setup requires a log path.")
+            raise DruncSetupException("process_manager logger setup requires a log path.")
         if not rich_handler:
-            raise DruncSetupException("process_manager requires a rich handler.")
+            raise DruncSetupException("process_manager logger requires a rich handler.")
 
-    logger_level = logging.getLogger('drunc').level
+    function_logger = logging.getLogger("utils.get_logger")
+    if ("drunc." + logger_name) in logging.Logger.manager.loggerDict:
+        function_logger.debug("This logger has already been set up, returning the original")
+        logger = logging.getLogger("drunc." + logger_name)
+        return logger
+
+    if logger_name.count(".") == 2 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
+        function_logger.warning(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
+
+    logger_level = logging.getLogger("drunc").level
+    if not logger_level:
+        raise DruncSetupException(f"Root logger level not initialized (found {logger_level}), exiting.")
 
     # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
     logger_name = 'drunc.' + logger_name
     logger = logging.getLogger(logger_name)
-    logger.debug(f"Setting up logger {logger_name}")
-    if logger_name in logging.Logger.manager.loggerDict:
-        logger.debug(f"Logger {logger_name} already exists!")
-        if logger.level == log_levels["NOTSET"]:
-            logger.debug(f"Updating {logger_name} level and handlers' levels to {list(log_levels.keys())[list(log_levels.values()).index(logger_level)]}, matching the root logger")
-            logger.setLevel(logger_level)
-            for handler in logger.handlers:
-                handler.setLevel(logger_level)
-            logger.debug(f"Updated {logger_name} level and handlers")
-            logger.debug(f"Logger {logger_name} has level {logger.level} and handlers {logger.handlers}")
-        else:
-            logger.debug(f"Logger {logger_name} already exists and is set, not overwriting handlers")
-            return logger
+    logger.setLevel(logger_level)
+    function_logger.error(f"Setting up logger {logger_name} with level {logger_level}")
+    function_logger.debug(f"Updating {logger_name} level and handlers' levels to {logger_level}, matching the root logger")
+    for handler in logger.handlers:
+        handler.setLevel(logger_level)
 
     if override_log_file and log_file_path and os.path.isfile(log_file_path):
         os.remove(log_file_path)
-
-    logger.setLevel(logger_level)
 
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
         fileHandler.setLevel(logger_level)
         fileHandler.setFormatter(_get_stream_logging_format())
         logger.addHandler(fileHandler)
-        logger.debug(f"Added file handler to {logger_name}")
+        function_logger.debug(f"Added file handler to {logger_name}")
 
     if any(isinstance(handler, RichHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
-        logger.debug(f"Logger {logger_name} already has an associated and usable RichHandler, skipping it")
+        function_logger.debug(f"Logger {logger_name} already has an associated and usable RichHandler, skipping it")
         stdHandler = None
     elif rich_handler:
-        logger.debug(f"Assigning a RichHandler to logger {logger_name}")
+        function_logger.debug(f"Assigning a RichHandler to logger {logger_name}")
         try:
             width = os.get_terminal_size()[0]
         except:
@@ -152,19 +152,19 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         )
         stdHandler.setFormatter(_get_rich_logging_format())
     elif any(isinstance(handler, logging.StreamHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
-        logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
+        function_logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
         stdHandler = None
     else:
-        logger.debug(f"Assigning a StreamHandler to logger {logger_name}")
+        function_logger.debug(f"Assigning a StreamHandler to logger {logger_name}")
         stdHandler = logging.StreamHandler()
         stdHandler.setFormatter(_get_stream_logging_format())
 
     if stdHandler:
         stdHandler.setLevel(logger_level)
         logger.addHandler(stdHandler)
-        logger.debug(f"Added appropriate stream handler to {logger_name}")
+        function_logger.debug(f"Added appropriate stream handler to {logger_name}")
 
-    logger.debug(f"Finished setting up logger {logger_name}")
+    function_logger.debug(f"Finished setting up logger {logger_name}")
     return logger
 
 def get_random_string(length):

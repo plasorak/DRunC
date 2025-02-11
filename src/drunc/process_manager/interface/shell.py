@@ -13,16 +13,21 @@ from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_ro
 @click.argument('process-manager-address', type=str, callback=validate_command_facility)
 @click.pass_context
 def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> None:
+    setup_root_logger("INFO")
+    import logging
+    print(f"{logging.Logger.manager.loggerDict=}")
     process_manager_shell_log = get_logger(
         logger_name = "process_manager_shell",
-        rich_handler = True # RETURNTOME - validate that the root logger is setup and it is not at the base level
+        rich_handler = True
     )
 
     process_manager_shell_log.debug("Resetting the context instance address")
     ctx.obj.reset(address = process_manager_address)
 
     desc = None
-    process_manager_shell_log.info(f"Connecting to process_manager at address {process_manager_address}")
+    process_manager_shell_log.warning(f"Connecting to process_manager at address {process_manager_address}")
+    import logging
+    process_manager_shell_log.error(f"{logging.getLevelName(process_manager_shell_log.getEffectiveLevel())=}")
     try:
         desc = asyncio.get_event_loop().run_until_complete(
             ctx.obj.get_driver('process_manager').describe()
