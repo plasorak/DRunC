@@ -19,17 +19,18 @@ from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_s
 
 _cleanup_coroutines = []
 
-def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, user:str=getpass.getuser(), ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None) -> None:
+def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_path:str=None, ready_event:bool=None, signal_handler:bool=None, generated_port:bool=None) -> None:
     appName = "process_manager"
     pmConfFileName = get_pm_conf_name_from_dir(pm_conf) # Treating the pm conf data filename as the session
 
-    log_path = get_log_path(
-        user = user,
-        session_name = pmConfFileName,
-        application_name = appName,
-        override_logs = override_logs,
-        app_log_path = log_path
-    )
+    if log_path == None:
+        log_path = get_log_path(
+            user = getpass.getuser(),
+            session_name = pmConfFileName,
+            application_name = appName,
+            override_logs = override_logs,
+            app_log_path = log_path
+        )
     log = get_logger(
         logger_name = appName, 
         log_file_path = log_path,
@@ -104,8 +105,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
 @click.argument('pm-port', type=int)
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
-@click.option('-lp', '--log-path', type=str, default="./", help="Log path of process_manager logs.")
-@click.option('-u', '--user', type=str, default=getpass.getuser(), help="Username for process_manager logs.")
+@click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
 def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str) -> None:
     setup_root_logger(log_level)
     pm_conf = get_process_manager_configuration(pm_conf)
@@ -114,6 +114,5 @@ def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:b
         pm_address = f'0.0.0.0:{pm_port}',
         log_level = log_level,
         override_logs = override_logs,
-        log_path = log_path,
-        user = user
+        log_path = log_path
     )

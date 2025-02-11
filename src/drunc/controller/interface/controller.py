@@ -26,7 +26,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     Spawns a single controller defined in the boot-configuration file, in a given session identified by its name, with communications defined through the command-facility.\n
     Arguments\n
     boot-configuration - Path to boot configuration, searches DUNEDAQ_DB_PATH if not absolute, e.g. 'config/daqsystemtest/example-configs.data.xml'\n
-    command-facility - Path to boot configuration, searches DUNEDAQ_DB_PATH if not absolute, e.g. 'config/daqsystemtest/example-configs.data.xml'\n
+    command-facility - Facility through which commands should be sent, e.g. grpc://localhost:12345\n
     application_name - Name of application, e.g. 'root-controller'\n
     session - Name of session in boot-configuration, e.g. 'local-2x3-config'
     """

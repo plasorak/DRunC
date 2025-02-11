@@ -2,7 +2,7 @@ import time
 from requests.exceptions import HTTPError, ConnectionError, ReadTimeout
 
 from drunc.utils.utils import get_logger, http_post
-
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
 
 class ConnectivityServiceClient:
     def __init__(self, session:str, address:str):

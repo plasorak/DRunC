@@ -234,10 +234,6 @@ class GRPCDriver:
 class ShellContext:
     def _reset(self, name:str, token_args:dict={}, driver_args:dict={}):
         self._console = Console()
-        self.log = get_logger(
-            logger_name = f"{name}.ShellContext",
-            rich_handler = True
-        )
         self._token = self.create_token(**token_args)
         self._drivers: Mapping[str, GRPCDriver] = self.create_drivers(**driver_args)
 
@@ -289,21 +285,6 @@ class ShellContext:
 
     def rule(self, *args, **kwargs) -> None:
         self._console.rule(*args, **kwargs)
-
-    def info(self, *args, **kwargs) -> None:
-        self.log.info(*args, **kwargs)
-
-    def warn(self, *args, **kwargs) -> None:
-        self.log.warn(*args, **kwargs)
-
-    def error(self, *args, **kwargs) -> None:
-        self.log.error(*args, **kwargs)
-
-    def debug(self, *args, **kwargs) -> None:
-        self.log.debug(*args, **kwargs)
-
-    def critical(self, *args, **kwargs) -> None:
-        self.log.critical(*args, **kwargs)
 
     def print_status_summary(self) -> None:
         status = self.get_driver('controller').status().data

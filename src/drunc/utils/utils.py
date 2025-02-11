@@ -47,7 +47,7 @@ log_levels = {
 def root_logger_is_setup(stream_log_level:int) -> bool:
     if "drunc" in logging.Logger.manager.loggerDict:
         root_logger = logging.getLogger("drunc")
-        if root_logger.level() == log_levels['NOTSET']:
+        if root_logger.level == log_levels['NOTSET']:
             root_logger.setLevel(stream_log_level)
             root_logger.debug(f"Root logger level updated from 'NOTSET' to {logging.getLevelName(stream_log_level)}")
         root_logger.debug("Root logger is already setup, not setting it up again")
@@ -55,7 +55,6 @@ def root_logger_is_setup(stream_log_level:int) -> bool:
     return False
 
 def setup_root_logger(stream_log_level:str) -> None:
-    tmp = stream_log_level
     stream_log_level = stream_log_level.upper()
     if stream_log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
@@ -66,8 +65,6 @@ def setup_root_logger(stream_log_level:str) -> None:
 
     root_logger = logging.getLogger("drunc")
     root_logger.setLevel(stream_log_level)
-    root_logger.error(f"{tmp=}")
-    root_logger.error(f"{root_logger.level=}")
 
     for handler in root_logger.handlers:
         handler.setLevel(stream_log_level)
@@ -87,7 +84,8 @@ def setup_root_logger(stream_log_level:str) -> None:
         handler.setLevel(kafka_command_level)
 
 def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool = False, rich_handler:bool = False):
-    if "drunc" not in logging.Logger.manager.loggerDict:
+    logger_dict = logging.Logger.manager.loggerDict
+    if "drunc" not in logger_dict:
         raise DruncSetupException("Required root logger 'drunc' has not been initialized")
     if logger_name == "":
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, need to run `setup_root_logger` first.")
@@ -95,19 +93,21 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         raise DruncSetupException(f"get_logger adds the root logger prefix, it is not required for {logger_name}")
     if logger_name.count(".") > 2:
         raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-    if logger_name == "process_manager" and not 'drunc.process_manager' in logging.Logger.manager.loggerDict:
+    if logger_name == "process_manager" and not 'drunc.process_manager' in logger_dict:
         if not log_file_path:
             raise DruncSetupException("process_manager logger setup requires a log path.")
         if not rich_handler:
             raise DruncSetupException("process_manager logger requires a rich handler.")
+    if override_log_file and not log_file_path:
+        raise DruncSetupException("Configuration error - a log_file_path must be provided if it is to be overwritten")
 
     function_logger = logging.getLogger("utils.get_logger")
-    if ("drunc." + logger_name) in logging.Logger.manager.loggerDict:
+    if ("drunc." + logger_name) in logger_dict:
         function_logger.debug("This logger has already been set up, returning the original")
         logger = logging.getLogger("drunc." + logger_name)
         return logger
 
-    if logger_name.count(".") == 2 and not ("drunc." + logger_name.split(".")[0]) in logging.Logger.manager.loggerDict:
+    if logger_name.count(".") == 2 and not ("drunc." + logger_name.split(".")[0]) in logger_dict:
         function_logger.warning(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
         get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
 
@@ -115,16 +115,15 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
     if not logger_level:
         raise DruncSetupException(f"Root logger level not initialized (found {logger_level}), exiting.")
 
-    # If the log level is not set, update the log level of the logger and its handlers, but do not overwrite.
     logger_name = 'drunc.' + logger_name
     logger = logging.getLogger(logger_name)
-    logger.setLevel(logger_level)
-    function_logger.error(f"Setting up logger {logger_name} with level {logger_level}")
+
     function_logger.debug(f"Updating {logger_name} level and handlers' levels to {logger_level}, matching the root logger")
+    logger.setLevel(logger_level)
     for handler in logger.handlers:
         handler.setLevel(logger_level)
 
-    if override_log_file and log_file_path and os.path.isfile(log_file_path):
+    if override_log_file and os.path.isfile(log_file_path):
         os.remove(log_file_path)
 
     if log_file_path:

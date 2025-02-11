@@ -12,9 +12,9 @@ from druncschema.token_pb2 import Token
 
 
 class ProcessManagerContext(ShellContext): # boilerplatefest
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.status_receiver = None
-        super(ProcessManagerContext, self).__init__()
+        super(ProcessManagerContext, self).__init__(*args, **kwargs)
 
     def reset(self, address:str=None):
         self.address = resolve_localhost_to_hostname(address)
@@ -25,11 +25,8 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         )
 
     def create_drivers(self, **kwargs) -> Mapping[str, GRPCDriver]:
-        self.log.debug("Creating drivers")
         if not self.address:
             return {}
-
-
         return {
             'process_manager': ProcessManagerDriver(
                 self.address,
@@ -39,21 +36,17 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
         }
 
     def create_token(self, **kwargs) -> Token:
-        self.log.debug("Creating token")
         return create_dummy_token_from_uname()
 
 
     def start_listening(self, broadcaster_conf):
-        self.log.debug("starting to listen")
         bcch = BroadcastClientConfHandler(
             data = broadcaster_conf,
             type = ConfTypes.ProtobufAny,
         )
-        self.log.debug(f'Broadcaster configuration:\n{broadcaster_conf}')
         self.status_receiver = BroadcastHandler(bcch)
         rprint(f':ear: Listening to the Process Manager at {self.address}')
 
     def terminate(self):
-        self.log.debug("Terminating")
         if self.status_receiver:
             self.status_receiver.stop()
