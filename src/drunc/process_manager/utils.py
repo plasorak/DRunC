@@ -73,7 +73,6 @@ def tabulate_process_instance_list(pil, title, long=False):
         raise DruncCommandException("Unable to extract the parameters for tabulate_process_instance_list, exiting.")
     return t
 
-
 def strip_env_for_rte(env):
     env_stripped = cp.deepcopy(env)
     for key in env.keys():

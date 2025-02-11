@@ -281,7 +281,7 @@ class ShellContext:
         return self._token
 
     def print(self, *args, **kwargs) -> None:
-        self._console.print(*args, **kwargs)
+        self._console.print(*args, **kwargs) # rich tables require console printing
 
     def rule(self, *args, **kwargs) -> None:
         self._console.rule(*args, **kwargs)
@@ -289,7 +289,7 @@ class ShellContext:
     def print_status_summary(self) -> None:
         status = self.get_driver('controller').status().data
         if status.in_error:
-            self.print(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
+            self.log.error(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
         else:
             available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
-            self.print(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
+            self.log.info(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")

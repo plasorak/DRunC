@@ -47,19 +47,16 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
 
     cmd = getattr(controller, command) # this throws if the command doesn't exist
 
-    request = Request(
-        token = token,
-    )
+    request = Request(token = token)
 
     try:
         if data:
             data_detail = any_pb2.Any()
             data_detail.Pack(data)
             request.data.CopyFrom(data_detail)
-
         log.debug(f'Sending: {command} to the controller, with {request=}')
-
         response = cmd(request)
+
     except grpc.RpcError as e:
         rethrow_if_unreachable_server(e)
         status = rpc_status.from_call(e)
@@ -76,10 +73,9 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
                     stack = unpack_any(detail, Stacktrace)
                     for l in stack.text:
                         text += l+"\n"
-                    log.error(text, extra={"markup": True})
                 elif detail.Is(PlainText.DESCRIPTOR):
                     txt = unpack_any(detail, PlainText)
-                    log.error(txt)
+                log.error(txt)
 
         if rethrow:
             raise e

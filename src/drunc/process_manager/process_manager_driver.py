@@ -144,7 +144,7 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
-        self.log.info(f"Booting session [green]{session_name}[/green]", extra={"markup": True})
+        self.log.info(f"Booting session [green]{session_name}[/green]")
         oks_conf = find_configuration(conf)
 
         with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
@@ -160,7 +160,7 @@ To debug it, close drunc and run the following command:
 
 [yellow]oks_dump --files-only {oks_conf}[/]
 
-''', extra={'markup': True})
+''')
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
@@ -194,7 +194,7 @@ To debug it, close drunc and run the following command:
 
                 try:
                     timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
-                    self.log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
+                    self.log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service')
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
                         name = top_controller_name,
@@ -223,7 +223,7 @@ And look for messages like:
 [yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-''', extra={"markup": True})
+''')
                     return
 
                 return uri.replace('grpc://', '')
@@ -258,8 +258,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
                 self.log.warning(f"""This shell didn't connect to the {top_controller_name}.
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-""", extra={"markup": True}
-                )
+""")
             else:
                 self.log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
         finally:

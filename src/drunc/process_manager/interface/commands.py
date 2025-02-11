@@ -46,12 +46,11 @@ async def boot(
     except InterruptedCommand:
         return
 
-
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
-        obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center')
+        obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center') # rich tables require console printing
     else:
-        obj.error(f'Could not understand where the controller is! You can look at the logs of the controller to see its address')
+        log.error(f'Could not understand where the controller is! You can look at the logs of the controller to see its address')
         return
 
 @click.command('dummy_boot')
@@ -88,8 +87,7 @@ async def terminate(obj:ProcessManagerContext) -> None:
     log.debug("Terminating")
     result = await obj.get_driver('process_manager').terminate()
     if not result: return
-
-    obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False)) # rich tables require console printing
 
 @click.command('kill')
 @add_query_options(at_least_one=True)
@@ -98,13 +96,9 @@ async def terminate(obj:ProcessManagerContext) -> None:
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.kill")
     log.debug(f"Killing with query {query}")
-    result = await obj.get_driver('process_manager').kill(
-        query = query,
-    )
-
+    result = await obj.get_driver('process_manager').kill(query = query)
     if not result: return
-
-    obj.print(tabulate_process_instance_list(result.data, 'Killed process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Killed process', False)) # rich tables require console printing
 
 
 @click.command('flush')
@@ -114,11 +108,9 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.flush")
     log.debug(f"process_manager running flish with query {query}")
-    result = await obj.get_driver('process_manager').flush(
-        query = query,
-    )
+    result = await obj.get_driver('process_manager').flush(query = query)
     if not result: return
-    obj.print(tabulate_process_instance_list(result.data, 'Flushed process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Flushed process', False)) # rich tables require console printing
 
 
 @click.command('logs')
@@ -130,17 +122,13 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
     log = get_logger("process_manager.logs")
     log.debug(f"Running logs with query {query}")
-
     log_req = LogRequest(
         how_far = how_far,
         query = query,
     )
 
     uuid = None
-
-    async for result in obj.get_driver('process_manager').logs(
-        log_req,
-        ):
+    async for result in obj.get_driver('process_manager').logs(log_req):
         if not result: break
 
         if uuid is None:
@@ -164,7 +152,6 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
             line = line.replace(grep, f'[u]{grep}[/]')
 
         obj.print(line)
-
     obj.rule(f'End')
 
 
@@ -175,9 +162,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.restart")
     log.debug(f"Restarting with query {query}")
-    result = await obj.get_driver('process_manager').restart(
-        query = query,
-    )
+    result = await obj.get_driver('process_manager').restart(query = query)
 
 
 @click.command('ps')
@@ -188,10 +173,14 @@ async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) -> None:
     log = get_logger("process_manager.ps")
     log.debug(f"Running ps with query {query}")
-    results = await obj.get_driver('process_manager').ps(
-        query=query,
-    )
+    results = await obj.get_driver('process_manager').ps(query=query)
     if not results: return
-    obj.print(tabulate_process_instance_list(results.data, title='Processes running', long=long_format))
+    obj.print(
+        tabulate_process_instance_list(
+            results.data,
+            title='Processes running',
+            long=long_format
+        )
+    )
 
 

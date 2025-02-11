@@ -51,7 +51,7 @@ def unified_shell(
         logger_name = 'unified_shell',
         rich_handler = True
     )
-    unified_shell_log.debug("Set up [green]unified_shell[/green] logger", extra={'markup': True})
+    unified_shell_log.debug("Set up [green]unified_shell[/green] logger")
     unified_shell_log.debug(pid_info_str())
 
     process_manager_url = urlparse(process_manager)
@@ -80,18 +80,18 @@ def unified_shell(
         override_log_file = internal_pm,
         rich_handler = True
     )
-    process_manager_log.debug(f"Set up [green]process_manager[/green] logger", extra={'markup': True})
-    unified_shell_log.info(f"Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session {session_name}[/green] from [green]{boot_configuration}[/green]", extra={'markup': True})
+    process_manager_log.debug(f"Set up [green]process_manager[/green] logger")
+    unified_shell_log.info(f"Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session {session_name}[/green] from [green]{boot_configuration}[/green]")
 
     if internal_pm: 
-        unified_shell_log.debug(f"Spawning [green]process_manager[/green] with configuration {process_manager}", extra={'markup': True})
+        unified_shell_log.debug(f"Spawning [green]process_manager[/green] with configuration {process_manager}")
         # Check if process_manager is a packaged config
         process_manager_conf_file = get_process_manager_configuration(process_manager)
 
         ready_event = mp.Event()
         port = mp.Value('i', 0)
 
-        unified_shell_log.debug("Starting [green]process_manager[/green] as separate process", extra={'markup': True})
+        unified_shell_log.debug("Starting [green]process_manager[/green] as separate process")
         ctx.obj.pm_process = mp.Process(
             target = run_pm,
             kwargs = {
@@ -106,32 +106,32 @@ def unified_shell(
             },
         )
         ctx.obj.pm_process.start()
-        unified_shell_log.debug(f'[green]process_manager[/green] started', extra={'markup': True})
+        unified_shell_log.debug(f'[green]process_manager[/green] started')
 
         for _ in range(100):
             if ready_event.is_set():
                 break
             sleep(0.1)
         if not ready_event.is_set():
-            raise DruncSetupException('[green]process_manager[/green] [red]did not start in time[/red]', extra={'markup': True})
+            raise DruncSetupException('[green]process_manager[/green] [red]did not start in time[/red]')
         process_manager_address = f'localhost:{port.value}'
 
     else: # user provided an address
         process_manager_address = process_manager.replace('grpc://', '') # remove the grpc scheme
-        unified_shell_log.info(f"[green]unified_shell[/green] connected to the [green]process_manager[/green] ([green]{process_manager}[/green]) at address [green]{process_manager_address}[/green]", extra={'markup': True})
+        unified_shell_log.info(f"[green]unified_shell[/green] connected to the [green]process_manager[/green] ([green]{process_manager}[/green]) at address [green]{process_manager_address}[/green]")
 
-    unified_shell_log.debug(f"[green]process_manager[/green] started, communicating through address [green]{process_manager_address}[/green]", extra={'markup': True})
+    unified_shell_log.debug(f"[green]process_manager[/green] started, communicating through address [green]{process_manager_address}[/green]")
     ctx.obj.reset(address_pm = process_manager_address)
 
     desc = None
     try:
-        unified_shell_log.debug("Runnning [green]describe[/green]", extra={'markup': True})
+        unified_shell_log.debug("Runnning [green]describe[/green]")
         desc = asyncio.get_event_loop().run_until_complete(ctx.obj.get_driver().describe())
         desc = desc.data
     except Exception as e:
-        unified_shell_log.error(f'[red]Could not connect to the process manager at the address[/red] [green]{process_manager_address}[/]', extra={'markup': True}) 
+        unified_shell_log.error(f'[red]Could not connect to the process manager at the address[/red] [green]{process_manager_address}[/]') 
         if internal_pm and not ctx.obj.pm_process.is_alive():
-            unified_shell_log.error(f'[red]The process_manager is dead[/red], exit code {ctx.obj.pm_process.exitcode}', extra={'markup': True})
+            unified_shell_log.error(f'[red]The process_manager is dead[/red], exit code {ctx.obj.pm_process.exitcode}')
         unified_shell_log.exception(e)
         sys.exit()
 
@@ -150,10 +150,10 @@ def unified_shell(
         logging.shutdown()
     ctx.call_on_close(cleanup)
 
-    unified_shell_log.debug("Adding [green]unified_shell[/green] commands to the context", extra={'markup': True}) 
+    unified_shell_log.debug("Adding [green]unified_shell[/green] commands to the context") 
     ctx.command.add_command(boot, 'boot')
 
-    unified_shell_log.debug("Adding [green]process_manager[/green] commands to the context", extra={'markup': True}) 
+    unified_shell_log.debug("Adding [green]process_manager[/green] commands to the context") 
     ctx.command.add_command(kill, 'kill')
     ctx.command.add_command(terminate, 'terminate')
     ctx.command.add_command(flush, 'flush')
@@ -171,7 +171,7 @@ def unified_shell(
 
     conf_path, conf_type = parse_conf_url(f"oksconflibs:{ctx.obj.boot_configuration}")
     controller_name = session_dal.segment.controller.id
-    unified_shell_log.debug("Initializing the [green]ControllerConfHandler[/green]", extra={'markup': True})
+    unified_shell_log.debug("Initializing the [green]ControllerConfHandler[/green]")
     controller_configuration = ControllerConfHandler(
         type = conf_type,
         data = conf_path,
@@ -188,24 +188,24 @@ def unified_shell(
     fsm_conf_logger = get_logger("FSMConfHandler")
     fsm_conf_logger.setLevel("ERROR")
 
-    unified_shell_log.debug("Initializing the [green]FSM[/green]", extra={'markup': True})
+    unified_shell_log.debug("Initializing the [green]FSM[/green]")
     fsmch = FSMConfHandler(
         data = controller_configuration.data.controller.fsm,
     )
 
-    unified_shell_log.debug("Initializing the [green]StatefulNode[/green]", extra={'markup': True})
+    unified_shell_log.debug("Initializing the [green]StatefulNode[/green]")
     stateful_node = StatefulNode(
         fsm_configuration = fsmch,
         broadcaster = None,
     )
 
-    unified_shell_log.debug("Retrieving the transitions from the [green]StatefulNode[/green]", extra={'markup': True})
+    unified_shell_log.debug("Retrieving the transitions from the [green]StatefulNode[/green]")
     transitions = convert_fsm_transition(stateful_node.get_all_fsm_transitions())
     fsm_logger.setLevel(log_level)
     fsm_conf_logger.setLevel(log_level)
     # End of shameful code
 
-    unified_shell_log.debug("Adding [green]controller[/green] commands to the click context", extra={'markup': True})
+    unified_shell_log.debug("Adding [green]controller[/green] commands to the click context")
     for transition in transitions.commands:
         ctx.command.add_command(*generate_fsm_command(ctx.obj, transition, controller_name))
 
@@ -219,4 +219,4 @@ def unified_shell(
     ctx.command.add_command(exclude, 'exclude')
     ctx.command.add_command(wait, 'wait')
 
-    unified_shell_log.info("[green]unified_shell[/green] ready with [green]process_manager[/green] and [green]controller[/green] commands", extra={'markup': True})
+    unified_shell_log.info("[green]unified_shell[/green] ready with [green]process_manager[/green] and [green]controller[/green] commands")

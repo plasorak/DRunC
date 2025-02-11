@@ -61,7 +61,7 @@ def find_configuration(path:str) -> str:
 
     if len(configuration_files)>1:
         l = "\n - ".join(configuration_files)
-        log.warning(f'The configuration \'{path}\' matches >1 configurations in $DUNEDAQ_SHARED_PATH:\n - {l}\n:heavy_exclamation_mark:Using the first one: :heavy_exclamation_mark:', extra={"markup": True})
+        log.warning(f'The configuration \'{path}\' matches >1 configurations in $DUNEDAQ_SHARED_PATH:\n - {l}\n:heavy_exclamation_mark:Using the first one: :heavy_exclamation_mark:')
 
     if not configuration_files:
         raise ConfigurationNotFound(path)

@@ -96,7 +96,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
 
     if type(statuses.data) != Status:
         data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
-        obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
+        log.warning(f'Could not get the status of the controller, got a \'{data_type}\' instead')
         return
 
     t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
@@ -122,7 +122,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
             add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
 
     add_status_to_table(t, statuses, descriptions, prefix='')
-    obj.print(t)
+    obj.print(t) # rich tables require console printing
     obj.print_status_summary()
 
 def controller_cleanup_wrapper(ctx):
@@ -198,7 +198,7 @@ def controller_setup(ctx, controller_address):
     log.debug('Connected to the controller')
 
     # children = ctx.get_driver('controller').ls().data
-    # ctx.print(f'{desc.name}.{desc.session}\'s children :family:: {children.text}')
+    # log.info(f'{desc.name}.{desc.session}\'s children :family:: {children.text}')
 
     log.debug(f'Taking control of the controller as {ctx.get_token()}')
     try:
@@ -285,7 +285,7 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
 
 
 def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
-    obj.print(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
+    log.info(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
     fsm_description = obj.get_driver('controller').describe_fsm().data
     command_desc = search_fsm_command(transition_name, fsm_description.commands)
 
@@ -303,7 +303,7 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
             arguments = data,
         )
     except ArgumentException as ae:
-        obj.print(str(ae))
+        log.exception(str(ae)) # TODO: Manually raise exception, see if the str declaration is needed with rich handling
         return
 
     if not result: return
@@ -330,7 +330,7 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
             add_to_table(table, child_response, "  "+prefix)
 
     add_to_table(t, result)
-    obj.print(t)
+    obj.print(t) # rich tables require console printing
 
     statuses = obj.get_driver('controller').status()
     descriptions = obj.get_driver('controller').describe()
