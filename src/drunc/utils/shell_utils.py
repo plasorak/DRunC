@@ -287,9 +287,10 @@ class ShellContext:
         self._console.rule(*args, **kwargs)
 
     def print_status_summary(self) -> None:
+        log = get_logger("utils.shell_utils", rich_handler = True)
         status = self.get_driver('controller').status().data
         if status.in_error:
-            self.log.error(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
+            log.error(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
         else:
             available_actions = [command.name.replace("_", "-") for command in self.get_driver('controller').describe_fsm().data.commands]
-            self.log.info(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")
+            log.info(f"Current FSM status is [green]{status.state}[/green]. Available transitions are [green]{'[/green], [green]'.join(available_actions)}[/green].")

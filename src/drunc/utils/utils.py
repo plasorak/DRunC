@@ -8,6 +8,7 @@ from functools import wraps
 import logging
 import kafka
 import os
+import pytz
 import random
 from rich.console import Console
 from rich.theme import Theme
@@ -44,40 +45,63 @@ log_levels = {
     'NOTSET'  : logging.NOTSET,
 }
 
-def root_logger_is_setup(stream_log_level:int) -> bool:
+class LoggingFormatter(logging.Formatter):
+    def __init__(self, fmt = "%(asctime)s %(levelname)s\t%(filename)s\t%(name)s\t%(message)s", datefmt = "[%Y/%m/%d %H:%M:%S %Z]", tz = pytz.utc): #TODO: for production, remove the filename
+        super().__init__(fmt, datefmt)
+        self.tz = tz
+        self.datefmt = datefmt
+
+    def formatTime(self, record, datefmt):
+        date_time = datetime.fromtimestamp(record.created, self.tz)
+        return date_time.strftime(self.datefmt)
+
+    def format(self, record):
+        record.asctime = self.formatTime(record, self.datefmt)
+
+        component_width = 30 #TODO: for production, remove this
+        file_lineno = f"{record.filename}:{record.lineno}"
+        record.filename = file_lineno.ljust(component_width)[:component_width]
+
+        component_width = 45
+        name_colon = f"{record.name}:"
+        record.name = name_colon.ljust(component_width)[:component_width]
+
+        return super().format(record)
+
+def root_logger_is_setup(log_level:int) -> bool:
     if "drunc" in logging.Logger.manager.loggerDict:
         root_logger = logging.getLogger("drunc")
         if root_logger.level == log_levels['NOTSET']:
-            root_logger.setLevel(stream_log_level)
-            root_logger.debug(f"Root logger level updated from 'NOTSET' to {logging.getLevelName(stream_log_level)}")
+            root_logger.setLevel(log_level)
+            root_logger.debug(f"Root logger level updated from 'NOTSET' to {logging.getLevelName(log_level)}")
         root_logger.debug("Root logger is already setup, not setting it up again")
         return True
     return False
 
-def setup_root_logger(stream_log_level:str) -> None:
-    stream_log_level = stream_log_level.upper()
-    if stream_log_level not in log_levels.keys():
+def setup_root_logger(log_level:str) -> None:
+    log_level = log_level.upper()
+    if log_level not in log_levels.keys():
         raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
-    stream_log_level = log_levels[stream_log_level]
+    log_level = log_levels[log_level]
 
-    if root_logger_is_setup(stream_log_level):
+    if root_logger_is_setup(log_level):
         return
 
     root_logger = logging.getLogger("drunc")
-    root_logger.setLevel(stream_log_level)
+    root_logger.setLevel(log_level)
 
     for handler in root_logger.handlers:
-        handler.setLevel(stream_log_level)
+        handler.setLevel(log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
-    sh_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
+    sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
     sh_command_logger = logging.getLogger(sh.__name__)
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
         handler.setLevel(sh_command_level)
 
     # And kafka
-    kafka_command_level = stream_log_level if stream_log_level > logging.INFO else (stream_log_level+10)
+    kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
     kafka_command_logger = logging.getLogger(kafka.__name__)
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
@@ -129,7 +153,7 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
         fileHandler.setLevel(logger_level)
-        fileHandler.setFormatter(_get_stream_logging_format())
+        fileHandler.setFormatter(LoggingFormatter())
         logger.addHandler(fileHandler)
         function_logger.debug(f"Added file handler to {logger_name}")
 
@@ -149,14 +173,14 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
             tracebacks_width=width,
             markup=True
         )
-        stdHandler.setFormatter(_get_rich_logging_format())
+        stdHandler.setFormatter(LoggingFormatter(fmt = "%(filename)s\t%(name)s\t%(message)s")) # RETURNTOME - no timezone in the tty
     elif any(isinstance(handler, logging.StreamHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
         function_logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
         stdHandler = None
     else:
         function_logger.debug(f"Assigning a StreamHandler to logger {logger_name}")
         stdHandler = logging.StreamHandler()
-        stdHandler.setFormatter(_get_stream_logging_format())
+        stdHandler.setFormatter(LoggingFormatter())
 
     if stdHandler:
         stdHandler.setLevel(logger_level)
@@ -184,20 +208,6 @@ def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console
     # else: # RETURNTOME
     #     import sys
     #     sys.traceback # FIX THISNOW
-
-
-def _get_stream_logging_format():
-    return logging.Formatter(
-        fmt = "%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-        datefmt = "[%X]",
-        validate = True
-    )
-def _get_rich_logging_format():
-    return logging.Formatter(
-        fmt = "%(asctime)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s", # For production, remove the filename and lineno
-        datefmt = "[%X]",
-        validate = True
-    )
 
 def get_new_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:

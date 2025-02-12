@@ -34,7 +34,7 @@ def list_transitions(obj:ControllerContext, all:bool) -> None:
 @click.argument("sleep_time", type=int, default=1)
 @click.pass_obj
 def wait(obj:ControllerContext, sleep_time:int) -> None:
-    log = get_logger(logger_name)
+    log = get_logger(logger_name, rich_handler = True)
     log.info(f"Command [green]wait[/green] running for {sleep_time} seconds.")
     sleep(sleep_time) # seconds
     log.info(f"Command [green]wait[/green] ran for {sleep_time} seconds.")
@@ -50,7 +50,7 @@ def status(obj:ControllerContext) -> None:
 @click.argument('controller_address', type=str)
 @click.pass_obj
 def connect(obj:ControllerContext, controller_address:str) -> None:
-    log = get_logger(logger_name)
+    log = get_logger(logger_name, rich_handler = True)
     log.info(f'Connecting this shell to the controller at {controller_address}')
     obj.set_controller_driver(controller_address)
     controller_setup(obj, controller_address)
@@ -71,7 +71,7 @@ def surrender_control(obj:ControllerContext) -> None:
 @click.command('who-am-i')
 @click.pass_obj
 def who_am_i(obj:ControllerContext) -> None:
-    log = get_logger(logger_name)
+    log = get_logger(logger_name, rich_handler = True)
     log.info(obj.get_token().user_name)
 
 
@@ -89,7 +89,7 @@ def include(obj:ControllerContext) -> None:
     data = FSMCommand(command_name = 'include')
     result = obj.get_driver('controller').include(arguments=data).data
     if not result: return
-    log = get_logger(logger_name)
+    log = get_logger(logger_name, rich_handler = True)
     log.info(result.text)
 
 
@@ -99,5 +99,5 @@ def exclude(obj:ControllerContext) -> None:
     data = FSMCommand(command_name = 'exclude')
     result = obj.get_driver('controller').exclude(arguments=data).data
     if not result: return
-    log = get_logger(logger_name)
+    log = get_logger(logger_name, rich_handler = True)
     log.info(result.text)
