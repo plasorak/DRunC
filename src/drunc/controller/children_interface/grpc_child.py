@@ -6,7 +6,9 @@ from drunc.utils.configuration import ConfHandler
 import grpc as grpc
 from drunc.exceptions import DruncSetupException
 from druncschema.request_response_pb2 import Response, ResponseFlag
-
+from druncschema.generic_pb2 import Stacktrace
+from drunc.utils.grpc_utils import pack_to_any
+from traceback import format_exc
 
 class gRCPChildConfHandler(ConfHandler):
     def get_uri(self):
@@ -103,10 +105,15 @@ class gRPCChildNode(ChildNode):
                 data = None
             )
         except DruncException as e:
+
             return Response(
                 name = self.name,
                 token = None,
-                data = None,
+                data = pack_to_any(
+                    Stacktrace(
+                        text = [format_exc()]
+                    )
+                ),
                 flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
                 children = [],
             )
@@ -114,7 +121,9 @@ class gRPCChildNode(ChildNode):
             return Response(
                 name = self.name,
                 token = None,
-                data = None,
+                data = pack_to_any(Stacktrace(
+                    text = [format_exc()]
+                )),
                 flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
                 children = [],
             )
@@ -146,7 +155,9 @@ class gRPCChildNode(ChildNode):
             return Response(
                 name = self.name,
                 token = None,
-                data = None,
+                data = pack_to_any(Stacktrace(
+                    text = [format_exc()]
+                )),
                 flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
                 children = [],
             )
@@ -154,7 +165,9 @@ class gRPCChildNode(ChildNode):
             return Response(
                 name = self.name,
                 token = None,
-                data = None,
+                data = pack_to_any(Stacktrace(
+                    text = [format_exc()]
+                )),
                 flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
                 children = [],
             )
