@@ -1,10 +1,11 @@
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.utils.utils import ControlType
 from drunc.controller.utils import send_command
+from drunc.exceptions import DruncException
 from drunc.utils.configuration import ConfHandler
 import grpc as grpc
 from drunc.exceptions import DruncSetupException
-from druncschema.request_response_pb2 import Response
+from druncschema.request_response_pb2 import Response, ResponseFlag
 
 
 class gRCPChildConfHandler(ConfHandler):
@@ -71,8 +72,10 @@ class gRPCChildNode(ChildNode):
                 break
         self.start_listening(desc.broadcast)
 
+
     def __str__(self):
         return f'\'{self.name}@{self.uri}\' (type {self.node_type})'
+
 
     def get_endpoint(self):
         return self.uri
@@ -89,13 +92,34 @@ class gRPCChildNode(ChildNode):
             )
         )
 
+
     def get_status(self, token) -> Response:
-        return send_command(
-            controller = self.controller,
-            token = token,
-            command = 'status',
-            data = None
-        )
+
+        try:
+            return send_command(
+                controller = self.controller,
+                token = token,
+                command = 'status',
+                data = None
+            )
+        except DruncException as e:
+            return Response(
+                name = self.name,
+                token = None,
+                data = None,
+                flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
+                children = [],
+            )
+        except Exception as e:
+            return Response(
+                name = self.name,
+                token = None,
+                data = None,
+                flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
+                children = [],
+            )
+
+
 
     def terminate(self):
         if self.channel:
@@ -107,15 +131,34 @@ class gRPCChildNode(ChildNode):
         self.controller = None
         self.channel = None
         self.broadcast.stop()
-        pass
+
 
     def propagate_command(self, command, data, token) -> Response:
-        return send_command(
-            controller = self.controller,
-            token = token,
-            command = command,
-            rethrow = True,
-            data = data
-        )
+        try:
+            return send_command(
+                controller = self.controller,
+                token = token,
+                command = command,
+                rethrow = True,
+                data = data
+            )
+        except DruncException as e:
+            return Response(
+                name = self.name,
+                token = None,
+                data = None,
+                flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
+                children = [],
+            )
+        except Exception as e:
+            return Response(
+                name = self.name,
+                token = None,
+                data = None,
+                flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
+                children = [],
+            )
+
+
 
 
