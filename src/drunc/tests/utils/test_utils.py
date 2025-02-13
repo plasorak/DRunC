@@ -272,8 +272,8 @@ def test_parent_death_pact():
         # The purpose for this one is if someone ctrl+C the test, then this process should also die
         parent_pid = getpid()
         print(f'Parent PID: {parent_pid}')
-        child_process = Process(target=child_process, name="tester_child_process")
-        child_process.start()
+        child_process_ = Process(target=child_process, name="tester_child_process")
+        child_process_.start()
         sleep(10)
 
     process = Process(target=parent_process, name="tester_parent_process")
