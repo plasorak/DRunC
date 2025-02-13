@@ -22,42 +22,30 @@ def generate_none_description()->Description:
         broadcast = None,
     )
 
+def check_message_type(message, expected_type:str) -> None:
+    if message.data is None:
+        return False
+
+    if message.data.DESCRIPTOR.name != expected_type:
+        return False
+    return True
+
 def match_children(statuses:list, descriptions:list) -> list:
-    def check_message_type(message:Description, expected_type:str) -> None:
-        if message.data.DESCRIPTOR.name != expected_type:
-            return False
-        return True
 
     children = {}
     for status in statuses:
-        if not check_message_type(status, "Status"):
-            continue
         children[status.name] = {"status": status}
 
     for description in descriptions:
-        if not check_message_type(description, "Description"):
-            continue
-
-        if description.name not in children:
-            children[description.name] = {}
         children[description.name].update({"description": description})
 
     return children
 
-def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
-    from druncschema.controller_pb2 import Status
-    if not statuses: return
-
-    # if type(statuses.data) != Status:
-    #     from google.protobuf.any_pb2 import Any
-    #     data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
-    #     obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
-    #     return
-
+def print_status_table(obj, status:DecodedResponse, description:DecodedResponse):
     from drunc.controller.interface.shell_utils import format_bool, tree_prefix
     from rich.table import Table
 
-    t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
+    t = Table(title=f'[dark_green]{description.data.session}[/dark_green] status')
     t.add_column('Name')
     t.add_column('Info')
     t.add_column('State')
@@ -67,19 +55,22 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
     t.add_column('Endpoint')
 
     def add_status_to_table(table, status, description, prefix):
+        valid_description = check_message_type(description, "Description")
+        valid_status = check_message_type(status, "Status")
+
         table.add_row(
             prefix+status.name,
-            description.data.info,
-            status.data.state,
-            status.data.sub_state,
-            format_bool(status.data.in_error, false_is_good = True),
-            format_bool(status.data.included),
-            description.data.endpoint
+            description.data.info                                   if valid_description else '[red]unavailable[/]',
+            status.data.state                                       if valid_status      else '[red]unavailable[/]',
+            status.data.sub_state                                   if valid_status      else '[red]unavailable[/]',
+            format_bool(status.data.in_error, false_is_good = True) if valid_status      else '[red]unavailable[/]',
+            format_bool(status.data.included)                       if valid_status      else '[red]unavailable[/]',
+            description.data.endpoint                               if valid_description else '[red]unavailable[/]',
         )
         for child in match_children(status.children, description.children).values():
             add_status_to_table(t, child["status"], child["description"], prefix=prefix+'  ')
 
-    add_status_to_table(t, statuses, descriptions, prefix='')
+    add_status_to_table(t, status, description, prefix='')
     obj.print(t)
     obj.print_status_summary()
 

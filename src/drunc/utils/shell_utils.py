@@ -159,21 +159,19 @@ class GRPCDriver:
                 txt = unpack_any(response.data, PlainText)
                 error_txt = txt.text
             self._log.error(error_txt)
+            if stack_txt:
+                self._log.debug(stack_txt)
             # if rethrow:
             #     from drunc.exceptions import DruncServerSideError
             #     raise DruncServerSideError(error_txt, stack_txt)
 
 
             dr.data = response.data
+
             from drunc.exceptions import DruncServerSideError
             for c_response in response.children:
-                try:
-                    dr.children.append(self.handle_response(c_response, command, outformat))
-                except DruncServerSideError as e:
-                    self._log.error(f"Exception thrown from child: {e}")
+                dr.children.append(self.handle_response(c_response, command, outformat))
             return dr
-
-            # raise DruncServerSideError(error_txt, stack_txt, server_response=dr)
 
 
     def send_command(self, command:str, data=None, outformat=None, decode_children=False):
