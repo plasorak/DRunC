@@ -57,8 +57,6 @@ class ResponseListener:
     @classmethod
     def get(cls):
         with cls._lock:
-            from logging import getLogger
-            log = getLogger('ResponseListener.get')
             if cls._instance is None:
                 cls._instance = cls.__new__(cls)
                 from drunc.utils.utils import get_new_port
