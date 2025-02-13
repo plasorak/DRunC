@@ -76,6 +76,7 @@ class GRCPBroadcastSender(BroadcastSenderServicer):
             type = BroadcastType.EXCEPTION_RAISED,
             data = data_detail
         )
+        return bm
 
 
     def add_to_bl_logic(self, request:BroadcastRequest):
