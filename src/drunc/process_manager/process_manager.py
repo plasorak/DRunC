@@ -16,6 +16,7 @@ import abc
 import os
 import getpass
 import logging
+import re
 
 class BadQuery(DruncCommandException):
     def __init__(self, txt):
@@ -452,8 +453,10 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         return uuids[0]
 
 
-    def _get_process_uid(self, query:ProcessQuery, in_boot_request:bool=False) -> [str]:
-        import re
+    def _get_process_uid(self, query:ProcessQuery, in_boot_request:bool=False, order_by:str='random') -> [str]:
+        order_by = order_by.lower()
+        if order_by not in ['random', 'leaf_first', 'root_first']:
+            raise DruncCommandException(f'Order by \'{order_by}\' is not supported')
 
         uuid_selector = []
         name_selector = query.names
@@ -483,6 +486,11 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
             if accepted: processes.append(uuid)
 
+        if order_by != 'random':
+            process_tree_position = [self.boot_request[x].process_description.metadata.tree_id.count('.') for x in processes]
+            processes = [x for _, x in sorted(zip(process_tree_position, processes))]
+            if order_by == 'leaf_first':
+                processes.reverse()
         return processes
 
     @staticmethod
