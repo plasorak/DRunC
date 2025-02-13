@@ -13,7 +13,7 @@ def validate_ssh_connection(configuration:str, session_name:str):
     conf = find_configuration(configuration)
     db = conffwk.Configuration(f"oksconflibs:{conf}")
     session_dal = db.get_dal(class_name="Session", uid=session_name)
-    disabled_applications = [app.id for app in session_dal.disabled]
+    # disabled_applications = [app.id for app in session_dal.disabled]
     hosts = set()
 
     for app in collect_apps(db, session_dal, session_dal.segment, {}):
