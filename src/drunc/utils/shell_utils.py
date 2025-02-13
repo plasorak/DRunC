@@ -158,7 +158,7 @@ class GRPCDriver:
             elif response.data.Is(PlainText.DESCRIPTOR):
                 txt = unpack_any(response.data, PlainText)
                 error_txt = txt.text
-
+            self._log.error(error_txt)
             # if rethrow:
             #     from drunc.exceptions import DruncServerSideError
             #     raise DruncServerSideError(error_txt, stack_txt)

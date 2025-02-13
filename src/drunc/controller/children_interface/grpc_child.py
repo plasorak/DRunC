@@ -94,42 +94,6 @@ class gRPCChildNode(ChildNode):
             )
         )
 
-
-    def get_status(self, token) -> Response:
-
-        try:
-            return send_command(
-                controller = self.controller,
-                token = token,
-                command = 'status',
-                data = None
-            )
-        except DruncException as e:
-
-            return Response(
-                name = self.name,
-                token = None,
-                data = pack_to_any(
-                    Stacktrace(
-                        text = [format_exc()]
-                    )
-                ),
-                flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
-                children = [],
-            )
-        except Exception as e:
-            return Response(
-                name = self.name,
-                token = None,
-                data = pack_to_any(Stacktrace(
-                    text = [format_exc()]
-                )),
-                flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
-                children = [],
-            )
-
-
-
     def terminate(self):
         if self.channel:
             self.channel.close()
@@ -143,35 +107,12 @@ class gRPCChildNode(ChildNode):
 
 
     def propagate_command(self, command, data, token) -> Response:
-        try:
-            return send_command(
-                controller = self.controller,
-                token = token,
-                command = command,
-                rethrow = True,
-                data = data
-            )
-        except DruncException as e:
-            return Response(
-                name = self.name,
-                token = None,
-                data = pack_to_any(Stacktrace(
-                    text = [format_exc()]
-                )),
-                flag = ResponseFlag.DRUNC_EXCEPTION_THROWN,
-                children = [],
-            )
-        except Exception as e:
-            return Response(
-                name = self.name,
-                token = None,
-                data = pack_to_any(Stacktrace(
-                    text = [format_exc()]
-                )),
-                flag = ResponseFlag.UNHANDLED_EXCEPTION_THROWN,
-                children = [],
-            )
-
-
+        return send_command(
+            controller = self.controller,
+            token = token,
+            command = command,
+            rethrow = True,
+            data = data
+        )
 
 

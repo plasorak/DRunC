@@ -141,10 +141,14 @@ class Controller(ControllerServicer):
             connectivity_service = self.connectivity_service
         )
 
+        children_statuses = self.propagate_to_list(
+            'status',
+            command_data = None,
+            token = token,
+            node_to_execute = self.children_nodes
+        )
 
-        for child in self.children_nodes:
-            response = child.get_status(token)
-
+        for response in children_statuses:
             status = unpack_any(response.data, Status)
 
             if status.in_error:
@@ -158,6 +162,7 @@ class Controller(ControllerServicer):
             else:
                 self.logger.info(child)
                 child.propagate_command('take_control', None, self.actor.get_token())
+
 
         from druncschema.request_response_pb2 import CommandDescription
         # TODO, probably need to think of a better way to do this?
@@ -452,14 +457,20 @@ class Controller(ControllerServicer):
     def status(self, token:Token) -> Response:
         from drunc.controller.utils import get_status_message
         status = get_status_message(self.stateful_node)
+
+        children_statuses = self.propagate_to_list(
+            'status',
+            command_data = None,
+            token = token,
+            node_to_execute = self.children_nodes
+        )
         return Response (
             name = self.name,
-            token = token,
+            token = None,
             data = pack_to_any(status),
             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-            children = [n.get_status(token) for n in self.children_nodes]
+            children = children_statuses,
         )
-
 
     # ORDER MATTERS!
     @broadcasted # outer most wrapper 1st step

@@ -131,6 +131,7 @@ class ClientSideChild(ChildNode):
                 flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
                 children = []
             )
+
         elif command == 'include':
             self.state.include()
             return Response(
@@ -144,8 +145,12 @@ class ClientSideChild(ChildNode):
                 flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
                 children = []
             )
+
         elif command == 'describe':
             return self.describe(token)
+
+        elif command == 'status':
+            return self.get_status(token)
 
         if self.state.excluded() and command == 'execute_fsm_command':
             return Response(

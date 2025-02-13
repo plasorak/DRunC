@@ -38,9 +38,9 @@ class ChildNode(abc.ABC):
     def propagate_command(self, command, data, token):
         pass
 
-    @abc.abstractmethod
-    def get_status(self, token):
-        pass
+    # @abc.abstractmethod
+    # def get_status(self, token):
+    #     pass
 
     @abc.abstractmethod
     def get_endpoint(self):
