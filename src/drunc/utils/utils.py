@@ -14,7 +14,6 @@ from rich.console import Console
 from rich.theme import Theme
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.logging import RichHandler
-from rich.console import Console
 import re
 from requests import delete, get, patch, post
 import sh
@@ -44,9 +43,13 @@ log_levels = {
     'DEBUG'   : logging.DEBUG,
     'NOTSET'  : logging.NOTSET,
 }
+full_log_format = "%(asctime)s %(levelname)s %(filename)s %(name)s %(message)s" #TODO: for production, remove the filename
+rich_log_format = "%(filename)s %(name)s %(message)s" # TODO: for production, remove the filename
+date_time_format = "[%Y/%m/%d %H:%M:%S]" # TODO: include timezone as %Z when the RichHandler starts supporting it in the tty. If this is desired, a custom handler can be written that looks like the rich handler
+time_zone = pytz.utc
 
 class LoggingFormatter(logging.Formatter):
-    def __init__(self, fmt = "%(asctime)s %(levelname)s\t%(filename)s\t%(name)s\t%(message)s", datefmt = "[%Y/%m/%d %H:%M:%S %Z]", tz = pytz.utc): #TODO: for production, remove the filename
+    def __init__(self, fmt=full_log_format, datefmt=date_time_format, tz=time_zone):
         super().__init__(fmt, datefmt)
         self.tz = tz
         self.datefmt = datefmt
@@ -57,52 +60,50 @@ class LoggingFormatter(logging.Formatter):
 
     def format(self, record):
         record.asctime = self.formatTime(record, self.datefmt)
-
-        component_width = 30 #TODO: for production, remove this
+        #TODO: for production, remove filename and lineno entries
+        component_width = 30 
         file_lineno = f"{record.filename}:{record.lineno}"
         record.filename = file_lineno.ljust(component_width)[:component_width]
-
         component_width = 45
         name_colon = f"{record.name}:"
         record.name = name_colon.ljust(component_width)[:component_width]
-
         return super().format(record)
 
 def root_logger_is_setup(log_level:int) -> bool:
     if "drunc" in logging.Logger.manager.loggerDict:
         root_logger = logging.getLogger("drunc")
-        if root_logger.level == log_levels['NOTSET']:
-            root_logger.setLevel(log_level)
-            root_logger.debug(f"Root logger level updated from 'NOTSET' to {logging.getLevelName(log_level)}")
         root_logger.debug("Root logger is already setup, not setting it up again")
+        if root_logger.level == log_levels["NOTSET"] and log_level != "NOTSET":
+            root_logger.setLevel(log_level)
+            for handler in root_logger.handlers:
+                handler.setLevel(log_level)
+            root_logger.debug(f'Root logger level updated from "NOTSET" to {logging.getLevelName(log_level)}')
         return True
     return False
 
 def setup_root_logger(log_level:str) -> None:
     log_level = log_level.upper()
     if log_level not in log_levels.keys():
-        raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}.")
+        raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}")
     log_level = log_levels[log_level]
 
     if root_logger_is_setup(log_level):
         return
 
     root_logger = logging.getLogger("drunc")
+    root_logger.debug('Setting up root logger "drunc"')
     root_logger.setLevel(log_level)
-
-    for handler in root_logger.handlers:
-        handler.setLevel(log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
     sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    sh_command_logger = logging.getLogger(sh.__name__)
+    sh_command_logger = logging.getLogger("drunc." + sh.__name__)
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
         handler.setLevel(sh_command_level)
 
     # And kafka
     kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    kafka_command_logger = logging.getLogger(kafka.__name__)
+    kafka_command_logger = get_logger("drunc." + kafka.__name__)
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
@@ -115,41 +116,36 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         raise DruncSetupException("This was an attempt to set up the root logger `drunc`, need to run `setup_root_logger` first.")
     if logger_name.split(".")[0] == "drunc":
         raise DruncSetupException(f"get_logger adds the root logger prefix, it is not required for {logger_name}")
+    if override_log_file and not log_file_path:
+        raise DruncSetupException("Configuration error - a log_file_path must be provided if it is to be overwritten")
     if logger_name.count(".") > 2:
         raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-    if logger_name == "process_manager" and not 'drunc.process_manager' in logger_dict:
+
+    if logger_name.count(".") == 2 and ("drunc." + logger_name.split(".")[0]) not in logger_dict:
+        function_logger.debug(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
+
+    if logger_name == "process_manager" and 'drunc.process_manager' not in logger_dict:
         if not log_file_path:
             raise DruncSetupException("process_manager logger setup requires a log path.")
         if not rich_handler:
             raise DruncSetupException("process_manager logger requires a rich handler.")
-    if override_log_file and not log_file_path:
-        raise DruncSetupException("Configuration error - a log_file_path must be provided if it is to be overwritten")
 
     function_logger = logging.getLogger("utils.get_logger")
     if ("drunc." + logger_name) in logger_dict:
         function_logger.debug("This logger has already been set up, returning the original")
         logger = logging.getLogger("drunc." + logger_name)
         return logger
-
-    if logger_name.count(".") == 2 and not ("drunc." + logger_name.split(".")[0]) in logger_dict:
-        function_logger.warning(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
-        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
-
     logger_level = logging.getLogger("drunc").level
     if not logger_level:
-        raise DruncSetupException(f"Root logger level not initialized (found {logger_level}), exiting.")
+        raise DruncSetupException(f"Root logger level not set (found level {logging.getLevelName(logger_level)})")
 
     logger_name = 'drunc.' + logger_name
     logger = logging.getLogger(logger_name)
 
-    function_logger.debug(f"Updating {logger_name} level and handlers' levels to {logger_level}, matching the root logger")
-    logger.setLevel(logger_level)
-    for handler in logger.handlers:
-        handler.setLevel(logger_level)
-
     if override_log_file and os.path.isfile(log_file_path):
         os.remove(log_file_path)
-
+        function_logger.debug(f"Removed existing log file at {log_file_path}")
     if log_file_path:
         fileHandler = logging.FileHandler(filename = log_file_path)
         fileHandler.setLevel(logger_level)
@@ -168,12 +164,13 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
             width = 150
         stdHandler = RichHandler(
             console=Console(width=width),
+            omit_repeated_times=False,
+            markup=True,
             rich_tracebacks=True,
             show_path=False,
-            tracebacks_width=width,
-            markup=True
+            tracebacks_width=width
         )
-        stdHandler.setFormatter(LoggingFormatter(fmt = "%(filename)s\t%(name)s\t%(message)s")) # RETURNTOME - no timezone in the tty
+        stdHandler.setFormatter(LoggingFormatter(fmt=rich_log_format))
     elif any(isinstance(handler, logging.StreamHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
         function_logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
         stdHandler = None
