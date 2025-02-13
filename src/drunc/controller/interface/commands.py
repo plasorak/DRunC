@@ -106,3 +106,26 @@ def exclude(obj:ControllerContext) -> None:
     result = obj.get_driver('controller').exclude(arguments=data).data
     if not result: return
     obj.print(result.text)
+
+
+@click.command('expert-command')
+@click.option('-f', '--file', is_flag=True, help='Read the command from a file, else you need to write the json data directly')
+@click.argument('command', type=str)
+@click.pass_obj
+def expert_command(obj:ControllerContext, command:str, file:bool) -> None:
+    try:
+        if file:
+            with open(command, 'r') as f:
+                data = json.load(f)
+        else:
+            data = json.loads(command)
+    except Exception as e:
+        obj.print(f'Error: {e}')
+        return
+    json_string = json.dumps(data)
+    data = FSMCommand(
+        command_name = 'exclude',
+    )
+
+    result = obj.get_driver('controller').expert_command(arguments=data).data
+    obj.print(result.text)
