@@ -20,7 +20,6 @@ class ThreadPinning(FSMAction):
         session_dal = db.get_dal(class_name="Session", uid=session)
 
         from os import environ
-        env = environ.copy()
 
         apps = collect_apps(db, session_dal, session_dal.segment, environ)
 
