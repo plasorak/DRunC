@@ -133,7 +133,7 @@ class SSHProcessManager(ProcessManager):
         self.log.info(f'{self.name} terminating')
         if self.process_store:
             self.log.info('Killing all the known processes before exiting')
-            uuids = [uuid for uuid, process in self.process_store.items()]
+            uuids = self._get_process_uid(query=ProcessQuery(names=['.*']), order_by='leaf_first')
             return self.kill_processes(uuids)
         else:
             self.log.info('No known process to kill before exiting')
