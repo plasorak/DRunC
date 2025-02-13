@@ -301,7 +301,6 @@ def tree_prefix(i, n):
     first_many = "├── "
     next = "├── "
     last = "└── "
-    first_column = ''
     if i==0 and n == 1:
         return first_one
     elif i==0:
