@@ -119,8 +119,6 @@ def test_interrupt_run_coroutine(capsys):
         return val
 
     from threading import Thread
-    import os
-    pid = os.getpid()
 
     process = Thread(target=test_this_coroutine, kwargs={"val":'abcdef'})
     # process = Process(target=test_this_coroutine, kwargs={"val":'abcdef'})
