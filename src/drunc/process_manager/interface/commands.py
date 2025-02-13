@@ -171,7 +171,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 @click.pass_obj
 @run_coroutine
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
-    result = await obj.get_driver('process_manager').restart(
+    await obj.get_driver('process_manager').restart(
         query = query,
     )
 
