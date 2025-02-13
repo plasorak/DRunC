@@ -418,8 +418,7 @@ class SSHProcessManager(ProcessManager):
     def _kill_impl(self, query:ProcessQuery) -> ProcessInstanceList:
         self.log.info(f'{self.name} killing {query.names} in session {self.session}')
         if self.process_store:
-            self.log.warning('Killing all the known processes before exiting')
-            uuids = self._get_process_uid(query)
+            uuids = self._get_process_uid(query, order_by='leaf_first')
             return self.kill_processes(uuids)
         else:
             self.log.info('No known process to kill before exiting')
