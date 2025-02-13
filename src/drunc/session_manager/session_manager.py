@@ -14,7 +14,7 @@ import logging
 
 class SessionManager(abc.ABC, SessionManagerServicer):
 
-    def __init__(self, configuration: SessionManagerConfHandler, name: str, session: str, **kwargs):
+    def __init__(self, name: str, configuration: SessionManagerConfHandler):
         super().__init__()
 
         self.log = logging.getLogger("drunc.session_manager")
@@ -22,7 +22,6 @@ class SessionManager(abc.ABC, SessionManagerServicer):
         self.log.debug("Initialized SessionManager")
 
         self.name = name
-        self.session = session
         self.configuration = configuration
 
     @unpack_request_data_to(None, pass_token=True)
@@ -53,7 +52,7 @@ class SessionManager(abc.ABC, SessionManagerServicer):
         description = Description(
             type="session_manager",
             name=self.name,
-            session="no_session" if not self.session else self.session,
+            session=self.name,
             commands=command_descriptions,
         )
 
