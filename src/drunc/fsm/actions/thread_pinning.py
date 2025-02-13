@@ -44,7 +44,7 @@ class ThreadPinning(FSMAction):
         hosts = set()
         for app in apps:
             hosts.add(app["host"])
-        from sh import ssh, ErrorReturnCode, Command
+        from sh import ErrorReturnCode, Command
         my_ssh = Command('/usr/bin/ssh')
 
         failed_hosts = set()

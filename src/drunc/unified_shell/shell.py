@@ -2,13 +2,9 @@ import click
 import click_shell
 from drunc.utils.utils import log_levels
 import os
-from drunc.utils.utils import validate_command_facility
-import pathlib
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 from urllib.parse import urlparse
 # from rich import print as rprint
 import logging
-import getpass
 
 @click_shell.shell(prompt='drunc-unified-shell > ', chain=True, hist_file=os.path.expanduser('~')+'/.drunc-unified-shell.history')
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
@@ -72,7 +68,6 @@ def unified_shell(
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException('Process manager did not start in time')
 
-        import socket
         process_manager_address = f'localhost:{port.value}'
 
     else: # user provided an address

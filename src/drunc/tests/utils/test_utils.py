@@ -27,7 +27,7 @@ def test_print_traceback(capsys):
     from drunc.utils.utils import print_traceback
     try:
         raise ValueError("Test error")
-    except ValueError as e:
+    except ValueError:
         print_traceback()
     captured = capsys.readouterr()
     assert "ValueError" in captured.out
@@ -96,7 +96,6 @@ def test_get_new_port():
 
 def test_run_coroutine():
     from drunc.utils.utils import run_coroutine
-    import asyncio
 
     @run_coroutine
     async def test_this_coroutine(val):
@@ -120,8 +119,6 @@ def test_interrupt_run_coroutine(capsys):
         return val
 
     from threading import Thread
-    from multiprocessing import Process
-    import signal
     import os
     pid = os.getpid()
 
@@ -215,7 +212,7 @@ def generate_address(text):
 
 def test_resolve_localhost_to_hostname():
     from drunc.utils.utils import resolve_localhost_to_hostname
-    from socket import gethostbyname, gethostname
+    from socket import gethostname
     hostname = gethostname()
 
     resolved = resolve_localhost_to_hostname(generate_address("localhost"))
@@ -260,7 +257,7 @@ def test_host_is_local():
 
 def test_parent_death_pact():
     from drunc.utils.utils import parent_death_pact
-    from os import fork, getpid, kill, waitpid
+    from os import getpid
     from multiprocessing import Process
     from time import sleep
 

@@ -4,7 +4,6 @@ import logging
 
 from drunc.utils.utils import run_coroutine, log_levels
 from drunc.process_manager.interface.context import ProcessManagerContext
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 
 @click.command('boot')
 @click.option(
@@ -52,13 +51,13 @@ async def boot(
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
         log.info(f'Controller endpoint is \'{controller_address}\'')
-        log.info(f'Connecting this shell to it...')
+        log.info('Connecting this shell to it...')
         obj.set_controller_driver(controller_address)
         from drunc.controller.interface.shell_utils import controller_setup
         controller_setup(obj, controller_address)
 
     else:
-        log.error(f'Could not understand where the controller is!')
+        log.error('Could not understand where the controller is!')
         return
 
 

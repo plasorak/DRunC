@@ -2,7 +2,6 @@
 from drunc.fsm.core import FSMAction
 from drunc.utils.configuration import find_configuration
 import json
-import os
 import requests
 
 class ElisaLogbook(FSMAction):
@@ -48,13 +47,13 @@ class ElisaLogbook(FSMAction):
             response = r.json()
             self.thread_id = response['thread_id']
             self._log.info(f"ELisA logbook: Sent message (ID{self.thread_id})")
-        except requests.HTTPError as exc:
+        except requests.HTTPError:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
-        except requests.ConnectionError as exc:
+        except requests.ConnectionError:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
-        except requests.Timeout as exc:
+        except requests.Timeout:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
 
@@ -77,13 +76,13 @@ class ElisaLogbook(FSMAction):
             r.raise_for_status()
             response = r.json()
             self._log.info(f"ELisA logbook: Sent message (ID{response['thread_id']})")
-        except requests.HTTPError as exc:
+        except requests.HTTPError:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
-        except requests.ConnectionError as exc:
+        except requests.ConnectionError:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
-        except requests.Timeout as exc:
+        except requests.Timeout:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
             self._log.warning(CannotSendElisaMessage(error).message)
 

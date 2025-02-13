@@ -1,7 +1,5 @@
 from drunc.controller.stateful_node import StatefulNode
-from druncschema.request_response_pb2 import Response, ResponseFlag, Request
-from druncschema.token_pb2 import Token
-from drunc.utils.grpc_utils import pack_to_any
+from druncschema.request_response_pb2 import Request
 
 import logging
 log = logging.getLogger('controller_utils')

@@ -1,6 +1,5 @@
 from drunc.fsm.core import FSMAction
 import requests
-import os
 import json
 
 

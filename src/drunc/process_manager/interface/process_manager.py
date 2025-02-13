@@ -1,11 +1,8 @@
 import asyncio
 import click
 import grpc
-import os
 import logging
 import getpass
-from rich.console import Console
-from rich.logging import RichHandler
 from drunc.utils.utils import log_levels, setup_logger
 from drunc.process_manager.utils import get_log_path
 _cleanup_coroutines = []
@@ -38,7 +35,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
     log.debug(f'Using \'{pm_conf}\' as the ProcessManager configuration')
 
     from drunc.process_manager.process_manager import ProcessManager
-    from drunc.utils.configuration import parse_conf_url, OKSKey
+    from drunc.utils.configuration import parse_conf_url
     from drunc.process_manager.configuration import ProcessManagerConfHandler
     conf_path, conf_type = parse_conf_url(pm_conf)
     pmch = ProcessManagerConfHandler(
@@ -87,7 +84,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         loop.run_until_complete(
             serve(pm_address)
         )
-    except Exception as e:
+    except Exception:
         log.error("Serving the ProcessManager received an Exception")
         import os
         from rich.console import Console

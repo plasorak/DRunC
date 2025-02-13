@@ -24,7 +24,7 @@ def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> No
             ctx.obj.get_driver('process_manager').describe()
         )
     except ServerUnreachable as e:
-        ctx.obj.critical(f'Could not connect to the process manager')
+        ctx.obj.critical('Could not connect to the process manager')
         raise e
 
     ctx.obj.info(f'{process_manager_address} is \'{desc.data.name}.{desc.data.session}\' (name.session), starting listening...')

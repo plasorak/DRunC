@@ -1,9 +1,7 @@
-from drunc.fsm.action_factory import FSMActionFactory
-from typing import List, Set, Dict, Tuple
+from typing import List
 from inspect import signature, Parameter
 import drunc.fsm.exceptions as fsme
 from drunc.fsm.transition import Transition
-import traceback
 
 class FSMAction:
     '''Abstract class defining a generic action'''
@@ -71,7 +69,7 @@ class PreOrPostTransitionSequence:
                 try:
                     import json
                     json.dumps(input_data)
-                except TypeError as e:
+                except TypeError:
                     raise InvalidDataReturnByFSMAction(input_data)
 
             except DruncException as e:

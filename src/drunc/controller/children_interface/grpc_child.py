@@ -36,7 +36,6 @@ class gRPCChildNode(ChildNode):
         self.uri = f"{host}:{port}"
 
         from druncschema.controller_pb2_grpc import ControllerStub
-        import grpc
 
         self.channel = grpc.insecure_channel(self.uri)
         self.controller = ControllerStub(self.channel)

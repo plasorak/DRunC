@@ -105,7 +105,6 @@ class GRCPBroadcastSender(BroadcastSenderServicer):
         return response
 
     def add_to_broadcast_list(self, request:Request, context) -> Response:
-        from drunc.utils.command import execute_command
         try:
             return self.execute_command(
                 request = request,

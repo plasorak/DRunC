@@ -1,9 +1,8 @@
-import sys
 
 import confmodel
 import conffwk
 
-from typing import List, Dict, Any
+from typing import List, Dict
 
 from drunc.process_manager.configuration import ProcessManagerConfHandler
 from drunc.exceptions import  DruncException

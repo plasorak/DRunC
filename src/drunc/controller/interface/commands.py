@@ -11,7 +11,6 @@ def list_transitions(obj:ControllerContext, all:bool) -> None:
         obj.print('Could not get the list of commands available')
         return
 
-    from rich.table import Table
     if all:
         obj.print(f'\nAvailable transitions on \'{desc.name}\' are ([underline]some may not be accessible now, use list-transition without --all to see what transitions can be issued now[/]):')
     else:
@@ -51,8 +50,7 @@ def status(obj:ControllerContext) -> None:
 @click.argument('controller_address', type=str)
 @click.pass_obj
 def connect(obj:ControllerContext, controller_address:str) -> None:
-    obj.print(f'Connecting this shell to it...')
-    from drunc.exceptions import DruncException
+    obj.print('Connecting this shell to it...')
 
     obj.set_controller_driver(controller_address)
     from drunc.controller.interface.shell_utils import controller_setup

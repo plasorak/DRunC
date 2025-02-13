@@ -6,7 +6,7 @@ from drunc.utils.utils import run_coroutine, log_levels
 from drunc.process_manager.interface.cli_argument import add_query_options
 from drunc.process_manager.interface.context import ProcessManagerContext
 
-from druncschema.process_manager_pb2 import ProcessQuery, ProcessInstanceList
+from druncschema.process_manager_pb2 import ProcessQuery
 from drunc.process_manager.interface.cli_argument import validate_conf_string
 
 @click.command('boot')
@@ -47,7 +47,7 @@ async def boot(
         from rich.panel import Panel
         obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center')
     else:
-        obj.error(f'Could not understand where the controller is! You can look at the logs of the controller to see its address')
+        obj.error('Could not understand where the controller is! You can look at the logs of the controller to see its address')
         return
 
 @click.command('dummy_boot')
@@ -126,7 +126,7 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
-    from druncschema.process_manager_pb2 import LogRequest, LogLine
+    from druncschema.process_manager_pb2 import LogRequest
 
     log_req = LogRequest(
         how_far = how_far,
@@ -135,7 +135,6 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 
     uuid = None
     from rich.markup import escape
-    from drunc.utils.grpc_utils import unpack_any
 
     async for result in obj.get_driver('process_manager').logs(
         log_req,
@@ -164,7 +163,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 
         obj.print(line)
 
-    obj.rule(f'End')
+    obj.rule('End')
 
 
 @click.command('restart')

@@ -94,7 +94,7 @@ def controller_cli(configuration:str, command_facility:str, name:str, session:st
 
         server.wait_for_termination(timeout=None)
 
-    except Exception as e:
+    except Exception:
         from drunc.utils.utils import print_traceback
         print_traceback()
 

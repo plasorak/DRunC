@@ -101,7 +101,6 @@ class ConfHandler:
         self.validate_and_parse_configuration_location(*args, **kwargs)
 
     def copy_oks_key(self):
-        from copy import deepcopy as dc
         return self.oks_key
 
     def _parse_oks_file(self, oks_path):
@@ -118,10 +117,10 @@ class ConfHandler:
             )
 
         except ImportError as e:
-           raise DruncSetupException(f'OKS is not setup in this python environment, cannot parse OKS configurations') from e
+           raise DruncSetupException('OKS is not setup in this python environment, cannot parse OKS configurations') from e
 
         except KeyError as e:
-           raise DruncSetupException(f'OKS params where not passed to this ConfigurationHandler, cannot parse OKS configurations') from e
+           raise DruncSetupException('OKS params where not passed to this ConfigurationHandler, cannot parse OKS configurations') from e
 
 
     def _post_process_oks(self):

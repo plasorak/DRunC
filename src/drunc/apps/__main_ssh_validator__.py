@@ -1,13 +1,11 @@
 import conffwk
 import getpass
 import signal
-import os
 import click
 from rich import print as rprint
 from sh import Command
 
 from drunc.utils.configuration import find_configuration
-from drunc.utils.utils import expand_path
 from drunc.process_manager.ssh_process_manager import on_parent_exit
 from drunc.process_manager.oks_parser import collect_apps
 

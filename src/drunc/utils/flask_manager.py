@@ -126,7 +126,7 @@ class FlaskManager(threading.Thread):
                 resp = get(f"http://{self.host}:{self.port}/readystatus")
                 if resp.text == "ready":
                     break
-            except Exception as e:
+            except Exception:
                 pass
             time.sleep(0.5)
 

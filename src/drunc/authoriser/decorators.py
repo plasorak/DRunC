@@ -13,7 +13,6 @@ def authentified_and_authorised(action, system):
             log = getLogger('authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
-                from drunc.authoriser.exceptions import Unauthorised
                 return Response(
                     name = obj.name,
                     token = request.token,

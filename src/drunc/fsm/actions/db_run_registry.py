@@ -1,5 +1,5 @@
 from drunc.fsm.core import FSMAction
-from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime, FSMException
+from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime
 from drunc.utils.configuration import find_configuration
 from drunc.utils.utils import expand_path
 
