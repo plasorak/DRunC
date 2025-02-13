@@ -1,7 +1,7 @@
 from drunc.fsm.core import FSMAction
-from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime
+from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime, FSMException, DotDruncJsonIncorrectFormat
+from drunc.fsm.actions.utils import get_dotdrunc_json
 from drunc.utils.configuration import find_configuration
-from drunc.utils.utils import expand_path
 
 from daqconf.consolidate import consolidate_db
 from daqconf.jsonify import jsonify_xml_data
@@ -13,6 +13,7 @@ import tarfile
 import os
 import requests
 
+
 class DBRunRegistry(FSMAction):
     def __init__(self, configuration):
         super().__init__(
@@ -20,13 +21,14 @@ class DBRunRegistry(FSMAction):
         )
         self._log = logging.getLogger('microservice-run-registry')
 
-        f = open(expand_path("~/.drunc.json")) # cp /nfs/home/titavare/dunedaq_work_area/drunc-n24.5.26-1/.drunc.json
-        dotdrunc = json.load(f)
-
-        rrc = dotdrunc["run_registry_configuration"]
-        self.API_SOCKET = rrc["socket"]
-        self.API_USER = rrc["user"]
-        self.API_PSWD = rrc["password"]
+        dotdrunc = get_dotdrunc_json()
+        try:
+            rrc = dotdrunc["run_registry_configuration"]
+            self.API_SOCKET = rrc["socket"]
+            self.API_USER = rrc["user"]
+            self.API_PSWD = rrc["password"]
+        except KeyError as exc:
+            raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'run_registry_configuration\' section, or the entire \'run_registry_configuration\' section') from exc
 
         self.timeout = 2
 

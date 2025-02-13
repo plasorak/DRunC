@@ -2,6 +2,9 @@ from drunc.fsm.core import FSMAction
 from drunc.utils.configuration import find_configuration
 from daqconf.consolidate import consolidate_db
 
+import os
+import shutil
+
 class FileRunRegistry(FSMAction):
     def __init__(self, configuration):
         super().__init__(
@@ -13,8 +16,6 @@ class FileRunRegistry(FSMAction):
         run_number = _input_data['run']
         run_configuration = find_configuration(_context.configuration.initial_data)
 
-        import os
-        
         dest = os.getcwd()+"/run_conf"+str(run_number)+".data.xml"
         consolidate_db(run_configuration, f"{dest}")
 
