@@ -45,6 +45,9 @@ class UnifiedShellContext(ShellContext): # boilerplatefest
         self.address_controller = address_controller
 
         from drunc.controller.controller_driver import ControllerDriver
+        if address_controller is None:
+            del self._drivers['controller']
+            return
 
         self._drivers['controller'] = ControllerDriver(
             self.address_controller,

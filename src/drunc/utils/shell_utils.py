@@ -48,7 +48,7 @@ class GRPCDriver:
         self._log = logging.getLogger(name)
         import grpc
         from druncschema.token_pb2 import Token
-
+        self.name = name
         if not address:
             from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f'You need to provide a valid IP address for the driver. Provided \'{address}\'')
@@ -158,22 +158,20 @@ class GRPCDriver:
             elif response.data.Is(PlainText.DESCRIPTOR):
                 txt = unpack_any(response.data, PlainText)
                 error_txt = txt.text
-
+            self._log.error(error_txt)
+            if stack_txt:
+                self._log.debug(stack_txt)
             # if rethrow:
             #     from drunc.exceptions import DruncServerSideError
             #     raise DruncServerSideError(error_txt, stack_txt)
 
 
             dr.data = response.data
+
             from drunc.exceptions import DruncServerSideError
             for c_response in response.children:
-                try:
-                    dr.children.append(self.handle_response(c_response, command, outformat))
-                except DruncServerSideError as e:
-                    self._log.error(f"Exception thrown from child: {e}")
+                dr.children.append(self.handle_response(c_response, command, outformat))
             return dr
-
-            # raise DruncServerSideError(error_txt, stack_txt, server_response=dr)
 
 
     def send_command(self, command:str, data=None, outformat=None, decode_children=False):
@@ -274,13 +272,17 @@ class ShellContext:
             return list(self._drivers.values())[0]
         except KeyError:
             self._log.error(f'Driver {name} commands are not available right now')
+            self._log.debug(f'Drivers available are {self._drivers.keys()}')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
+
+    def has_driver(self, name:str) -> bool:
+        return name in self._drivers
 
     def delete_driver(self, name: str) -> None:
         if name in self._drivers:
+            self._log.info(f"You will not be able to issue command to {self._drivers[name].name} anymore.")
             del self._drivers[name]
-            self._log.info(f"Driver {name} has been deleted.")
-    
+
     def get_token(self) -> Token:
         return self._token
 

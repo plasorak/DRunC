@@ -30,6 +30,9 @@ class ControllerDriver(GRPCDriver):
     def status(self) -> DecodedResponse:
         return self.send_command('status', outformat = Status)
 
+    def recompute_status(self) -> DecodedResponse:
+        return self.send_command('recompute_status', outformat = Status)
+
     def take_control(self) -> DecodedResponse:
         return self.send_command('take_control', outformat = PlainText)
 
