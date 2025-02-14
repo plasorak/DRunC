@@ -88,6 +88,8 @@ async def terminate(obj:ProcessManagerContext) -> None:
     if not result: return
     obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False)) # rich tables require console printing
 
+    obj.delete_driver('controller')
+
 @click.command('kill')
 @add_query_options(at_least_one=True)
 @click.pass_obj
@@ -99,6 +101,7 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     if not result: return
     obj.print(tabulate_process_instance_list(result.data, 'Killed process', False)) # rich tables require console printing
 
+    obj.delete_driver('controller')
 
 @click.command('flush')
 @add_query_options(at_least_one=False, all_processes_by_default=True)

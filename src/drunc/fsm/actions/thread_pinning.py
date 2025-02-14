@@ -12,6 +12,10 @@ from drunc.utils.utils import get_logger
 
 import conffwk
 
+import conffwk
+import getpass
+from sh import ssh, ErrorReturnCode, Command
+
 
 class ThreadPinning(FSMAction):
     def __init__(self, configuration):

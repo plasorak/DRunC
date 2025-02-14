@@ -441,20 +441,41 @@ def get_control_type_and_uri_from_connectivity_service(
     uris = []
     logger = get_logger('utils.get_control_type_and_uri_from_connectivity_service')
 
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        BarColumn(),
-        TimeRemainingColumn(),
-        TimeElapsedColumn()
-    ) as progress:
+    start = time.time()
+    elapsed = 0
 
-        task = progress.add_task(f'[yellow]{title}', total=timeout, visible=progress_bar)
-        start = time.time()
+    if progress_bar:
+        from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 
-        while time.time() - start < timeout:
-            progress.update(task, completed=time.time() - start)
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TimeRemainingColumn(),
+            TimeElapsedColumn()
+        ) as progress:
 
+            task = progress.add_task(f'[yellow]{title}', total=timeout, visible=progress_bar)
+
+            while elapsed < timeout:
+                progress.update(task, completed=elapsed)
+
+                try:
+                    uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
+                    if len(uris) == 0:
+                        raise ApplicationLookupUnsuccessful
+                    else:
+                        break
+
+                except ApplicationLookupUnsuccessful as e:
+                    elapsed = time.time() - start
+                    logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
+                    time.sleep(retry_wait)
+
+            progress.update(task, completed=timeout)
+
+    else:
+        while elapsed < timeout:
             try:
                 uris = connectivity_service.resolve(name+'_control', 'RunControlMessage')
                 if len(uris) == 0:
@@ -463,10 +484,10 @@ def get_control_type_and_uri_from_connectivity_service(
                     break
 
             except ApplicationLookupUnsuccessful as e:
-                el = time.time() - start
-                logger.debug(f"Could not resolve \'{name}_control\' elapsed {el:.2f}s/{timeout}s")
+                elapsed = time.time() - start
+                logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                 time.sleep(retry_wait)
-
+                
 
 
     if len(uris) != 1:

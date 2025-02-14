@@ -110,6 +110,7 @@ class ConnectivityServiceClient:
                     ignore_errors = True
                 ).raise_for_status()
                 break
-            except (HTTPError, ConnectionError) as e:
+            except (HTTPError, ConnectionError, ReadTimeout) as e:
+                from time import sleep
                 time.sleep(0.2)
                 continue

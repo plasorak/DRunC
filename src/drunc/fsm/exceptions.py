@@ -121,3 +121,12 @@ class CannotSendElisaMessage(FSMException):
     def __init__(self, data):
         self.message = f'Cannot send message to ELisA because {data}. Do it manually at https://np-vd-coldbox-elog.app.cern.ch or https://pdsp-elog.app.cern.ch!'
         super().__init__(self.message)
+
+class DotDruncJsonNotFound(FSMException):
+    pass
+
+class DotDruncJsonIncorrectFormat(FSMException):
+    pass
+
+class InvalidRunType(FSMException):
+    pass
