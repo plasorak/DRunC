@@ -65,7 +65,7 @@ class ElisaLogbook(FSMAction):
             self._log.info(f"Adding the message:\n--------\n{elisa_post}\n--------\nto the logbook")
             text += f"\n<p>{elisa_post}</p>"
 
-        self.run_type = _input_data.get('run_type', "TEST")    #This class won't exist in a test run, so we're adding this temporarily so that we can actually run the function
+        self.run_type = _input_data.get('production_vs_test', "TEST")    #This class won't exist in a test run, so we're adding this temporarily so that we can actually run the function
         run_configuration = find_configuration(_context.configuration.initial_data)
         text += f"Configuration: {run_configuration}"
 
