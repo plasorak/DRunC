@@ -5,7 +5,7 @@ from drunc.exceptions import DruncSetupException
 
 import conffwk
 import getpass
-from sh import ssh, ErrorReturnCode, Command
+from sh import ErrorReturnCode, Command
 
 
 class ThreadPinning(FSMAction):

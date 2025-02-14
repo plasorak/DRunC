@@ -1,12 +1,11 @@
 from drunc.fsm.core import FSMAction
-from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime, FSMException, DotDruncJsonIncorrectFormat
+from drunc.fsm.exceptions import CannotInsertRunNumber, CannotGetSoftwareVersion, CannotUpdateStopTime, DotDruncJsonIncorrectFormat
 from drunc.fsm.actions.utils import get_dotdrunc_json
 from drunc.utils.configuration import find_configuration
 
 from daqconf.consolidate import consolidate_db
 from daqconf.jsonify import jsonify_xml_data
 
-import json
 import logging
 import tempfile
 import tarfile
@@ -28,7 +27,7 @@ class DBRunRegistry(FSMAction):
             self.API_USER = rrc["user"]
             self.API_PSWD = rrc["password"]
         except KeyError as exc:
-            raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'run_registry_configuration\' section, or the entire \'run_registry_configuration\' section') from exc
+            raise DotDruncJsonIncorrectFormat('Malformed ~/.drunc.json, missing a key in the \'run_registry_configuration\' section, or the entire \'run_registry_configuration\' section') from exc
 
         self.timeout = 2
 
