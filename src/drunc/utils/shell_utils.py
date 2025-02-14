@@ -124,18 +124,9 @@ class GRPCDriver:
             return dr
 
         else:
-            def text(verb="not executed"):
-                return f'Command \'{command}\' {verb} on \'{response.name}\' (response flag \'{ResponseFlag.Name(response.flag)}\')'
-            if response.flag in [
-                ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
-            ]:
-                self._log.debug(text())
-            elif response.flag in [
-                ResponseFlag.NOT_EXECUTED_NOT_IN_CONTROL,
-            ]:
-                self._log.warn(text())
-            else:
-                self._log.error(text("failed"))
+            def text(verb="not executed", reason=""):
+                return f'Command \'{command}\' {verb} on \'{response.name}\' (response flag \'{ResponseFlag.Name(response.flag)}\') {reason}'
+
 
             if not response.HasField("data"): return None
             from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
@@ -146,6 +137,7 @@ class GRPCDriver:
 
             if response.data.Is(Stacktrace.DESCRIPTOR):
                 stack = unpack_any(response.data, Stacktrace)
+                dr.data = stack
                 #stack_txt = 'Stacktrace [bold red]on remote server![/bold red]\n' # Temporary - bold doesn't work
                 stack_txt = 'Stacktrace on remote server!\n'
                 last_one = ""
@@ -158,13 +150,24 @@ class GRPCDriver:
             elif response.data.Is(PlainText.DESCRIPTOR):
                 txt = unpack_any(response.data, PlainText)
                 error_txt = txt.text
+                dr.data = txt
 
             # if rethrow:
             #     from drunc.exceptions import DruncServerSideError
             #     raise DruncServerSideError(error_txt, stack_txt)
 
+            if response.flag in [
+                ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+            ]:
+                self._log.debug(text())
+            elif response.flag in [
+                ResponseFlag.NOT_EXECUTED_NOT_IN_CONTROL,
+            ]:
+                self._log.warn(text())
+            else:
+                self._log.error(text("failed", error_txt))
 
-            dr.data = response.data
+            #dr.data = response.data
             from drunc.exceptions import DruncServerSideError
             for c_response in response.children:
                 try:
@@ -280,7 +283,7 @@ class ShellContext:
         if name in self._drivers:
             del self._drivers[name]
             self._log.info(f"Driver {name} has been deleted.")
-    
+
     def get_token(self) -> Token:
         return self._token
 
