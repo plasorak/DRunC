@@ -2,14 +2,12 @@ import click
 import conffwk
 import getpass
 import signal
-import os
 from drunc.utils.utils import get_logger, setup_root_logger
 from sh import Command
 
 from drunc.process_manager.oks_parser import collect_apps
 from drunc.process_manager.ssh_process_manager import on_parent_exit
 from drunc.utils.configuration import find_configuration
-from drunc.utils.utils import expand_path
 
 
 def validate_ssh_connection(configuration:str, session_name:str):

@@ -1,6 +1,5 @@
 import functools
 
-from drunc.authoriser.exceptions import Unauthorised
 from drunc.utils.utils import get_logger
 
 from druncschema.generic_pb2 import PlainText

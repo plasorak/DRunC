@@ -1,6 +1,5 @@
 import json
 
-from drunc.exceptions import DruncException
 from drunc.fsm.exceptions import DotDruncJsonNotFound, DotDruncJsonIncorrectFormat, InvalidRunType
 from drunc.utils.utils import expand_path
 

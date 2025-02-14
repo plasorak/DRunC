@@ -1,6 +1,6 @@
 import getpass
 from os import environ
-from sh import Command, ErrorReturnCode, ssh
+from sh import Command, ErrorReturnCode
 
 from drunc.exceptions import DruncSetupException
 from drunc.fsm.core import FSMAction
@@ -11,10 +11,6 @@ from drunc.utils.configuration import find_configuration
 from drunc.utils.utils import get_logger
 
 import conffwk
-
-import conffwk
-import getpass
-from sh import ssh, ErrorReturnCode, Command
 
 
 class ThreadPinning(FSMAction):
@@ -28,8 +24,6 @@ class ThreadPinning(FSMAction):
     def pin_thread(self, thread_pinning_file, configuration, session):
         db = conffwk.Configuration(f"oksconflibs:{configuration}")
         session_dal = db.get_dal(class_name="Session", uid=session)
-
-        env = environ.copy()
 
         apps = collect_apps(db, session_dal, session_dal.segment, environ)
 

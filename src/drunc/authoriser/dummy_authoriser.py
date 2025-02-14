@@ -10,7 +10,7 @@ from druncschema.authoriser_pb2 import ActionType, SystemType
 class DummyAuthoriser:
     def __init__(self, system:SystemType, configuration_handler:DummyAuthoriserConfHandler=None):
         self.log = get_logger("utils.authorizer")
-        self.log.debug(f'DummyAuthoriser ready')
+        self.log.debug('DummyAuthoriser ready')
         self.configuration = configuration_handler
         self.command_actions = {} # Dict[str, ActionType]
         self.system = system

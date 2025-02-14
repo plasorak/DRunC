@@ -12,10 +12,9 @@ class Callback:
 from inspect import signature, Parameter
 import json
 import traceback
-from typing import Dict, List, Set, Tuple
+from typing import List
 
 from drunc.exceptions import DruncException, DruncSetupException
-from drunc.fsm.action_factory import FSMActionFactory
 import drunc.fsm.exceptions as fsme
 from drunc.fsm.transition import Transition
 from drunc.utils.utils import get_logger, regex_match
@@ -72,7 +71,7 @@ class PreOrPostTransitionSequence:
                 self.log.debug(f'data after callback: {input_data}')
                 try:
                     json.dumps(input_data)
-                except TypeError as e:
+                except TypeError:
                     raise fsme.InvalidDataReturnByFSMAction(input_data)
 
             except DruncException as e:

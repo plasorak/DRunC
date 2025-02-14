@@ -1,8 +1,6 @@
 from threading import Lock
 
 from drunc.controller.children_interface.child_node import ChildNode
-from drunc.controller.utils import send_command
-from drunc.exceptions import DruncException
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.core import FSM
 from drunc.utils.grpc_utils import pack_to_any

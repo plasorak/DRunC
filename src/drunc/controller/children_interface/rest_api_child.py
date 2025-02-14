@@ -3,7 +3,6 @@ from flask import Flask, request
 from flask_restful import Api
 import json
 import multiprocessing
-import os
 import queue
 import requests
 import socket
@@ -12,8 +11,7 @@ import threading
 import time
 from typing import NoReturn
 
-from drunc.controller.children_interface.child_node import ChildNode
-from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
+from drunc.controller.children_interface.client_side_child import ClientSideChild
 from drunc.controller.exceptions import ChildError
 from drunc.exceptions import DruncException, DruncSetupException
 from drunc.fsm.core import FSM
@@ -23,9 +21,9 @@ from drunc.utils.flask_manager import FlaskManager
 from drunc.utils.grpc_utils import pack_to_any
 from drunc.utils.utils import ControlType, get_logger, get_new_port
 
-from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag, Status
-from druncschema.generic_pb2 import PlainText, Stacktrace
-from druncschema.request_response_pb2 import Response, ResponseFlag, Description
+from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
+from druncschema.generic_pb2 import PlainText
+from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.token_pb2 import Token
 
 
@@ -83,7 +81,6 @@ class ResponseListener:
 
     @classmethod
     def get(cls):
-        log = get_logger('controller.ResponseListener')
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
             cls.port = get_new_port()

@@ -1,6 +1,6 @@
 from typing import Mapping
 
-from drunc.utils.shell_utils import add_traceback_flag, GRPCDriver, ShellContext
+from drunc.utils.shell_utils import GRPCDriver, ShellContext
 
 from druncschema.token_pb2 import Token
 

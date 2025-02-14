@@ -4,7 +4,7 @@ This is a fake DAQ application that doesn't do anything, but should talk in the 
 
 import argparse
 import copy as cp
-from flask import Flask, Response, request, abort, redirect, jsonify, make_response
+from flask import Flask, Response, request
 from flask_restful import Api, Resource
 import random
 import requests

@@ -1,9 +1,6 @@
 import abc
-import getpass
-from google.rpc import code_pb2
-import logging
-import os
 import re
+from google.rpc import code_pb2
 
 from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 from drunc.authoriser.decorators import authentified_and_authorised, async_authentified_and_authorised
@@ -13,7 +10,6 @@ from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
 from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
 from drunc.exceptions import DruncCommandException
 from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
-from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.utils.configuration import ConfTypes
 from drunc.utils.grpc_utils import async_unpack_request_data_to, pack_to_any, unpack_request_data_to
 from drunc.utils.utils import get_logger, pid_info_str
@@ -487,11 +483,11 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
         if conf.data.type == ProcessManagerTypes.SSH:
             from drunc.process_manager.ssh_process_manager import SSHProcessManager
-            log.info(f'Starting [green]SSH process_manager[/green]')
+            log.info('Starting [green]SSH process_manager[/green]')
             return SSHProcessManager(conf, **kwargs)
         elif conf.data.type == ProcessManagerTypes.K8s:
             from drunc.process_manager.k8s_process_manager import K8sProcessManager
-            log.info(f'Starting [green]K8s process_manager[/green]')
+            log.info('Starting [green]K8s process_manager[/green]')
             return K8sProcessManager(conf, **kwargs)
         else:
             log.error(f'ProcessManager type {conf.get("type")} is unsupported!')

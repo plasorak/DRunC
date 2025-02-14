@@ -12,7 +12,6 @@ import pytz
 import random
 from rich.console import Console
 from rich.theme import Theme
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeRemainingColumn, TimeElapsedColumn
 from rich.logging import RichHandler
 import re
 from requests import delete, get, patch, post

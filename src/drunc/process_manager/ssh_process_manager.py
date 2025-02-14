@@ -1,8 +1,5 @@
 from ctypes import cdll
-from functools import partial
 import getpass
-import grpc
-import logging
 import os
 import sh
 import signal
@@ -13,10 +10,9 @@ import uuid
 
 from drunc.exceptions import DruncCommandException, DruncException
 from drunc.process_manager.process_manager import ProcessManager
-from drunc.utils.utils import now_str
 
 from druncschema.broadcast_pb2 import BroadcastType
-from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessQuery, ProcessRestriction, ProcessUUID
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessQuery, ProcessRestriction, ProcessUUID
 
 
 # # ------------------------------------------------
@@ -86,9 +82,9 @@ class SSHProcessManager(ProcessManager):
 
     def kill_processes(self, uuids:list) -> ProcessInstanceList:
         ret = []
-        for uuid in uuids:
-            process = self.process_store[uuid]
-            app_name = self.boot_request[uuid].process_description.metadata.name
+        for proc_uuid in uuids:
+            process = self.process_store[proc_uuid]
+            app_name = self.boot_request[proc_uuid].process_description.metadata.name
             if process.is_alive():
                 sequence = [
                     # signal.SIGINT, # In appfwk/daq_application, SIGQUIT makes the run marker false and quits the loop, killing the application. SIGINT not needed.
@@ -97,23 +93,23 @@ class SSHProcessManager(ProcessManager):
                 ]
                 for sig in sequence:
                     if not process.is_alive():
-                        self.log.info(f'Killed \'{app_name}\' with UUID {uuid}')
+                        self.log.info(f'Killed \'{app_name}\' with UUID {proc_uuid}')
                         break
-                    self.log.debug(f'Sending signal \'{str(sig).split(".")[-1]}\' to \'{app_name}\' with UUID {uuid}')
+                    self.log.debug(f'Sending signal \'{str(sig).split(".")[-1]}\' to \'{app_name}\' with UUID {proc_uuid}')
                     process.signal_group(sig) # TODO grab this from the inputs
                     if not process.is_alive():
                         break
                     sleep(self.configuration.data.kill_timeout)
             pd = ProcessDescription()
-            pd.CopyFrom(self.boot_request[uuid].process_description)
+            pd.CopyFrom(self.boot_request[proc_uuid].process_description)
             pr = ProcessRestriction()
-            pr.CopyFrom(self.boot_request[uuid].process_restriction)
-            pu = ProcessUUID(uuid= uuid)
+            pr.CopyFrom(self.boot_request[proc_uuid].process_restriction)
+            pu = ProcessUUID(uuid=proc_uuid)
 
             return_code = None
-            if not self.process_store[uuid].is_alive():
+            if not self.process_store[proc_uuid].is_alive():
                 try:
-                    return_code = self.process_store[uuid].exit_code
+                    return_code = self.process_store[proc_uuid].exit_code
                 except Exception:
                     pass
 
@@ -126,7 +122,7 @@ class SSHProcessManager(ProcessManager):
                     uuid = pu
                 )
             ]
-            del self.process_store[uuid]
+            del self.process_store[proc_uuid]
 
         pil = ProcessInstanceList(
             values=ret
@@ -135,7 +131,7 @@ class SSHProcessManager(ProcessManager):
 
 
     def _terminate_impl(self) -> ProcessInstanceList:
-        self.log.info(f'Terminating')
+        self.log.info('Terminating')
         if self.process_store:
             self.log.info('Killing all the known processes before exiting')
             uuids = [uuid for uuid, process in self.process_store.items()]
@@ -337,10 +333,10 @@ class SSHProcessManager(ProcessManager):
         self.log.debug(f'{self.name} running ps')
         ret = []
 
-        for uuid in self._get_process_uid(query):
+        for proc_uuid in self._get_process_uid(query):
 
-            if uuid not in self.process_store:
-                pu = ProcessUUID(uuid=uuid)
+            if proc_uuid not in self.process_store:
+                pu = ProcessUUID(uuid=proc_uuid)
                 pi = ProcessInstance(
                     process_description = ProcessDescription(),
                     process_restriction = ProcessRestriction(),
@@ -351,21 +347,21 @@ class SSHProcessManager(ProcessManager):
                 ret += [pi]
                 continue
             pd = ProcessDescription()
-            pd.CopyFrom(self.boot_request[uuid].process_description)
+            pd.CopyFrom(self.boot_request[proc_uuid].process_description)
             pr = ProcessRestriction()
-            pr.CopyFrom(self.boot_request[uuid].process_restriction)
-            pu = ProcessUUID(uuid=uuid)
+            pr.CopyFrom(self.boot_request[proc_uuid].process_restriction)
+            pu = ProcessUUID(uuid=proc_uuid)
             return_code = None
-            if not self.process_store[uuid].is_alive():
+            if not self.process_store[proc_uuid].is_alive():
                 try:
-                    return_code = self.process_store[uuid].exit_code
+                    return_code = self.process_store[proc_uuid].exit_code
                 except Exception:
                     pass
 
             pi = ProcessInstance(
                 process_description = pd,
                 process_restriction = pr,
-                status_code = ProcessInstance.StatusCode.RUNNING if self.process_store[uuid].is_alive() else ProcessInstance.StatusCode.DEAD,
+                status_code = ProcessInstance.StatusCode.RUNNING if self.process_store[proc_uuid].is_alive() else ProcessInstance.StatusCode.DEAD,
                 return_code = return_code,
                 uuid = pu
             )

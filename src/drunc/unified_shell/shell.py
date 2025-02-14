@@ -17,13 +17,12 @@ from drunc.exceptions import DruncSetupException
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.utils import convert_fsm_transition
 from drunc.process_manager.configuration import get_process_manager_configuration
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 from drunc.process_manager.interface.commands import dummy_boot, flush, kill, logs, ps, restart, terminate
 from drunc.process_manager.interface.process_manager import run_pm
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.unified_shell.commands import boot
 from drunc.utils.configuration import find_configuration, OKSKey, parse_conf_url
-from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, pid_info_str, setup_root_logger, setup_standard_loggers, validate_command_facility
+from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, pid_info_str, setup_root_logger, setup_standard_loggers
 
 import conffwk
 
@@ -81,7 +80,7 @@ def unified_shell(
         override_log_file = internal_pm,
         rich_handler = True
     )
-    process_manager_log.debug(f"Set up [green]process_manager[/green] logger")
+    process_manager_log.debug("Set up [green]process_manager[/green] logger")
     unified_shell_log.info(f'Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session "{session_name}"[/green] from [green]{boot_configuration}[/green]')
 
     if internal_pm: 
@@ -107,7 +106,7 @@ def unified_shell(
             },
         )
         ctx.obj.pm_process.start()
-        unified_shell_log.debug(f'[green]process_manager[/green] started')
+        unified_shell_log.debug('[green]process_manager[/green] started')
 
         for _ in range(100):
             if ready_event.is_set():

@@ -6,11 +6,10 @@ from rich.panel import Panel
 from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
 from drunc.process_manager.utils import tabulate_process_instance_list
-from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import InterruptedCommand
 from drunc.utils.utils import run_coroutine, log_levels, get_logger
 
-from druncschema.process_manager_pb2 import LogRequest, LogLine, ProcessQuery, ProcessInstanceList
+from druncschema.process_manager_pb2 import LogRequest, ProcessQuery
 
 
 @click.command('boot')
@@ -49,7 +48,7 @@ async def boot(
     if controller_address:
         obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center') # rich tables require console printing
     else:
-        log.error(f'Could not understand where the controller is! You can look at the logs of the controller to see its address')
+        log.error('Could not understand where the controller is! You can look at the logs of the controller to see its address')
         return
 
 @click.command('dummy_boot')
@@ -154,7 +153,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
             line = line.replace(grep, f'[u]{grep}[/]')
 
         obj.print(line)
-    obj.rule(f'End')
+    obj.rule('End')
 
 
 @click.command('restart')
@@ -164,7 +163,7 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
     log = get_logger("process_manager.shell")
     log.debug(f"Restarting with query {query}")
-    result = await obj.get_driver('process_manager').restart(query = query)
+    await obj.get_driver('process_manager').restart(query = query)
 
 
 @click.command('ps')

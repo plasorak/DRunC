@@ -1,5 +1,4 @@
 import os
-import shutil
 
 from drunc.fsm.core import FSMAction
 from drunc.utils.configuration import find_configuration

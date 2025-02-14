@@ -9,12 +9,11 @@ from rich.table import Table
 import time
 
 from drunc.controller.exceptions import MalformedCommand
-from drunc.controller.interface.context import ControllerContext
 from drunc.exceptions import DruncSetupException, DruncShellException
 from drunc.utils.grpc_utils import pack_to_any, ServerUnreachable, unpack_any
 from drunc.utils.shell_utils import DecodedResponse
 
-from druncschema.controller_pb2 import Argument, FSMCommand, FSMCommandDescription, FSMCommandsDescription, FSMCommandResponse, FSMResponseFlag, Status
+from druncschema.controller_pb2 import Argument, FSMCommand, FSMCommandDescription, FSMResponseFlag, Status
 from druncschema.generic_pb2 import bool_msg, float_msg, int_msg, string_msg
 from druncschema.request_response_pb2 import Description, ResponseFlag
 
@@ -57,7 +56,6 @@ def tree_prefix(i, n):
     first_many = "├── "
     next = "├── "
     last = "└── "
-    first_column = ''
     if i==0 and n == 1:
         return first_one
     elif i==0:

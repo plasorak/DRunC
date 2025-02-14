@@ -1,10 +1,8 @@
 import multiprocessing
-import os
-import signal
 import threading
 import time
 import traceback
-from typing import List, Optional
+from typing import Optional
 
 from drunc.authoriser.configuration import DummyAuthoriserConfHandler
 from drunc.authoriser.decorators import authentified_and_authorised
@@ -13,10 +11,9 @@ from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.broadcast.server.configuration import BroadcastSenderConfHandler
 from drunc.broadcast.server.decorators import broadcasted
 from drunc.connectivity_service.client import ConnectivityServiceClient
-from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.children_interface.rest_api_child import ResponseListener
 from drunc.controller.decorators import in_control
-from drunc.controller.exceptions import CannotSurrenderControl, OtherUserAlreadyInControl
+from drunc.controller.exceptions import CannotSurrenderControl
 from drunc.controller.stateful_node import StatefulNode
 from drunc.controller.utils import get_detector_name, get_status_message
 from drunc.exceptions import DruncException
@@ -29,8 +26,8 @@ from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2 import FSMCommand, FSMCommandResponse, FSMResponseFlag, Status
 from druncschema.controller_pb2_grpc import ControllerServicer
-from druncschema.generic_pb2 import PlainText, PlainTextVector, Stacktrace
-from druncschema.request_response_pb2 import CommandDescription, Description, Request, Response, ResponseFlag
+from druncschema.generic_pb2 import PlainText, Stacktrace
+from druncschema.request_response_pb2 import CommandDescription, Description, Response, ResponseFlag
 from druncschema.token_pb2 import Token
 
 

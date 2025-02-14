@@ -2,17 +2,14 @@ import asyncio
 import click
 import getpass
 import grpc
-import logging
-import os
-import signal
 import socket
 
 from drunc.exceptions import DruncSetupException
 from drunc.process_manager.configuration import get_process_manager_configuration, ProcessManagerConfHandler
 from drunc.process_manager.process_manager import ProcessManager
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
-from drunc.utils.configuration import parse_conf_url, OKSKey
-from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, parent_death_pact, setup_root_logger
+from drunc.utils.configuration import parse_conf_url
+from drunc.utils.utils import get_logger, log_levels, parent_death_pact, setup_root_logger
 
 from druncschema.process_manager_pb2_grpc import add_ProcessManagerServicer_to_server
 
@@ -70,7 +67,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
 
         await server.start()
         hostname = socket.gethostname()
-        log.info(f'process_manager communicating through address [bold green]{hostname}:{port}[/bold green]') # bold as part of the address was already formatting, couldn't figure out why
+        process_manager_logger.info(f'process_manager communicating through address [bold green]{hostname}:{port}[/bold green]') # bold as part of the address was already formatting, couldn't figure out why
 
         async def server_shutdown():
             log.warning("Starting shutdown...")
@@ -91,7 +88,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         loop.run_until_complete(
             serve(pm_address)
         )
-    except Exception:
+    except Exception as e:
         log.error("Serving the ProcessManager received an Exception")
         log.exception(e)
     finally:

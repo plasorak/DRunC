@@ -10,9 +10,9 @@ from drunc.exceptions import DruncSetupException, DruncShellException, DruncServ
 from drunc.utils.grpc_utils import rethrow_if_unreachable_server, unpack_any
 from drunc.utils.utils import get_logger, print_traceback, setup_root_logger
 
-from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
+from druncschema.generic_pb2 import Stacktrace, PlainText
 from druncschema.token_pb2 import Token
-from druncschema.request_response_pb2 import Request, ResponseFlag, Response
+from druncschema.request_response_pb2 import Request, ResponseFlag
 
 
 class InterruptedCommand(DruncShellException):
@@ -272,7 +272,7 @@ class ShellContext:
             return list(self._drivers.values())[0]
         except KeyError:
             log = get_logger("utils.ShellContext")
-            log.exception(f'Controller-specific commands cannot be sent until the session is booted')
+            log.exception('Controller-specific commands cannot be sent until the session is booted')
             raise SystemExit(1) # used to avoid having to catch multiple Attribute errors when this function gets called
 
     def delete_driver(self, name: str) -> None:

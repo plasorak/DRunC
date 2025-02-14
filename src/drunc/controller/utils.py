@@ -3,13 +3,12 @@ import grpc
 from grpc_status import rpc_status
 
 from drunc.controller.stateful_node import StatefulNode
-from drunc.utils.grpc_utils import pack_to_any, rethrow_if_unreachable_server, unpack_any
+from drunc.utils.grpc_utils import rethrow_if_unreachable_server, unpack_any
 from drunc.utils.utils import get_logger
 
 from druncschema.controller_pb2 import Status
 from druncschema.generic_pb2 import PlainText, Stacktrace
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
-from druncschema.token_pb2 import Token
+from druncschema.request_response_pb2 import Request
 
 
 def get_status_message(stateful:StatefulNode):

@@ -1,12 +1,10 @@
-import json
-import os
 import requests
 
 from drunc.fsm.actions.utils import get_dotdrunc_json
 from drunc.fsm.core import FSMAction
 from drunc.fsm.exceptions import CannotSendElisaMessage, DotDruncJsonIncorrectFormat
 from drunc.utils.configuration import find_configuration
-from drunc.utils.utils import expand_path, get_logger
+from drunc.utils.utils import get_logger
 
 
 class ElisaLogbook(FSMAction):
@@ -25,7 +23,7 @@ class ElisaLogbook(FSMAction):
                 self.API_USER   = ec["user"]
                 self.API_PASS   = ec["password"]
             except KeyError as exc:
-                raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'elisa_configuration\' section, or the entire \'elisa_configuration\' section') from exc
+                raise DotDruncJsonIncorrectFormat('Malformed ~/.drunc.json, missing a key in the \'elisa_configuration\' section, or the entire \'elisa_configuration\' section') from exc
 
             if len(configuration.parameters)>0:
                 self.log.error(f"You need to update your ~/.drunc.json: you have specified an ELisA logbook ({configuration.parameters[0].value}) in your configuration, but your current ~/.drunc.json doesn't support this (if you run with this, you will get ELisA logging on whichever you have specified in your ~/.drunc.json). Contact Pierre Lasorak for help.")
@@ -80,13 +78,13 @@ class ElisaLogbook(FSMAction):
             response = r.json()
             self.thread_id = response['thread_id']
             self.log.info(f"ELisA logbook: Sent message (ID{self.thread_id})")
-        except requests.HTTPError as exc:
+        except requests.HTTPError:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
-        except requests.ConnectionError as exc:
+        except requests.ConnectionError:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
-        except requests.Timeout as exc:
+        except requests.Timeout:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
 
@@ -108,13 +106,13 @@ class ElisaLogbook(FSMAction):
             r.raise_for_status()
             response = r.json()
             self.log.info(f"ELisA logbook: Sent message (ID{response['thread_id']})")
-        except requests.HTTPError as exc:
+        except requests.HTTPError:
             error = f"of HTTP Error (maybe failed auth, maybe ill-formed post message, ...) using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
-        except requests.ConnectionError as exc:
+        except requests.ConnectionError:
             error = f"connection to {self.API_SOCKET} wasn't successful using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
-        except requests.Timeout as exc:
+        except requests.Timeout:
             error = f"connection to {self.API_SOCKET} timed out using {__name__}"
             self.log.warning(CannotSendElisaMessage(error).message)
 

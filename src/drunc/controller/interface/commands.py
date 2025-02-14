@@ -1,10 +1,8 @@
 import click
-from rich.table import Table
 from time import sleep
 
 from drunc.controller.interface.context import ControllerContext
 from drunc.controller.interface.shell_utils import controller_setup, print_status_table
-from drunc.exceptions import DruncException
 from drunc.utils.utils import get_logger
 from druncschema.controller_pb2 import FSMCommand
 

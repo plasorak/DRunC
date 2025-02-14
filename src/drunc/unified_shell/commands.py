@@ -3,7 +3,6 @@ import getpass
 
 from drunc.controller.interface.shell_utils import controller_setup
 from drunc.process_manager.interface.context import ProcessManagerContext
-from drunc.process_manager.interface.cli_argument import validate_conf_string
 from drunc.utils.shell_utils import InterruptedCommand
 from drunc.utils.utils import run_coroutine, log_levels, get_logger
 
@@ -52,7 +51,7 @@ async def boot(
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
         log.debug(f'Controller endpoint is \'{controller_address}\'')
-        log.debug(f'Connecting the unified_shell to the controller endpoint')
+        log.debug('Connecting the unified_shell to the controller endpoint')
         obj.set_controller_driver(controller_address)
         controller_setup(obj, controller_address)
 

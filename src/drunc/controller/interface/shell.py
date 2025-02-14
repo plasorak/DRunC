@@ -3,7 +3,6 @@ import click_shell
 import getpass
 import os
 
-from drunc.controller.interface.context import ControllerContext
 from drunc.controller.interface.shell_utils import controller_cleanup_wrapper, controller_setup, generate_fsm_command
 from drunc.utils.grpc_utils import ServerUnreachable
 from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_root_logger, validate_command_facility
@@ -29,7 +28,7 @@ def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     try:
         desc = controller_setup(ctx.obj, controller_address)
     except ServerUnreachable as e:
-        controller_shell_log.critical(f'Could not connect to the controller')
+        controller_shell_log.critical('Could not connect to the controller')
         controller_shell_log.exception(e) # TODO: Keep this for dev branch, remove it for production branch
         # controller_shell_log.error(e.message) # TODO: Keep this for production branch, remove this from dev branch
         exit(1)

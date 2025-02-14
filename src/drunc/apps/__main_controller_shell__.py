@@ -12,7 +12,7 @@ def main() -> None:
     except Exception as e:
         setup_root_logger("ERROR")
         log = get_logger("unified_shell_app", rich_handler = True)
-        log.error(f"[red bold]:fire::fire: Exception thrown :fire::fire:")
+        log.error("[red bold]:fire::fire: Exception thrown :fire::fire:")
         log.exception(e)
         exit(1)
 

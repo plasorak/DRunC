@@ -4,7 +4,6 @@ import click_shell
 import getpass
 import os
 
-from drunc.process_manager.interface.context import ProcessManagerContext
 from drunc.process_manager.interface.commands import boot, dummy_boot, flush, kill, logs, ps, restart, terminate
 from drunc.utils.grpc_utils import ServerUnreachable
 from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_root_logger, setup_standard_loggers, validate_command_facility
@@ -28,7 +27,7 @@ def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> No
             logger_name="process_manager.shell",
             rich_handler=True
         )
-        process_manager_shell_log.critical(f'Could not connect to the process manager')
+        process_manager_shell_log.critical('Could not connect to the process manager')
         process_manager_shell_log.exception(e) # TODO: Keep this for dev branch, remove it for production branch
         # process_manager_shell_log.error(e.message) # TODO: Keep this for production branch, remove this from dev branch
         exit(1)

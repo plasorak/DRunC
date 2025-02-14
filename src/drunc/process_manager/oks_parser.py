@@ -1,9 +1,8 @@
 import os
-import sys
-from typing import Any, Dict, List
+from typing import Dict, List
 
 from drunc.exceptions import DruncException
-from drunc.process_manager.configuration import get_cla, ProcessManagerConfHandler
+from drunc.process_manager.configuration import get_cla
 from drunc.utils.utils import get_logger
 
 import confmodel
