@@ -725,6 +725,32 @@ class Controller(ControllerServicer):
         )
 
 
+    # ORDER MATTERS!
+    @broadcasted # outer most wrapper 1st step
+    @authentified_and_authorised(
+        action=ActionType.EXPERT,
+        system=SystemType.CONTROLLER
+    ) # 2nd step
+    @in_control
+    @unpack_request_data_to(PlainText, pass_token=True) # 3rd step
+    def execute_expert_command(self, command:PlainText, token:Token) -> Response:
+
+        children_expert_command_response = self.propagate_to_list(
+            'execute_expert_command',
+            command_data = command,
+            token = token,
+            node_to_execute = self.children_nodes
+        )
+
+        return Response (
+            name = self.name,
+            token = token,
+            data = pack_to_any(PlainText(text = f'{self.name} propagated expert command')),
+            flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+            children = children_expert_command_response,
+        )
+
+
 
     ##########################################
     ############# Actor commands #############

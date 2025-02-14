@@ -162,7 +162,9 @@ class ClientSideChild(ChildNode):
 
         # here lies the mother of all the problems
         if command == 'execute_fsm_command':
-            return self.propagate_fsm_command(command, data, token)
+            return self.propagate_fsm_command(data, token)
+        elif command == 'execute_expert_command':
+            return self.propagate_expert_command(data, token)
         elif command == 'describe':
             return self.describe(token)
         else:
@@ -175,8 +177,16 @@ class ClientSideChild(ChildNode):
                 children = []
             )
 
+    def propagate_expert_command(self, data, token:Token) -> Response:
+        return Response(
+            name = self.name,
+            token = token,
+            data = None,
+            flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
+            children = []
+        )
 
-    def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
+    def propagate_fsm_command(self, data, token:Token) -> Response:
         from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)

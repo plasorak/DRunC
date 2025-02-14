@@ -1,6 +1,7 @@
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
-from drunc.exceptions import DruncSetupException
+from drunc.exceptions import DruncSetupException, DruncException
+from drunc.controller.exceptions import ExpertCommandException
 from drunc.utils.utils import ControlType
 from drunc.utils.grpc_utils import pack_to_any
 from druncschema.controller_pb2 import Status
@@ -11,6 +12,8 @@ from druncschema.token_pb2 import Token
 import threading
 from typing import NoReturn
 import os
+import json
+
 
 class ResponseDispatcher(threading.Thread):
 
@@ -392,88 +395,93 @@ class RESTAPIChildNode(ClientSideChild):
     def __str__(self):
         return f'\'{self.name}@{self.app_host}:{self.app_port}\' (type {self.node_type})'
 
-    # def terminate(self):
-    #     pass
 
     def get_endpoint(self):
         return f'rest://{self.app_host}:{self.app_port}'
 
-    # def get_status(self, token):
 
-    #     status = Status(
-    #         state = self.state.get_operational_state(),
-    #         sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',
-    #         in_error = self.state.in_error() or not self.commander.ping(), # meh
-    #         included = self.state.included(),
-    #     )
-    #     return Response(
-    #         name = self.name,
-    #         token = None,
-    #         data = pack_to_any(status),
-    #         flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-    #         children = [],
-    #     )
+    def propagate_expert_command(self, data, token:Token) -> Response:
+        data_dict = json.loads(data.text)
+        example = json.dumps(
+            {
+                "data": {
+                    "modules": [
+                        {
+                            "data": {
+                                "duration": 100
+                            },
+                            "match": ""
+                        }
+                    ]
+                },
+                "entry_state": "RUNNING",
+                "exit_state": "RUNNING",
+                "id": "record"
+            },
+            indent=4
+        )
 
-    # def propagate_command(self, command:str, data, token:Token) -> Response:
-    #     if command == 'exclude':
-    #         self.state.exclude()
-    #         return Response(
-    #             name = self.name,
-    #             token = token,
-    #             data = pack_to_any(
-    #                 PlainText(
-    #                     text=f"\'{self.name}\' excluded"
-    #                 )
-    #             ),
-    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-    #             children = []
-    #         )
-    #     elif command == 'include':
-    #         self.state.include()
-    #         return Response(
-    #             name = self.name,
-    #             token = token,
-    #             data = pack_to_any(
-    #                 PlainText(
-    #                     text=f"\'{self.name}\' included"
-    #                 )
-    #             ),
-    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-    #             children = []
-    #         )
+        if 'id' not in data_dict or 'data' not in data_dict or 'entry_state' not in data_dict or 'exit_state' not in data_dict:
+            raise ExpertCommandException(f"Invalid format for expert command: format should be: {example}, you provided {data.text}")
 
-    #     if self.state.excluded():
-    #         return Response(
-    #             name = self.name,
-    #             token = token,
-    #             data = pack_to_any(
-    #                 FSMCommandResponse(
-    #                     flag = FSMResponseFlag.FSM_NOT_EXECUTED_EXCLUDED,
-    #                     command_name = data.command_name,
-    #                     data = None
-    #                 )
-    #             ),
-    #             flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
-    #             children = []
-    #         )
+        command_name = data_dict['id']
+        cmd_data = data_dict['data']
+        entry_state = data_dict['entry_state'].upper()
+        exit_state = data_dict['exit_state'].upper()
 
-    #     # here lies the mother of all the problems
-    #     if command == 'execute_fsm_command':
-    #         return self.propagate_fsm_command(command, data, token)
-    #     elif command == 'describe':
-    #         return self.describe(token)
-    #     else:
-    #         self.log.info(f'Ignoring command \'{command}\' sent to \'{self.name}\'')
-    #         return Response(
-    #             name = self.name,
-    #             token = token,
-    #             data = None,
-    #             flag = ResponseFlag.NOT_EXECUTED_NOT_IMPLEMENTED,
-    #             children = []
-    #         )
+        if entry_state != exit_state:
+            raise ExpertCommandException(f'\'entry_state\' and \'exit_state\' must be the same, provided entry_state=\'{data_dict["entry_state"]}\' and exit_state=\'{data_dict["exit_state"]}\'')
 
-    def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
-        from drunc.exceptions import DruncException
+        current_state = self.state.get_operational_state().upper()
+
+        if entry_state not in [current_state, 'ANY', 'ALL', '', '.*']:
+            raise ExpertCommandException(f'Invalid \'entry_state\', according to the command the system should be \'{data_dict["entry_state"]}\', application is in state \'{current_state}\'')
+
+        self.log.info(f'Sending \'{command_name}\' to \'{self.name}\'')
+
+        try:
+            self.commander.send_command(
+                cmd_id = command_name,
+                cmd_data = cmd_data,
+                entry_state = entry_state,
+                exit_state = exit_state,
+            )
+            self.log.debug(f'Sent \'{command_name}\' to \'{self.name}\'')
+            r = self.commander.check_response(150)
+
+            self.log.debug(f'Got response from \'{command_name}\' to \'{self.name}\'')
+
+            success = r['success']
+
+            response_data = PlainText(
+                text = json.dumps(r)
+            )
+
+            response = Response(
+                name = self.name,
+                token = token,
+                data = pack_to_any(response_data),
+                flag = ResponseFlag.EXECUTED_SUCCESSFULLY,
+                children = {}
+            )
+
+            if not success:
+                self.log.error(r['result'])
+                self.state.to_error()
+                response.flag = ResponseFlag.EXECUTED_SUCCESSFULLY # /!\ The command executed successfully, but the FSM command was not successful
+                return response
+
+        except Exception as e: # OK, we catch all exceptions here, but that's because REST-API are stateless, and we so we need to put the application in error.
+            self.log.error(f'Got error from \'{command_name}\' to \'{self.name}\': {str(e)}')
+            self.state.to_error()
+            from drunc.utils.utils import print_traceback # for good measure, since I'm not sure the stack will be printed in propagate_to_child in the controller
+            print_traceback()
+            raise e
+
+        return response
+
+
+    def propagate_fsm_command(self, data, token:Token) -> Response:
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)
