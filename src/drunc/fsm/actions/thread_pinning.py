@@ -1,11 +1,16 @@
-from drunc.fsm.core import FSMAction
-from drunc.utils.configuration import find_configuration
-from drunc.fsm.exceptions import ThreadPinningFailed
+import getpass
+from os import environ
+from sh import Command, ErrorReturnCode
+
 from drunc.exceptions import DruncSetupException
+from drunc.fsm.core import FSMAction
+from drunc.fsm.exceptions import ThreadPinningFailed
+from drunc.process_manager.oks_parser import collect_apps
+from drunc.process_manager.utils import get_rte_script
+from drunc.utils.configuration import find_configuration
+from drunc.utils.utils import get_logger
 
 import conffwk
-import getpass
-from sh import ssh, ErrorReturnCode, Command
 
 
 class ThreadPinning(FSMAction):
@@ -13,16 +18,12 @@ class ThreadPinning(FSMAction):
         super().__init__(
             name = "thread-pinning"
         )
-        import logging
-        self.log = logging.getLogger("thread-pinning")
+        self.log = get_logger("controller.thread-pinning")
         self.conf_dict = {p.name: p.value for p in configuration.parameters}
 
     def pin_thread(self, thread_pinning_file, configuration, session):
-        from drunc.process_manager.oks_parser import collect_apps
         db = conffwk.Configuration(f"oksconflibs:{configuration}")
         session_dal = db.get_dal(class_name="Session", uid=session)
-
-        from os import environ
 
         apps = collect_apps(db, session_dal, session_dal.segment, environ)
 
@@ -30,7 +31,6 @@ class ThreadPinning(FSMAction):
             rte = session_dal.rte_script
 
         else:
-            from drunc.process_manager.utils import get_rte_script
             rte_script = get_rte_script()
             if not rte_script:
                 raise DruncSetupException("No RTE script found.")

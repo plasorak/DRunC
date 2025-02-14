@@ -7,3 +7,5 @@ venv/
 build
 .DS_Store
 log*
+.nfs*
+info.*.json

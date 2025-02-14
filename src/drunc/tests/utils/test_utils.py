@@ -1,5 +1,5 @@
 import pytest
-
+import logging
 
 def test_get_random_string():
     from drunc.utils.utils import get_random_string
@@ -27,42 +27,42 @@ def test_print_traceback(capsys):
     from drunc.utils.utils import print_traceback
     try:
         raise ValueError("Test error")
-    except ValueError:
-        print_traceback()
+    except ValueError as e:
+        print_traceback(e)
     captured = capsys.readouterr()
     assert "ValueError" in captured.out
     assert "Test error" in captured.out
 
 
 def test_setup_logger(caplog):
-    from drunc.utils.utils import setup_logger
-    import logging
-    setup_logger("DEBUG")
-    assert logging.getLogger('drunc').getEffectiveLevel() == logging.DEBUG
-    assert logging.getLogger("drunc.tester0").getEffectiveLevel() == logging.DEBUG
+    from drunc.utils.utils import setup_root_logger, get_logger
+    
+    drunc_root_logger = setup_root_logger("DEBUG")
+    assert drunc_root_logger.getEffectiveLevel() == logging.DEBUG
+    assert get_logger("tester0").getEffectiveLevel() == logging.DEBUG
 
-    setup_logger("INFO")
-    assert logging.getLogger('drunc').getEffectiveLevel() == logging.INFO
-    assert logging.getLogger("drunc.tester1").getEffectiveLevel() == logging.INFO
+    drunc_root_logger.setLevel("INFO")
+    assert drunc_root_logger.getEffectiveLevel() == logging.INFO
+    assert get_logger("drunc.tester1").getEffectiveLevel() == logging.INFO
 
-    setup_logger("WARNING")
-    assert logging.getLogger('drunc').getEffectiveLevel() == logging.WARNING
-    assert logging.getLogger("drunc.tester2").getEffectiveLevel() == logging.WARNING
+    setup_root_logger.setLevel("WARNING")
+    assert drunc_root_logger.getEffectiveLevel() == logging.WARNING
+    assert get_logger("tester2").getEffectiveLevel() == logging.WARNING
 
-    setup_logger("ERROR")
-    assert logging.getLogger('drunc').getEffectiveLevel() == logging.ERROR
-    assert logging.getLogger("drunc.tester3").getEffectiveLevel() == logging.ERROR
+    setup_root_logger.setLevel("ERROR")
+    assert drunc_root_logger.getEffectiveLevel() == logging.ERROR
+    assert get_logger("tester3").getEffectiveLevel() == logging.ERROR
 
-    setup_logger("CRITICAL")
-    assert logging.getLogger('drunc').getEffectiveLevel() == logging.CRITICAL
-    assert logging.getLogger("drunc.tester4").getEffectiveLevel() == logging.CRITICAL
+    setup_root_logger.setLevel("CRITICAL")
+    assert drunc_root_logger.getEffectiveLevel() == logging.CRITICAL
+    assert get_logger("tester4").getEffectiveLevel() == logging.CRITICAL
 
     import tempfile
     with tempfile.TemporaryDirectory() as temp_dir:
         log_path = temp_dir+"/test.log"
 
-        setup_logger("CRITICAL", log_path=log_path)
-        logger = logging.getLogger("drunc.tester5")
+        setup_root_logger("CRITICAL", log_path=log_path)
+        logger = get_logger("tester5")
         logger.debug   ("invisible")
         logger.info    ("invisible")
         logger.warning ("invisible")

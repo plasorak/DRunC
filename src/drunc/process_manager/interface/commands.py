@@ -1,13 +1,16 @@
 import click
 import getpass
-import logging
+from rich.markup import escape
+from rich.panel import Panel
 
-from drunc.utils.utils import run_coroutine, log_levels
-from drunc.process_manager.interface.cli_argument import add_query_options
+from drunc.process_manager.interface.cli_argument import add_query_options, validate_conf_string
 from drunc.process_manager.interface.context import ProcessManagerContext
+from drunc.process_manager.utils import tabulate_process_instance_list
+from drunc.utils.shell_utils import InterruptedCommand
+from drunc.utils.utils import run_coroutine, log_levels, get_logger
 
-from druncschema.process_manager_pb2 import ProcessQuery
-from drunc.process_manager.interface.cli_argument import validate_conf_string
+from druncschema.process_manager_pb2 import LogRequest, ProcessQuery
+
 
 @click.command('boot')
 @click.option('-u','--user', type=str, default=getpass.getuser(), help='Select the process of a particular user (default $USER)')
@@ -25,8 +28,8 @@ async def boot(
     log_level:str,
     override_logs:bool,
     ) -> None:
-    log = logging.getLogger("process_manager_interface")
-    from drunc.utils.shell_utils import InterruptedCommand
+    log = get_logger("process_manager.shell")
+    log.debug(f"Booting session {session_name} with boot configuration {boot_configuration}, requested by user {user}")
     try:
         results = obj.get_driver('process_manager').boot(
             conf = boot_configuration,
@@ -41,13 +44,11 @@ async def boot(
     except InterruptedCommand:
         return
 
-
     controller_address = obj.get_driver('process_manager').controller_address
     if controller_address:
-        from rich.panel import Panel
-        obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center')
+        obj.print(Panel(f"Controller endpoint: '{controller_address}', point your 'drunc-controller-shell' to it.", padding=(2,6), style='violet', border_style='violet'), justify='center') # rich tables require console printing
     else:
-        obj.error('Could not understand where the controller is! You can look at the logs of the controller to see its address')
+        log.error('Could not understand where the controller is! You can look at the logs of the controller to see its address')
         return
 
 @click.command('dummy_boot')
@@ -59,8 +60,8 @@ async def boot(
 @click.pass_obj
 @run_coroutine
 async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep:int, n_sleeps:int, session_name:str) -> None:
-    log = logging.getLogger("process_manager_interface")
-    from drunc.utils.shell_utils import InterruptedCommand
+    log = get_logger("process_manager.shell")
+    log.debug(f"Running dummy_boot with {n_processes} processes for {sleep} seconds {n_sleeps} times, requested by user {user}")
     try:
         results = obj.get_driver('process_manager').dummy_boot(
             user = user,
@@ -80,11 +81,11 @@ async def dummy_boot(obj:ProcessManagerContext, user:str, n_processes:int, sleep
 @click.pass_obj
 @run_coroutine
 async def terminate(obj:ProcessManagerContext) -> None:
+    log = get_logger("process_manager.shell")
+    log.debug("Terminating")
     result = await obj.get_driver('process_manager').terminate()
     if not result: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
-    obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Terminated process', False)) # rich tables require console printing
 
     obj.delete_driver('controller')
 
@@ -93,14 +94,11 @@ async def terminate(obj:ProcessManagerContext) -> None:
 @click.pass_obj
 @run_coroutine
 async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
-    result = await obj.get_driver('process_manager').kill(
-        query = query,
-    )
-
+    log = get_logger("process_manager.shell")
+    log.debug(f"Killing with query {query}")
+    result = await obj.get_driver('process_manager').kill(query = query)
     if not result: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
-    obj.print(tabulate_process_instance_list(result.data, 'Killed process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Killed process', False)) # rich tables require console printing
 
     obj.delete_driver('controller')
 
@@ -109,14 +107,11 @@ async def kill(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
-    result = await obj.get_driver('process_manager').flush(
-        query = query,
-    )
-
+    log = get_logger("process_manager.shell")
+    log.debug(f"process_manager running flish with query {query}")
+    result = await obj.get_driver('process_manager').flush(query = query)
     if not result: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
-    obj.print(tabulate_process_instance_list(result.data, 'Flushed process', False))
+    obj.print(tabulate_process_instance_list(result.data, 'Flushed process', False)) # rich tables require console printing
 
 
 @click.command('logs')
@@ -126,19 +121,15 @@ async def flush(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQuery) -> None:
-    from druncschema.process_manager_pb2 import LogRequest
-
+    log = get_logger("process_manager.shell")
+    log.debug(f"Running logs with query {query}")
     log_req = LogRequest(
         how_far = how_far,
         query = query,
     )
 
     uuid = None
-    from rich.markup import escape
-
-    async for result in obj.get_driver('process_manager').logs(
-        log_req,
-        ):
+    async for result in obj.get_driver('process_manager').logs(log_req):
         if not result: break
 
         if uuid is None:
@@ -162,7 +153,6 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
             line = line.replace(grep, f'[u]{grep}[/]')
 
         obj.print(line)
-
     obj.rule('End')
 
 
@@ -171,9 +161,9 @@ async def logs(obj:ProcessManagerContext, how_far:int, grep:str, query:ProcessQu
 @click.pass_obj
 @run_coroutine
 async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
-    await obj.get_driver('process_manager').restart(
-        query = query,
-    )
+    log = get_logger("process_manager.shell")
+    log.debug(f"Restarting with query {query}")
+    await obj.get_driver('process_manager').restart(query = query)
 
 
 @click.command('ps')
@@ -182,13 +172,16 @@ async def restart(obj:ProcessManagerContext, query:ProcessQuery) -> None:
 @click.pass_obj
 @run_coroutine
 async def ps(obj:ProcessManagerContext, query:ProcessQuery, long_format:bool) -> None:
-    results = await obj.get_driver('process_manager').ps(
-        query=query,
-    )
-
+    log = get_logger("process_manager.shell")
+    log.debug(f"Running ps with query {query}")
+    results = await obj.get_driver('process_manager').ps(query=query)
     if not results: return
-
-    from drunc.process_manager.utils import tabulate_process_instance_list
-    obj.print(tabulate_process_instance_list(results.data, title='Processes running', long=long_format))
+    obj.print(
+        tabulate_process_instance_list(
+            results.data,
+            title='Processes running',
+            long=long_format
+        )
+    )
 
 

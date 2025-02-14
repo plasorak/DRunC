@@ -1,8 +1,11 @@
+from threading import Lock
+
 from drunc.controller.children_interface.child_node import ChildNode
-from drunc.utils.utils import ControlType
-from drunc.utils.grpc_utils import pack_to_any
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.core import FSM
+from drunc.utils.grpc_utils import pack_to_any
+from drunc.utils.utils import ControlType, get_logger
+
 from druncschema.controller_pb2 import Status
 from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
@@ -10,18 +13,14 @@ from druncschema.generic_pb2 import PlainText
 from druncschema.token_pb2 import Token
 
 
-
 class ClientSideState:
-
     def __init__(self, initial_state='initial'):
         # We'll wrap all these in a mutex for good measure
-        from threading import Lock
         self._state_lock = Lock()
         self._executing_command = False
         self._assumed_operational_state = initial_state
         self._included = True
         self._errored = False
-
 
     def executing_command_mark(self):
         with self._state_lock:
@@ -79,14 +78,9 @@ class ClientSideChild(ChildNode):
             node_type = node_type,
             configuration = configuration
         )
-
-        from logging import getLogger
-        self.log = getLogger(f'{name}-client-side')
-
+        self.log = get_logger(f'controller.{name}-client-side')
         self.state = ClientSideState()
-
         self.fsm_configuration = fsm_configuration
-
         if fsm_configuration:
             fsmch = FSMConfHandler(fsm_configuration)
             self.fsm = FSM(conf=fsmch)
@@ -101,7 +95,6 @@ class ClientSideChild(ChildNode):
         pass
 
     def get_status(self, token):
-
         status = Status(
             state = self.state.get_operational_state(),
             sub_state = 'idle' if not self.state.get_executing_command() else 'executing_cmd',

@@ -1,11 +1,17 @@
+from google.protobuf import any_pb2
+import grpc
+from grpc_status import rpc_status
+
 from drunc.controller.stateful_node import StatefulNode
+from drunc.utils.grpc_utils import rethrow_if_unreachable_server, unpack_any
+from drunc.utils.utils import get_logger
+
+from druncschema.controller_pb2 import Status
+from druncschema.generic_pb2 import PlainText, Stacktrace
 from druncschema.request_response_pb2 import Request
 
-import logging
-log = logging.getLogger('controller_utils')
 
 def get_status_message(stateful:StatefulNode):
-    from druncschema.controller_pb2 import Status
     state_string = stateful.get_node_operational_state()
     if state_string != stateful.get_node_operational_sub_state():
         state_string += f' ({stateful.get_node_operational_sub_state()})'
@@ -19,6 +25,7 @@ def get_status_message(stateful:StatefulNode):
 
 def get_detector_name(configuration) -> str:
     detector_name = None
+    log = get_logger("controller.get_detector_name")
     if hasattr(configuration.data, "contains") and len(configuration.data.contains) > 0:
         if len(configuration.data.contains) > 0:
             log.debug(f"Application {configuration.data.id} has multiple contains, using the first one")
@@ -28,11 +35,7 @@ def get_detector_name(configuration) -> str:
     return detector_name
 
 def send_command(controller, token, command:str, data=None, rethrow=False):
-    import grpc
-    from google.protobuf import any_pb2
-
-    import logging
-    log = logging.getLogger("send_command")
+    log = get_logger("controller.send_command")
 
     # Grab the command from the controller stub in the context
     # Add the token to the data (which can be of any protobuf type)
@@ -43,30 +46,20 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
 
     cmd = getattr(controller, command) # this throws if the command doesn't exist
 
-    request = Request(
-        token = token,
-    )
+    request = Request(token = token)
 
     try:
         if data:
             data_detail = any_pb2.Any()
             data_detail.Pack(data)
             request.data.CopyFrom(data_detail)
-
         log.debug(f'Sending: {command} to the controller, with {request=}')
-
         response = cmd(request)
+
     except grpc.RpcError as e:
-        from drunc.utils.grpc_utils import rethrow_if_unreachable_server
         rethrow_if_unreachable_server(e)
-
-        from grpc_status import rpc_status
         status = rpc_status.from_call(e)
-
         log.error(f'Error sending command "{command}" to controller')
-
-        from druncschema.generic_pb2 import Stacktrace, PlainText
-        from drunc.utils.grpc_utils import unpack_any
 
         if hasattr(status, 'message'):
             log.error(status.message)
@@ -79,10 +72,9 @@ def send_command(controller, token, command:str, data=None, rethrow=False):
                     stack = unpack_any(detail, Stacktrace)
                     for l in stack.text:
                         text += l+"\n"
-                    log.error(text, extra={"markup": True})
                 elif detail.Is(PlainText.DESCRIPTOR):
                     txt = unpack_any(detail, PlainText)
-                    log.error(txt)
+                log.error(txt)
 
         if rethrow:
             raise e

@@ -1,7 +1,8 @@
+import json
+
 from drunc.fsm.exceptions import DotDruncJsonNotFound, DotDruncJsonIncorrectFormat, InvalidRunType
 from drunc.utils.utils import expand_path
 
-import json
 
 def validate_run_type(run_type: str) -> str:
     """

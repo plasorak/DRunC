@@ -1,7 +1,11 @@
+import traceback
+
+from drunc.exceptions import DruncException
+from drunc.utils.grpc_utils import pack_to_any
+
 from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.generic_pb2 import Stacktrace
-from drunc.utils.grpc_utils import pack_to_any
-import traceback
+
 
 def broadcasted(cmd):
 
@@ -29,8 +33,7 @@ def broadcasted(cmd):
             ret = cmd(obj, request) # we strip the context here, no need for that anymore
 
         except Exception as e:
-            from drunc.utils.utils import print_traceback
-            print_traceback()
+            log.exception(e)
 
             stack = traceback.format_exc().split("\n")
             from drunc.exceptions import DruncException
@@ -81,9 +84,7 @@ def async_broadcasted(cmd):
 
         except Exception as e:
             stack = traceback.format_exc().split("\n")
-            from drunc.utils.utils import print_traceback
-            print_traceback()
-            from drunc.exceptions import DruncException
+            log.exception(e)
             flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
 
             yield Response(

@@ -1,12 +1,16 @@
 import abc
+import os
+
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
+from drunc.controller.utils import get_detector_name
 from drunc.exceptions import DruncSetupException
-from drunc.utils.utils import ControlType, get_control_type_and_uri_from_connectivity_service, get_control_type_and_uri_from_cli
-import logging
+from drunc.utils.configuration import ConfTypes
+from drunc.utils.utils import ControlType, get_control_type_and_uri_from_connectivity_service, get_control_type_and_uri_from_cli, get_logger
 from drunc.utils.grpc_utils import pack_to_any
+
 from druncschema.token_pb2 import Token
 from druncschema.request_response_pb2 import Response, ResponseFlag, Description
-import os
-from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
+
 
 class ChildInterfaceTechnologyUnknown(DruncSetupException):
     def __init__(self, t, name):
@@ -16,9 +20,8 @@ class ChildInterfaceTechnologyUnknown(DruncSetupException):
 class ChildNode(abc.ABC):
     def __init__(self, name:str, configuration, node_type:ControlType, **kwargs) -> None:
         super().__init__(**kwargs)
-
         self.node_type = node_type
-        self.log = logging.getLogger(f"{name}-child-node")
+        self.log = get_logger(f"controller.{name}-child-node")
         self.name = name
         self.configuration = configuration
 
@@ -27,11 +30,9 @@ class ChildNode(abc.ABC):
         pass
         return f'\'{self.name}@{self.uri}\' (type {self.node_type})'
 
-
     @abc.abstractmethod
     def terminate(self):
         pass
-
 
     @abc.abstractmethod
     def propagate_command(self, command, data, token):
@@ -57,7 +58,6 @@ class ChildNode(abc.ABC):
                 descriptionType = self.configuration.data.controller.application_name
                 descriptionName = self.configuration.data.controller.id
 
-        from drunc.controller.utils import get_detector_name
         d = Description(
             type = descriptionType,
             name = descriptionName,
@@ -80,10 +80,7 @@ class ChildNode(abc.ABC):
 
     @staticmethod
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
-
-        from drunc.utils.configuration import ConfTypes
-        log = logging.getLogger("ChildNode.get_child")
-
+        log = get_logger("controller.child_node")
         ctype = ControlType.Unknown
         uri = None
         node_in_error = False
@@ -121,7 +118,6 @@ class ChildNode(abc.ABC):
         match ctype:
             case ControlType.gRPC:
                 from drunc.controller.children_interface.grpc_child import gRPCChildNode, gRCPChildConfHandler
-
                 return gRPCChildNode(
                     configuration = gRCPChildConfHandler(configuration, ConfTypes.PyObject),
                     init_token = init_token,
@@ -130,10 +126,8 @@ class ChildNode(abc.ABC):
                     **kwargs,
                 )
 
-
             case ControlType.REST_API:
                 from drunc.controller.children_interface.rest_api_child import RESTAPIChildNode,RESTAPIChildNodeConfHandler
-
                 return RESTAPIChildNode(
                     configuration =  RESTAPIChildNodeConfHandler(configuration, ConfTypes.PyObject),
                     name = name,
@@ -144,14 +138,12 @@ class ChildNode(abc.ABC):
 
             case ControlType.Direct:
                 from drunc.controller.children_interface.client_side_child import ClientSideChild
-
                 node = ClientSideChild(
                     name = name,
                     **kwargs,
                 )
                 if node_in_error:
                     node.state.to_error()
-
                 return node
 
             case _:

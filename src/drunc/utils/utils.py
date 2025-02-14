@@ -1,8 +1,31 @@
-import logging
-from rich.theme import Theme
+import asyncio
+from click import BadParameter
+from contextlib import closing
+import ctypes
+from datetime import datetime
 from enum import Enum
-from drunc.connectivity_service.client import ConnectivityServiceClient
-from drunc.exceptions import DruncSetupException
+from functools import wraps
+import logging
+import kafka
+import os
+import pytz
+import random
+from rich.console import Console
+from rich.theme import Theme
+from rich.logging import RichHandler
+import re
+from requests import delete, get, patch, post
+import sh
+import signal
+import socket
+import string
+import sys
+import time
+from urllib.parse import urlparse
+
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
+from drunc.exceptions import DruncException, DruncSetupException
+
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 CONSOLE_THEMES = Theme({
@@ -19,118 +42,190 @@ log_levels = {
     'DEBUG'   : logging.DEBUG,
     'NOTSET'  : logging.NOTSET,
 }
+full_log_format = "%(asctime)s %(levelname)s %(filename)s %(name)s %(message)s" #TODO: for production, remove the filename
+rich_log_format = "%(filename)s %(name)s %(message)s" # TODO: for production, remove the filename
+date_time_format = "[%Y/%m/%d %H:%M:%S]" # TODO: include timezone as %Z when the RichHandler starts supporting it in the tty. If this is desired, a custom handler can be written that looks like the rich handler
+time_zone = pytz.utc
 
-def get_random_string(length):
-    import random
-    import string
-    letters = string.ascii_lowercase
-    return ''.join(random.choice(letters) for i in range(length))
+class LoggingFormatter(logging.Formatter):
+    def __init__(self, fmt=full_log_format, datefmt=date_time_format, tz=time_zone):
+        super().__init__(fmt, datefmt)
+        self.tz = tz
+        self.datefmt = datefmt
 
-def regex_match(regex, string):
-    import re
-    return re.match(regex, string) is not None
+    def formatTime(self, record, datefmt):
+        date_time = datetime.fromtimestamp(record.created, self.tz)
+        return date_time.strftime(self.datefmt)
 
-log_level = logging.INFO
+    def format(self, record):
+        record.asctime = self.formatTime(record, self.datefmt)
+        #TODO: for production, remove filename and lineno entries
+        component_width = 30 
+        file_lineno = f"{record.filename}:{record.lineno}"
+        record.filename = file_lineno.ljust(component_width)[:component_width]
+        component_width = 45
+        name_colon = f"{record.name}:"
+        record.name = name_colon.ljust(component_width)[:component_width]
+        component_width = 10
+        level_name = record.levelname
+        record.levelname = level_name.ljust(component_width)[:component_width]
+        return super().format(record)
 
-def print_traceback(with_rich:bool=True): # RETURNTOME - make this false
-    if with_rich:
-        from rich.console import Console
-        c = Console()
-        import os
-        try:
-            width = os.get_terminal_size()[0]
-        except:
-            width = 300
-        c.print_exception(width=width)
-    # else: # RETURNTOME
-    #     import sys
-    #     sys.traceback # FIX THISNOW
+def root_logger_is_setup(log_level:int) -> bool:
+    if "drunc" in logging.Logger.manager.loggerDict:
+        root_logger = logging.getLogger("drunc")
+        root_logger.debug("Root logger is already setup, not setting it up again")
+        if root_logger.level == log_levels["NOTSET"] and log_level != "NOTSET":
+            root_logger.setLevel(log_level)
+            for handler in root_logger.handlers:
+                handler.setLevel(log_level)
+            root_logger.debug(f'Root logger level updated from "NOTSET" to {logging.getLevelName(log_level)}')
+        return True
+    return False
 
-
-def setup_logger(log_level:str, log_path:str = None):
-    import os
-    if log_path and os.path.isfile(log_path):
-        os.remove(log_path)
-
+def setup_root_logger(log_level:str) -> None:
+    log_level = log_level.upper()
+    if log_level not in log_levels.keys():
+        raise DruncSetupException(f"Unrecognised log level, should be one of {log_levels.keys()}")
     log_level = log_levels[log_level]
-    # Update log level for root logger
-    logger = logging.getLogger('drunc')
-    logger.setLevel(log_level)
-    for handler in logger.handlers:
-        handler.setLevel(log_level)
+
+    if root_logger_is_setup(log_level):
+        return
+
+    root_logger = logging.getLogger("drunc")
+    root_logger.debug('Setting up root logger "drunc"')
+    root_logger.setLevel(log_level)
 
     # And then manually tweak 'sh.command' logger. Sigh.
-    import sh
     sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    sh_command_logger = logging.getLogger(sh.__name__)
+    sh_command_logger = logging.getLogger("drunc." + sh.__name__) # Not get_logger as the root logger is initially "UNSET" at context declaration
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
         handler.setLevel(sh_command_level)
 
     # And kafka
-    import kafka
     kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    kafka_command_logger = logging.getLogger(kafka.__name__)
+    kafka_command_logger = logging.getLogger("drunc." + kafka.__name__) # Not get_logger as the root logger is initially "UNSET" at context declaration
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
 
-    from rich.logging import RichHandler
-    from rich.console import Console
-    import os
-    try:
-        width = os.get_terminal_size()[0]
-    except:
-        width = 150
+def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool = False, rich_handler:bool = False):
+    logger_dict = logging.Logger.manager.loggerDict
+    if "drunc" not in logger_dict:
+        raise DruncSetupException("Required root logger 'drunc' has not been initialized")
+    if logger_name == "":
+        raise DruncSetupException("This was an attempt to set up the root logger `drunc`, need to run `setup_root_logger` first.")
+    if logger_name.split(".")[0] == "drunc":
+        raise DruncSetupException(f"get_logger adds the root logger prefix, it is not required for {logger_name}")
+    if override_log_file and not log_file_path:
+        raise DruncSetupException("Configuration error - a log_file_path must be provided if it is to be overwritten")
+    if logger_name.count(".") > 2:
+        raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
+    if logger_name == "process_manager" and 'drunc.process_manager' not in logger_dict:
+        if not log_file_path:
+            raise DruncSetupException("process_manager logger setup requires a log path.")
+        if not rich_handler:
+            raise DruncSetupException("process_manager logger requires a rich handler.")
 
-    logging.basicConfig(
-        level=log_level,
-        format="%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-        datefmt="[%X]",
-        handlers=[
-            #logging.StreamHandler(),
-            RichHandler(
-                console=Console(width=width),
-                rich_tracebacks=False,
-                show_path=False,
-                tracebacks_width=width
-            ) # Make this True, and everything crashes on exceptions (no clue why)
-        ]
-    )
-    if (log_path):
-        fileHandler = logging.FileHandler(filename = log_path)
-        fileHandler.setLevel(log_level)
-        fileHandlerFormatter = logging.Formatter(
-            fmt="%(asctime)s\t%(levelname)s\t%(filename)s:%(lineno)i\t%(name)s:\t%(message)s",
-            datefmt="[%X]"
-        )
-        fileHandler.setFormatter(fileHandlerFormatter)
+    function_logger = logging.getLogger("utils.get_logger")
+    if ("drunc." + logger_name) in logger_dict:
+        function_logger.debug("This logger has already been set up, returning the original")
+        logger = logging.getLogger("drunc." + logger_name)
+        return logger
+    if logger_name.count(".") == 2 and ("drunc." + logger_name.split(".")[0]) not in logger_dict:
+        function_logger.debug(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
+
+    logger_level = logging.getLogger("drunc").level
+    if not logger_level:
+        raise DruncSetupException(f"Root logger level not set (found level {logging.getLevelName(logger_level)})")
+
+    logger_name = 'drunc.' + logger_name
+    logger = logging.getLogger(logger_name)
+
+    if override_log_file and os.path.isfile(log_file_path):
+        os.remove(log_file_path)
+        function_logger.debug(f"Removed existing log file at {log_file_path}")
+    if log_file_path:
+        fileHandler = logging.FileHandler(filename = log_file_path)
+        fileHandler.setLevel(logger_level)
+        fileHandler.setFormatter(LoggingFormatter())
         logger.addHandler(fileHandler)
+        function_logger.debug(f"Added file handler to {logger_name}")
+
+    if any(isinstance(handler, RichHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
+        function_logger.debug(f"Logger {logger_name} already has an associated and usable RichHandler, skipping it")
+        stdHandler = None
+    elif rich_handler:
+        function_logger.debug(f"Assigning a RichHandler to logger {logger_name}")
+        try:
+            width = os.get_terminal_size()[0]
+        except:
+            width = 150
+        stdHandler = RichHandler(
+            console=Console(width=width),
+            omit_repeated_times=False,
+            markup=True,
+            rich_tracebacks=True,
+            show_path=False,
+            tracebacks_width=width
+        )
+        stdHandler.setFormatter(LoggingFormatter(fmt=rich_log_format))
+    elif any(isinstance(handler, logging.StreamHandler) for handler in [*logger.handlers, *logger.parent.handlers]):
+        function_logger.debug(f"Logger {logger_name} already has an associated and usable StreamHandler, skipping it")
+        stdHandler = None
+    else:
+        function_logger.debug(f"Assigning a StreamHandler to logger {logger_name}")
+        stdHandler = logging.StreamHandler()
+        stdHandler.setFormatter(LoggingFormatter())
+
+    if stdHandler:
+        stdHandler.setLevel(logger_level)
+        logger.addHandler(stdHandler)
+        function_logger.debug(f"Added appropriate stream handler to {logger_name}")
+
+    function_logger.debug(f"Finished setting up logger {logger_name}")
+    return logger
+
+def setup_standard_loggers() -> None:
+    get_logger(
+        logger_name="utils",
+        rich_handler=True
+    )
+
+def get_random_string(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
+
+def regex_match(regex, string):
+    return re.match(regex, string) is not None
+
+def print_traceback(e): # RETURNTOME - rename to print_console_traceback
+    log = get_logger(
+        logger_name="utils.traceback",
+        rich_handler=True
+    )
+    log.exception(e)
 
 def get_new_port():
-    import socket
-    from contextlib import closing
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
         s.bind(('', 0))
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         return s.getsockname()[1]
 
 def now_str(posix_friendly=False):
-    from datetime import datetime
     if not posix_friendly:
         return datetime.now().strftime("%m/%d/%Y,%H:%M:%S")
     else:
         return datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
 def run_coroutine(f):
-    from functools import wraps
-    import asyncio
     @wraps(f)
     def wrapper(*args, **kwargs):
         loop = asyncio.get_event_loop()
 
         ret = None
-        import signal
 
         main_task = asyncio.ensure_future(f(*args, **kwargs))
         wanna_catch_during_command = [signal.SIGINT]
@@ -153,22 +248,17 @@ def run_coroutine(f):
 
 
 def expand_path(path, turn_to_abs_path=False):
-    from os.path import abspath, expanduser, expandvars
     if turn_to_abs_path:
-        return abspath(expanduser(expandvars(path)))
-    return expanduser(expandvars(path))
+        return os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    return os.path.expanduser(os.path.expandvars(path))
 
 
 def validate_command_facility(ctx, param, value):
-    from click import BadParameter
-    from urllib.parse import urlparse
     parsed = ''
-
     try:
         parsed = urlparse(value)
     except Exception as e:
         raise BadParameter(message=str(e), ctx=ctx, param=param)
-
 
     if parsed.path or parsed.params or parsed.query or parsed.fragment:
         raise BadParameter(message='Command factory for drunc-controller is not understood', ctx=ctx, param=param)
@@ -181,12 +271,12 @@ def validate_command_facility(ctx, param, value):
 
 
 def resolve_localhost_to_hostname(address):
-    from socket import gethostname
-    hostname = gethostname()
+    if not address:
+        return None
+    hostname = socket.gethostname()
     if 'localhost' in address:
         address = address.replace('localhost', hostname)
 
-    import re
     ip_match = re.search(
         "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
         address
@@ -206,12 +296,10 @@ def resolve_localhost_to_hostname(address):
 
 
 def resolve_localhost_and_127_ip_to_network_ip(address):
-    from socket import gethostbyname, gethostname
-    this_ip = gethostbyname(gethostname())
+    this_ip = socket.gethostbyname(socket.gethostname())
     if 'localhost' in address:
         address = address.replace('localhost', this_ip)
 
-    import re
     ip_match = re.search(
         "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
         address
@@ -230,9 +318,7 @@ def resolve_localhost_and_127_ip_to_network_ip(address):
     return address
 
 def host_is_local(host):
-    from socket import gethostname, gethostbyname
-
-    if host in ['localhost', gethostname(), gethostbyname(gethostname())]:
+    if host in ['localhost', socket.gethostname(), socket.gethostbyname(socket.gethostname())]:
         return True
 
     if host.startswith('127.') or host.startswith('0.'):
@@ -240,20 +326,13 @@ def host_is_local(host):
 
     return False
 
-
 def pid_info_str():
-    import os
     return f'Parent\'s PID: {os.getppid()} | This PID: {os.getpid()}'
-
-import signal
 
 def ignore_sigint_sighandler():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
 
-
 def parent_death_pact(signal=signal.SIGHUP):
-    import ctypes
-    import sys
     """
     Commit to kill current process when parent process dies.
     Each time you spawn a new process, run this to set signal
@@ -270,7 +349,6 @@ def parent_death_pact(signal=signal.SIGHUP):
     if retcode != 0:
         raise Exception("prctl() returned nonzero retcode %d" % retcode)
 
-from drunc.exceptions import DruncException
 class IncorrectAddress(DruncException):
     pass
 
@@ -281,8 +359,6 @@ def https_or_http_present(address:str):
 
 def http_post(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
-
-    from requests import post
     if as_json:
         r = post(address, json=data, **post_kwargs)
     else:
@@ -295,8 +371,7 @@ def http_post(address, data, as_json=True, ignore_errors=False, **post_kwargs):
 def http_get(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
 
-    from requests import get
-    log = logging.getLogger("http_get")
+    log = get_logger("utils.http_get")
 
     log.debug(f"GETTING {address} {data}")
     if as_json:
@@ -316,7 +391,6 @@ def http_get(address, data, as_json=True, ignore_errors=False, **post_kwargs):
 def http_patch(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
 
-    from requests import patch
     if as_json:
         r = patch(address, json=data, **post_kwargs)
     else:
@@ -330,7 +404,6 @@ def http_patch(address, data, as_json=True, ignore_errors=False, **post_kwargs):
 def http_delete(address, data, as_json=True, ignore_errors=False, **post_kwargs):
     https_or_http_present(address)
 
-    from requests import delete
     if as_json:
         r = delete(address, json=data, **post_kwargs)
     else:
@@ -350,9 +423,10 @@ def get_control_type_and_uri_from_cli(CLAs:list[str]) -> ControlType:
     for CLA in CLAs:
         if   CLA.startswith("rest://"): return ControlType.REST_API, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("rest://", ""))
         elif CLA.startswith("grpc://"): return ControlType.gRPC, resolve_localhost_and_127_ip_to_network_ip(CLA.replace("grpc://", ""))
-
     raise DruncSetupException("Could not find if the child was controlled by gRPC or a REST API")
 
+
+from drunc.connectivity_service.client import ConnectivityServiceClient
 def get_control_type_and_uri_from_connectivity_service(
     connectivity_service:ConnectivityServiceClient,
     name:str,
@@ -363,9 +437,7 @@ def get_control_type_and_uri_from_connectivity_service(
 ) -> tuple[ControlType, str]:
 
     uris = []
-    from drunc.connectivity_service.client import ApplicationLookupUnsuccessful
-    logger = logging.getLogger('get_control_type_and_uri_from_connectivity_service')
-    import time
+    logger = get_logger('utils.get_control_type_and_uri_from_connectivity_service')
 
     start = time.time()
     elapsed = 0

@@ -1,29 +1,40 @@
+import getpass
+import json
+import os
+import signal
 import tempfile
 
+from drunc.connectivity_service.client import ConnectivityServiceClient
+from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
+from drunc.controller.utils import get_segment_lookup_timeout
+from drunc.exceptions import DruncSetupException, DruncShellException
+from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps, collect_variables
+from drunc.process_manager.utils import get_log_path, get_rte_script
+from drunc.utils.configuration import find_configuration
+from drunc.utils.shell_utils import GRPCDriver
+from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service, host_is_local, resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
 
 from druncschema.request_response_pb2 import Description
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessQuery, ProcessRestriction
+from druncschema.process_manager_pb2_grpc import ProcessManagerStub
 
-from drunc.controller.utils import get_segment_lookup_timeout
-from drunc.utils.shell_utils import GRPCDriver
-from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
+import conffwk
+from daqconf.consolidate import consolidate_db
 
-from drunc.exceptions import DruncSetupException, DruncShellException
 
 class ProcessManagerDriver(GRPCDriver):
     controller_address = ''
 
     def __init__(self, address:str, token, **kwargs):
         super(ProcessManagerDriver, self).__init__(
-            name = 'drunc.process_manager_driver',
+            name = 'process_manager.driver',
             address = address,
             token = token,
             **kwargs
         )
-
+        self.log.debug("set up process_manager.driver")
 
     def create_stub(self, channel):
-        from druncschema.process_manager_pb2_grpc import ProcessManagerStub
         return ProcessManagerStub(channel)
 
 
@@ -37,8 +48,6 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool
         ) -> BootRequest:
 
-        from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps
-
         env = {
             'DUNEDAQ_SESSION': session_name,
         }
@@ -50,10 +59,8 @@ class ProcessManagerDriver(GRPCDriver):
 
         apps = infra_apps+apps
 
-        import json
-        self._log.debug(f"{json.dumps(apps, indent=4)}")
+        self.log.debug(f"{json.dumps(apps, indent=4)}")
 
-        import os
         pwd = os.getcwd()
 
         session_log_path = session_dal.log_path
@@ -70,7 +77,7 @@ class ProcessManagerDriver(GRPCDriver):
             env['DUNE_DAQ_BASE_RELEASE'] = os.getenv("DUNE_DAQ_BASE_RELEASE")
             env['SPACK_RELEASES_DIR'] = os.getenv("SPACK_RELEASES_DIR")
             tree_id = app['tree_id']
-            self._log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
+            self.log.debug(f"{name}:\n{json.dumps(app, indent=4)}")
             executable_and_arguments = []
 
             if session_dal.rte_script:
@@ -79,7 +86,6 @@ class ProcessManagerDriver(GRPCDriver):
                     args=[session_dal.rte_script]))
 
             else:
-                from drunc.process_manager.utils import get_rte_script
                 rte_script = get_rte_script()
                 if not rte_script:
                     raise DruncSetupException("No RTE script found.")
@@ -91,11 +97,6 @@ class ProcessManagerDriver(GRPCDriver):
             executable_and_arguments.append(ProcessDescription.ExecAndArgs(
                 exec=exe,
                 args=args))
-
-            if app_log_path == './':
-                app_log_path = pwd
-
-            from drunc.process_manager.utils import get_log_path
             log_path = get_log_path(
                 user = user,
                 session_name = session_name,
@@ -105,12 +106,10 @@ class ProcessManagerDriver(GRPCDriver):
                 session_log_path = session_log_path
             )
 
-            import os
-            from drunc.utils.utils import host_is_local
             if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
                 raise DruncShellException(f"Log path {log_path} does not exist.")
 
-            self._log.debug(f'{name}\'s env:\n{env}')
+            self.log.debug(f'{name}\'s env:\n{env}')
             breq =  BootRequest(
                 process_description = ProcessDescription(
                     metadata = ProcessMetadata(
@@ -129,7 +128,7 @@ class ProcessManagerDriver(GRPCDriver):
                     allowed_hosts = [host]
                 )
             )
-            self._log.debug(f"{breq=}\n\n")
+            self.log.debug(f"{breq=}\n\n")
             yield breq
 
     async def boot(
@@ -141,9 +140,7 @@ class ProcessManagerDriver(GRPCDriver):
         override_logs:bool=True,
         **kwargs
         ) -> ProcessInstance:
-        self._log.info(f"Booting session {session_name}")
-        import conffwk
-        from drunc.utils.configuration import find_configuration
+        self.log.info(f"Booting session [green]{session_name}[/green]")
         oks_conf = find_configuration(conf)
 
         with tempfile.NamedTemporaryFile(suffix='.data.xml', delete=True) as f:
@@ -151,16 +148,15 @@ class ProcessManagerDriver(GRPCDriver):
             f.seek(0)
             fname = f.name
             try:
-                from daqconf.consolidate import consolidate_db
                 consolidate_db(oks_conf, f"{fname}")
             except Exception as e:
-                self._log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
+                self.log.critical(f'''\nInvalid configuration passed (cannot consolidate your configuration)
 {e}
 To debug it, close drunc and run the following command:
 
 [yellow]oks_dump --files-only {oks_conf}[/]
 
-''', extra={'markup': True})
+''')
                 return
 
         db = conffwk.Configuration(f"oksconflibs:{oks_conf}")
@@ -185,20 +181,16 @@ To debug it, close drunc and run the following command:
         top_controller_name = session_dal.segment.controller.id
 
         def get_controller_address(session_dal, session_name):
-            from drunc.process_manager.oks_parser import collect_variables
             env = {}
             collect_variables(session_dal.environment, env)
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
-
-                from drunc.connectivity_service.client import ConnectivityServiceClient, ApplicationLookupUnsuccessful
                 csc = ConnectivityServiceClient(session_name, f'{connection_server}:{connection_port}')
 
-                from drunc.utils.utils import get_control_type_and_uri_from_connectivity_service
                 try:
                     timeout = get_segment_lookup_timeout(session_dal.segment, 60) + 60 # root-controller timout to find all its children + 60s for the root controller to start itself
-                    self._log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service', extra={"markup": True})
+                    self.log.debug(f'Using a timeout of {timeout}s to find the [green]{top_controller_name}[/] on the connectivity service')
                     _, uri = get_control_type_and_uri_from_connectivity_service(
                         csc,
                         name = top_controller_name,
@@ -208,8 +200,7 @@ To debug it, close drunc and run the following command:
                         title = f'Looking for [green]{top_controller_name}[/] on the connectivity service...',
                     )
                 except ApplicationLookupUnsuccessful:
-                    import getpass
-                    self._log.error(f'''
+                    self.log.error(f'''
 Could not find \'{top_controller_name}\' on the connectivity service.
 
 Two possibilities:
@@ -228,7 +219,7 @@ And look for messages like:
 [yellow]Registering root-controller to the connectivity service at grpc://xxx.xxx.xxx.xxx:xxxxx[/]
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-''', extra={"markup": True})
+''')
                     return
 
                 return uri.replace('grpc://', '')
@@ -248,9 +239,8 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             ip = resolve_localhost_and_127_ip_to_network_ip(session_dal.segment.controller.runs_on.runs_on.id)
             return f'{ip}:{port_number}'
 
-        import signal
         def keyboard_interrupt_on_sigint(signal, frame):
-            self._log.warning("Interrupted")
+            self.log.warning("Interrupted")
             raise KeyboardInterrupt
 
         original_sigint_handler = signal.getsignal(signal.SIGINT)
@@ -261,19 +251,17 @@ To find the controller address, you can look up \'{top_controller_name}_control\
             if session_dal.connectivity_service:
                 connection_server = session_dal.connectivity_service.host
                 connection_port = session_dal.connectivity_service.service.port
-                self._log.warning(f"""This shell didn't connect to the {top_controller_name}.
+                self.log.warning(f"""This shell didn't connect to the {top_controller_name}.
 To find the controller address, you can look up \'{top_controller_name}_control\' on http://{resolve_localhost_to_hostname(connection_server)}:{connection_port} (you may need a SOCKS proxy from outside CERN), or use the address from the logs as above. Then just connect this shell to the controller with:
 [yellow]connect {{controller_address}}:{{controller_port}}>[/]
-""", extra={"markup": True}
-                )
+""")
             else:
-                self._log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
+                self.log.warning(f"This shell didn't connect to the {top_controller_name}. You can use the connect command to connect to the controller.")
         finally:
             signal.signal(signal.SIGINT, original_sigint_handler)
 
 
     async def dummy_boot(self, user:str, session_name:str, n_processes:int, sleep:int, n_sleeps:int):# -> ProcessInstance:
-        import os
         pwd = os.getcwd()
 
         # Construct the list of commands to send to the dummy_boot process
@@ -300,7 +288,7 @@ To find the controller address, you can look up \'{top_controller_name}_control\
                     allowed_hosts = ["localhost"]
                 )
             )
-            self._log.debug(f"{breq=}\n\n")
+            self.log.debug(f"{breq=}\n\n")
 
             yield await self.send_command_aio(
                 'boot',

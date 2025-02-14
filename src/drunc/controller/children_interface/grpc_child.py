@@ -1,10 +1,17 @@
+import grpc
+import time
+
+from drunc.broadcast.client.broadcast_handler import BroadcastHandler
+from drunc.broadcast.client.configuration import BroadcastClientConfHandler
 from drunc.controller.children_interface.child_node import ChildNode
-from drunc.utils.utils import ControlType
 from drunc.controller.utils import send_command
-from drunc.utils.configuration import ConfHandler
-import grpc as grpc
 from drunc.exceptions import DruncSetupException
-from druncschema.request_response_pb2 import Response
+from drunc.utils.configuration import ConfHandler, ConfTypes
+from drunc.utils.grpc_utils import ServerUnreachable
+from drunc.utils.utils import ControlType, get_logger
+
+from druncschema.controller_pb2_grpc import ControllerStub
+from druncschema.request_response_pb2 import Description, Response
 
 
 class gRCPChildConfHandler(ConfHandler):
@@ -23,28 +30,22 @@ class gRPCChildNode(ChildNode):
             configuration  = configuration
         )
 
-        from logging import getLogger
-        self.log = getLogger(f'{self.name}-grpc-child')
+        self.log = get_logger(f'controller.{self.name}-grpc-child')
 
         host, port = uri.split(":")
         port = int(port)
 
         if port == 0:
-            from drunc.exceptions import DruncSetupException
             raise DruncSetupException(f"Application {name} does not expose a control service in the configuration, or has not advertised itself to the application registry service, or the application registry service is not reachable.")
 
         self.uri = f"{host}:{port}"
 
-        from druncschema.controller_pb2_grpc import ControllerStub
 
         self.channel = grpc.insecure_channel(self.uri)
         self.controller = ControllerStub(self.channel)
 
-        from druncschema.request_response_pb2 import Description
         desc = Description()
         ntries = 20
-        from drunc.utils.grpc_utils import ServerUnreachable
-        from drunc.exceptions import DruncSetupException
 
         for itry in range(ntries):
             try:
@@ -60,8 +61,7 @@ class gRPCChildNode(ChildNode):
                     raise e
                 else:
                     self.log.info(f'Could not connect to the controller ({self.uri}), trial {itry+1} of {ntries}')
-                    from time import sleep
-                    sleep(5)
+                    time.sleep(5)
 
             except ServerUnreachable as e:
                 raise DruncSetupException from e
@@ -78,9 +78,6 @@ class gRPCChildNode(ChildNode):
 
 
     def start_listening(self, bdesc):
-        from drunc.broadcast.client.configuration import BroadcastClientConfHandler
-        from drunc.broadcast.client.broadcast_handler import BroadcastHandler
-        from drunc.utils.configuration import ConfTypes
         self.broadcast = BroadcastHandler(
             BroadcastClientConfHandler(
                 data = bdesc,

@@ -1,7 +1,15 @@
-from drunc.utils.configuration import ConfHandler
-from rich import print as rprint
-
 from enum import Enum
+from importlib.resources import path
+import os
+from urllib.parse import urlparse
+
+from drunc.broadcast.server.configuration import KafkaBroadcastSenderConfData
+from drunc.process_manager.exceptions import UnknownProcessManagerType
+from drunc.utils.configuration import ConfHandler
+from drunc.utils.utils import get_logger
+
+from appmodel import smart_daq_application_construct_commandline_parameters
+from confmodel import daq_application_construct_commandline_parameters, rc_application_construct_commandline_parameters
 
 class ProcessManagerTypes(Enum):
     Unknown = 0
@@ -15,12 +23,14 @@ class ProcessManagerConfData:
         self.type = ProcessManagerTypes.Unknown
         self.command_address = ''
 
-
 class ProcessManagerConfHandler(ConfHandler):
+    def __init__(self, log_path:str, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.log_path = log_path
+        self.log = get_logger("process_manager.conf_handler")
 
     def _parse_dict(self, data):
         new_data = ProcessManagerConfData()
-        from drunc.broadcast.server.configuration import KafkaBroadcastSenderConfData
         if data.get('broadcaster'):
             new_data.broadcaster = KafkaBroadcastSenderConfData.from_dict(data.get('broadcaster'))
         else:
@@ -35,7 +45,6 @@ class ProcessManagerConfHandler(ConfHandler):
                 new_data.type = ProcessManagerTypes.K8s
                 new_data.image = data.get("image", "ghcr.io/dune-daq/alma9:latest")
             case _:
-                from drunc.process_manager.exceptions import UnknownProcessManagerType
                 raise UnknownProcessManagerType(data['type'])
 
         return new_data
@@ -68,40 +77,33 @@ def get_cla(db, session_uid, obj):
 
     if hasattr(obj, "oksTypes"):
         if 'RCApplication' in obj.oksTypes():
-            from confmodel import rc_application_construct_commandline_parameters
             return rc_application_construct_commandline_parameters(db, session_uid, obj.id)
 
         elif 'SmartDaqApplication' in obj.oksTypes():
-            from appmodel import smart_daq_application_construct_commandline_parameters
             return smart_daq_application_construct_commandline_parameters(db, session_uid, obj.id)
 
         elif 'DaqApplication' in obj.oksTypes():
-            from confmodel import daq_application_construct_commandline_parameters
             return daq_application_construct_commandline_parameters(db, session_uid, obj.id)
 
     return obj.commandline_parameters
 
 
 def get_process_manager_configuration(process_manager_conf_filename:str) -> str:
-    import os
     ## Make the configuration name finding easier
     if os.path.splitext(process_manager_conf_filename)[1] != '.json':
         process_manager_conf_filename += '.json'
     ## If no scheme is provided, assume that it is an internal packaged configuration.
     ## First check it's not an existing external file
     if os.path.isfile(process_manager_conf_filename):
-        from urllib.parse import urlparse
         if urlparse(process_manager_conf_filename).scheme == '':
             process_manager_conf_filename = 'file://' + process_manager_conf_filename
     else:
         ## Check if the file is in the list of packaged configurations
-        from importlib.resources import path
         packaged_configurations = os.listdir(path('drunc.data.process_manager', ''))
         if process_manager_conf_filename in packaged_configurations:
             process_manager_conf_filename = 'file://' + str(path('drunc.data.process_manager', '')) + '/' + process_manager_conf_filename
         else:
-            rprint(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{packaged_configurations}[/green]")
+            log = get_logger("process_manager.ConfHandler")
+            log.error(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{'[/green], [green]'.join(packaged_configurations)}[/green].")
             exit()
-            #from drunc.exceptions import DruncShellException
-            #raise DruncShellException(f"Configuration {process_manager} is not found in the package. The packaged configurations are {packaged_configurations}")
     return process_manager_conf_filename

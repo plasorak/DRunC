@@ -1,8 +1,13 @@
 import abc
-from drunc.fsm.core import FSM
-from drunc.broadcast.server.broadcast_sender import BroadcastSender
-import drunc.fsm.exceptions as fsme
 from typing import Optional
+
+from drunc.broadcast.server.broadcast_sender import BroadcastSender
+from drunc.exceptions import DruncCommandException
+from drunc.fsm.core import FSM
+from drunc.fsm.exceptions import InvalidTransition
+from drunc.fsm.utils import decode_fsm_arguments
+from drunc.utils.utils import get_logger
+
 from druncschema.broadcast_pb2 import BroadcastType
 
 class Observed:
@@ -58,7 +63,6 @@ class InclusionState(Observed):
             **kwargs
         )
 
-from drunc.exceptions import DruncCommandException
 class StatefulNodeException(DruncCommandException):
     pass
 
@@ -83,19 +87,11 @@ class TransitionExecuting(StatefulNodeException):
     def __init__(self):
         super().__init__('A transition is already executing')
 
-
-
-
 class StatefulNode(abc.ABC):
     def __init__(self, fsm_configuration, broadcaster:Optional[BroadcastSender]=None):
-
         self.broadcast = broadcaster
-
         self.__fsm = FSM(fsm_configuration)
-
-        from logging import getLogger
-        self.logger = getLogger('StatefulNode')
-
+        self.log = get_logger('controller.StatefulNode')
         self.__operational_state = OperationalState(
             broadcast_on_change = self.broadcast,
             broadcast_key = BroadcastType.FSM_STATUS_UPDATE,
@@ -157,22 +153,21 @@ class StatefulNode(abc.ABC):
         return self.__in_error.value
 
     def can_transition(self, transition):
-        self.logger.debug(f'{self.__operational_state.value} == {self.__operational_sub_state.value} ?')
+        self.log.debug(f'{self.__operational_state.value} == {self.__operational_sub_state.value} ?')
         if self.__operational_state.value != self.__operational_sub_state.value:
             return False
         return self.__fsm.can_execute_transition(self.get_node_operational_state(), transition)
 
     def decode_fsm_arguments(self, fsm_command):
-        from drunc.fsm.utils import decode_fsm_arguments
         transition = self.get_fsm_transition(fsm_command.command_name)
         return decode_fsm_arguments(fsm_command.arguments, transition.arguments)
 
     def prepare_transition(self, transition, transition_data, transition_args, ctx=None):
         if self.get_node_operational_state() != self.get_node_operational_sub_state():
-            raise fsme.InvalidSubTransition(self.get_node_sub_operational_state(), self.get_node_operational_state(), 'prepare_transition')
+            raise InvalidSubTransition(self.get_node_sub_operational_state(), self.get_node_operational_state(), 'prepare_transition')
 
         if not self.__fsm.can_execute_transition(self.get_node_operational_state(), transition):
-            raise fsme.InvalidTransition(transition, self.get_node_operational_state())
+            raise InvalidTransition(transition, self.get_node_operational_state())
 
         self.__operational_sub_state.value = f'preparing-{transition.name}'
 

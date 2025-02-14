@@ -4,28 +4,22 @@ This is a fake DAQ application that doesn't do anything, but should talk in the 
 
 import argparse
 import copy as cp
-import logging
+from flask import Flask, Response, request
+from flask_restful import Api, Resource
 import random
 import requests
 import threading
 import time
 from urllib.parse import urlparse
 
-from flask import Flask, Response, request
-from flask_restful import Api, Resource
-
+from drunc.utils.utils import setup_root_logger, get_logger
 
 __version__='1.0.0'
 
 # Logger
-log = logging.getLogger('service_logger')
-log.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
-ch.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(threadName)s - %(message)s')
-ch.setFormatter(formatter)
-log.addHandler(ch)
-
+log_level = "DEBUG"
+root_logger = setup_root_logger(log_level)
+log = get_logger("fake_daqapp_rest")
 
 class AppState:
 

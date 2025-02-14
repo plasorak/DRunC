@@ -1,16 +1,16 @@
-from druncschema.request_response_pb2 import Response, ResponseFlag
+import functools
+
+from drunc.utils.utils import get_logger
+
 from druncschema.generic_pb2 import PlainText
+from druncschema.request_response_pb2 import Response, ResponseFlag
+
 
 def authentified_and_authorised(action, system):
-
     def decor(cmd):
-
-        import functools
-
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         def check_token(obj, request):
-            from logging import getLogger
-            log = getLogger('authentified_and_authorised_decorator')
+            log = get_logger('utils.authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
                 return Response(
@@ -33,20 +33,15 @@ def authentified_and_authorised(action, system):
             ret = cmd(obj, request)
             log.debug('Exiting')
             return ret
-        return check_token
 
+        return check_token
     return decor
 
 def async_authentified_and_authorised(action, system):
-
     def decor(cmd):
-
-        import functools
-
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def check_token(obj, request):
-            from logging import getLogger
-            log = getLogger('authentified_and_authorised_decorator')
+            log = get_logger('utils.authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
                 yield Response(
@@ -64,5 +59,4 @@ def async_authentified_and_authorised(action, system):
             log.debug('Exiting')
 
         return check_token
-
     return decor

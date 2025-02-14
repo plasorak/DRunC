@@ -1,33 +1,34 @@
 
-from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessUUID, ProcessInstance, ProcessInstanceList, ProcessDescription, ProcessRestriction, LogRequest, LogLine
-from druncschema.request_response_pb2 import Response
-from druncschema.authoriser_pb2 import ActionType, SystemType
+from kubernetes import client, config
+import getpass
+import os
+import re
+import socket
+from time import sleep
+import uuid
 
-from drunc.process_manager.process_manager import ProcessManager
-from drunc.exceptions import DruncCommandException, DruncException
-from drunc.k8s_exceptions import DruncK8sNamespaceAlreadyExists
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.broadcast.server.decorators import broadcasted
+from drunc.exceptions import DruncCommandException, DruncException
+from drunc.k8s_exceptions import DruncK8sNamespaceAlreadyExists
+from drunc.process_manager.process_manager import ProcessManager
 from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
+from drunc.utils.utils import get_logger
 
+from druncschema.authoriser_pb2 import ActionType, SystemType
+from druncschema.process_manager_pb2 import BootRequest, LogRequest, LogLine, ProcessDescription, ProcessInstance, ProcessInstanceList, ProcessQuery, ProcessRestriction, ProcessUUID
+from druncschema.request_response_pb2 import Response
 
 
 class K8sProcessManager(ProcessManager):
     def __init__(self, configuration, **kwargs):
-
-        import getpass
         self.session = getpass.getuser() # unfortunate
-
         super().__init__(
             configuration = configuration,
             session = self.session,
             **kwargs
         )
-
-        from kubernetes import client, config
-
-        import logging
-        self._log = logging.getLogger('k8s-process-manager')
+        self.log = get_logger('process_manager.k8s-process-manager')
         config.load_kube_config()
 
         self._k8s_client = client
@@ -54,10 +55,10 @@ class K8sProcessManager(ProcessManager):
 
         if namespace_list_str:
             namespace_list_str = "\n - "+namespace_list_str
-            self._log.info(f"Active namespaces created by drunc:{namespace_list_str}")
+            self.log.info(f"Active namespaces created by drunc:{namespace_list_str}")
 
         else:
-            self._log.info("No active namespace created by drunc")
+            self.log.info("No active namespace created by drunc")
 
 
     def is_alive(self, podname, session):
@@ -84,11 +85,11 @@ class K8sProcessManager(ProcessManager):
 
         if obj_type == 'namespace':
             self._core_v1_api.patch_namespace(obj_name, body)
-            self._log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{obj_name}\" session")
+            self.log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{obj_name}\" session")
         elif obj_type == 'pod':
             session = self._get_pod_namespace(obj_name)
             self._core_v1_api.patch_namespaced_pod(obj_name, session, body)
-            self._log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{session}.{obj_name}\"")
+            self.log.info(f"Added label \"{key}.{self.drunc_label}:{label}\" to \"{session}.{obj_name}\"")
         else:
             raise DruncException(f'Cannot add label to object type: {obj_type}')
 
@@ -113,7 +114,7 @@ class K8sProcessManager(ProcessManager):
         ns_names = [ns.metadata.name for ns in ns_list.items]
 
         if not session in ns_names:
-            self._log.info(f"Creating \"{session}\" session")
+            self.log.info(f"Creating \"{session}\" session")
             namespace_manifest = {
                 "apiVersion": "v1",
                 "kind": "Namespace",
@@ -161,9 +162,7 @@ class K8sProcessManager(ProcessManager):
         return exec_and_args
 
     def _create_pod(self, podname, session, boot_request:BootRequest):
-        import os
         # HACK
-        import socket
         hostname = socket.gethostname()
         #/ HACK
 
@@ -236,15 +235,14 @@ class K8sProcessManager(ProcessManager):
         )
         try:
             self._core_v1_api.create_namespaced_pod(session, pod)
-            self._log.info(f"Creating \"{session}.{podname}\"")
+            self.log.info(f"Creating \"{session}.{podname}\"")
             self._add_creator_label(podname, 'pod')
         except Exception as e:
-            self._log.error(f"Couldn't create pod with name: \"{session}.{podname}\": {e}")
+            self.log.error(f"Couldn't create pod with name: \"{session}.{podname}\": {e}")
             raise e
 
 
     def _get_process_uid(self, query:ProcessQuery, in_boot_request:bool=False):
-        import re
         uuid_selector = []
         name_selector = query.names
         user_selector = query.user
@@ -259,15 +257,15 @@ class K8sProcessManager(ProcessManager):
             uuid_selector += [uid.uuid]
 
         all_pods = []
-        for uuid in all_the_uuids:
-            podname = self.boot_request[uuid].process_description.metadata.name
+        for proc_uuid in all_the_uuids:
+            podname = self.boot_request[proc_uuid].process_description.metadata.name
             all_pods.append(podname)
 
-        for uuid in self.boot_request.keys():
+        for proc_uuid in self.boot_request.keys():
             accepted = False
-            meta = self.boot_request[uuid].process_description.metadata
+            meta = self.boot_request[proc_uuid].process_description.metadata
 
-            if uuid in uuid_selector: accepted = True
+            if proc_uuid in uuid_selector: accepted = True
 
             for name_reg in name_selector:
                 if re.search(name_reg, meta.name):
@@ -277,7 +275,7 @@ class K8sProcessManager(ProcessManager):
 
             if user_selector == meta.user: accepted = True
 
-            if accepted: processes.append(uuid)
+            if accepted: processes.append(proc_uuid)
 
         return processes
 
@@ -303,7 +301,6 @@ class K8sProcessManager(ProcessManager):
         if podname in pod_names:
             self._core_v1_api.delete_namespaced_pod(podname, session,grace_period_seconds=0)
             while podname in pod_names:
-                from time import sleep
                 sleep(1)
                 pods = self._core_v1_api.list_namespaced_pod(session)
                 pod_names = [pod.metadata.name for pod in pods.items]
@@ -318,7 +315,7 @@ class K8sProcessManager(ProcessManager):
         )
         deletion_timestamps = [pod.metadata.deletion_timestamp for pod in pods.items]
         if not pods.items or all(timestamp is not None for timestamp in deletion_timestamps):
-            self._log.info(f"Killing empty \"{session}\" session")
+            self.log.info(f"Killing empty \"{session}\" session")
             self._core_v1_api.delete_namespace(session)
 
             ns_list = self._core_v1_api.list_namespace(
@@ -326,14 +323,13 @@ class K8sProcessManager(ProcessManager):
             )
             namespaces = [ns.metadata.name for ns in ns_list.items]
             while session in namespaces:
-                from time import sleep
                 sleep(1)
                 ns_list = self._core_v1_api.list_namespace(
                     label_selector = self._get_creator_label_selector(),
                 )
                 namespaces = [ns.metadata.name for ns in ns_list.items]
             else:
-                self._log.info(f"\"{session}\" session has been killed")
+                self.log.info(f"\"{session}\" session has been killed")
                 pass
         else:
             pass
@@ -357,7 +353,7 @@ class K8sProcessManager(ProcessManager):
 
     def _terminate(self):
 
-        self._log.info('Terminating')
+        self.log.info('Terminating')
 
 
 
@@ -374,7 +370,6 @@ class K8sProcessManager(ProcessManager):
 
 
     def _boot_impl(self, boot_request:BootRequest) -> ProcessUUID:
-        import uuid
         this_uuid = str(uuid.uuid4())
         return self.__boot(boot_request, this_uuid)
 
@@ -391,14 +386,13 @@ class K8sProcessManager(ProcessManager):
         self._create_namespace(session)
         self._create_pod(podnames, session, boot_request)
         self._add_label(podnames, 'pod', 'uuid', uuid)
-        self._log.info(f'\"{session}.{podnames}\":{uuid} booted')
+        self.log.info(f'\"{session}.{podnames}\":{uuid} booted')
 
         pods = self._core_v1_api.list_namespaced_pod(session)
         pod_names = [pod.metadata.name for pod in pods.items]
 
         for _ in range(10):
             if not podnames in pod_names:
-                from time import sleep
                 sleep(1)
             else:
                 break
@@ -410,13 +404,13 @@ class K8sProcessManager(ProcessManager):
 
     def _ps_impl(self, query:ProcessQuery, in_boot_request:bool=False) -> ProcessInstanceList:
         ret=[]
-        for uuid in self._get_process_uid(query):
-            podname = self.boot_request[uuid].process_description.metadata.name
-            session = self.boot_request[uuid].process_description.metadata.session
+        for proc_uuid in self._get_process_uid(query):
+            podname = self.boot_request[proc_uuid].process_description.metadata.name
+            session = self.boot_request[proc_uuid].process_description.metadata.session
 
             return_code = self._return_code(podname, session)
 
-            ret.append(self._get_pi(uuid, podname, session, return_code))
+            ret.append(self._get_pi(proc_uuid, podname, session, return_code))
 
         pil = ProcessInstanceList(
             values=ret
@@ -433,7 +427,7 @@ class K8sProcessManager(ProcessManager):
         for uuid in self._get_process_uid(query):
             podname = self.boot_request[uuid].process_description.metadata.name
             session = self.boot_request[uuid].process_description.metadata.session
-            self._log.info(f'Restarting \"{session}.{podname}\":{uuid}')
+            self.log.info(f'Restarting \"{session}.{podname}\":{uuid}')
 
             self._kill_pod(podname, session)
 
@@ -468,18 +462,18 @@ class K8sProcessManager(ProcessManager):
     @pack_response # 4th step
     def flush(self, query:ProcessQuery) -> Response:
         ret=[]
-        self._log.info('Flushing dead processes')
-        for uuid in self._get_process_uid(query):
-            podname = self.boot_request[uuid].process_description.metadata.name
-            session = self.boot_request[uuid].process_description.metadata.session
+        self.log.info('Flushing dead processes')
+        for proc_uuid in self._get_process_uid(query):
+            podname = self.boot_request[proc_uuid].process_description.metadata.name
+            session = self.boot_request[proc_uuid].process_description.metadata.session
 
             if not self.is_alive(podname, session):
                 return_code = self._return_code(podname, session)
-                ret.append(self._get_pi(uuid, podname, session, return_code))
-                self._log.info(f'Flushing \"{session}.{podname}\":{uuid}')
-                del self.boot_request[uuid]
-                self._log.info(f'\"{session}.{podname}\":{uuid} flushed')
-                del uuid
+                ret.append(self._get_pi(proc_uuid, podname, session, return_code))
+                self.log.info(f'Flushing \"{session}.{podname}\":{proc_uuid}')
+                del self.boot_request[proc_uuid]
+                self.log.info(f'\"{session}.{podname}\":{proc_uuid} flushed')
+                del proc_uuid
                 self._kill_pod(podname, session)
 
             self._kill_if_empty_session(session)
@@ -494,22 +488,22 @@ class K8sProcessManager(ProcessManager):
 
     def _kill_impl(self, query:ProcessQuery, in_boot_request:bool=False) -> ProcessInstanceList:
         ret=[]
-        for uuid in self._get_process_uid(query):
-            podname = self.boot_request[uuid].process_description.metadata.name
-            session = self.boot_request[uuid].process_description.metadata.session
+        for proc_uuid in self._get_process_uid(query):
+            podname = self.boot_request[proc_uuid].process_description.metadata.name
+            session = self.boot_request[proc_uuid].process_description.metadata.session
 
-            self._log.info(f'Killing \"{session}.{podname}\":{uuid}')
+            self.log.info(f'Killing \"{session}.{podname}\":{proc_uuid}')
 
             self._kill_pod(podname, session)
 
-            self._log.info(f'\"{session}.{podname}\":{uuid} killed')
+            self.log.info(f'\"{session}.{podname}\":{proc_uuid} killed')
 
 
             return_code = self._return_code(podname, session)
-            ret.append(self._get_pi(uuid, podname, session, return_code))
+            ret.append(self._get_pi(proc_uuid, podname, session, return_code))
 
-            del self.boot_request[uuid]
-            del uuid
+            del self.boot_request[proc_uuid]
+            del proc_uuid
 
             self._kill_if_empty_session(session)
 
