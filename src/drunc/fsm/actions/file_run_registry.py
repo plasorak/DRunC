@@ -3,7 +3,6 @@ from drunc.utils.configuration import find_configuration
 from daqconf.consolidate import consolidate_db
 
 import os
-import shutil
 
 class FileRunRegistry(FSMAction):
     def __init__(self, configuration):

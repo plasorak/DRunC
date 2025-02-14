@@ -15,7 +15,7 @@ class UsvcProvidedRunNumber(FSMAction):
             self.API_USER   = dotdrunc["run_number_configuration"]["user"]
             self.API_PSWD   = dotdrunc["run_number_configuration"]["password"]
         except KeyError as exc:
-            raise DotDruncJsonIncorrectFormat(f'Malformed ~/.drunc.json, missing a key in the \'run_number_configuration\' section, or the entire \'run_number_configuration\' section') from exc
+            raise DotDruncJsonIncorrectFormat('Malformed ~/.drunc.json, missing a key in the \'run_number_configuration\' section, or the entire \'run_number_configuration\' section') from exc
 
         self.timeout = 0.5
 

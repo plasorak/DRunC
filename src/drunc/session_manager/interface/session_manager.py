@@ -5,7 +5,7 @@ from logging import getLogger
 
 from druncschema.session_manager_pb2_grpc import add_SessionManagerServicer_to_server
 
-from drunc.utils.utils import log_levels, print_traceback, setup_logger
+from drunc.utils.utils import print_traceback
 from drunc.session_manager.configuration import SessionManagerConfHandler
 from drunc.session_manager.session_manager import SessionManager
 
@@ -48,6 +48,6 @@ def session_manager_cli():
 
     try:
         serve(session_manager, "127.0.0.1:50000")
-    except Exception as e:
+    except Exception:
         logger.error("Error whilst serving the session manager.")
         print_traceback()
