@@ -278,6 +278,7 @@ def test_parent_death_pact():
     process.start()
     sleep(0.1) # Let it run for a while...
     process.kill()
+    sleep(0.1) # Let it die for a while...
 
     # Check that the child process is dead
     assert process.is_alive() == False
