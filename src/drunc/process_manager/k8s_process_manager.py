@@ -57,7 +57,7 @@ class K8sProcessManager(ProcessManager):
             self._log.info(f"Active namespaces created by drunc:{namespace_list_str}")
 
         else:
-            self._log.info(f"No active namespace created by drunc")
+            self._log.info("No active namespace created by drunc")
 
 
     def is_alive(self, podname, session):
@@ -468,7 +468,7 @@ class K8sProcessManager(ProcessManager):
     @pack_response # 4th step
     def flush(self, query:ProcessQuery) -> Response:
         ret=[]
-        self._log.info(f'Flushing dead processes')
+        self._log.info('Flushing dead processes')
         for uuid in self._get_process_uid(query):
             podname = self.boot_request[uuid].process_description.metadata.name
             session = self.boot_request[uuid].process_description.metadata.session

@@ -118,7 +118,7 @@ class DBRunRegistry(FSMAction):
 
     def post_drain_dataflow(self, _input_data, _context, **kwargs):
         try:
-            r = requests.get(self.API_SOCKET+"/runregistry/updateStopTime/"+str(self.run_number),
+            requests.get(self.API_SOCKET+"/runregistry/updateStopTime/"+str(self.run_number),
             auth=(self.API_USER, self.API_PSWD),
             timeout=self.timeout)
 

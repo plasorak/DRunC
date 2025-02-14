@@ -1,4 +1,3 @@
-from druncschema.controller_pb2 import Argument
 
 class Transition:
     def __init__(self, name, source, destination, arguments=[], help:str=''):

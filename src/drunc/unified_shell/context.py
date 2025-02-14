@@ -1,4 +1,4 @@
-from drunc.utils.shell_utils import ShellContext, GRPCDriver, add_traceback_flag
+from drunc.utils.shell_utils import ShellContext, GRPCDriver
 from druncschema.token_pb2 import Token
 from typing import Mapping
 

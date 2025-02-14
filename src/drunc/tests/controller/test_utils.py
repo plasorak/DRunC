@@ -1,10 +1,9 @@
 import pytest
-from drunc.tests.fixtures.configuration import load_test_config
 
 
 def test_get_segment_lookup_timeout(load_test_config):
-    from drunc.utils.configuration import parse_conf_url, OKSKey
-    conf_path, conf_type = parse_conf_url(f'oksconflibs://many_recursive_segments.data.xml')
+    from drunc.utils.configuration import parse_conf_url
+    conf_path, conf_type = parse_conf_url('oksconflibs://many_recursive_segments.data.xml')
     from drunc.controller.utils import get_segment_lookup_timeout
     try:
         import conffwk

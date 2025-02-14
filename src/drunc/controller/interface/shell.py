@@ -2,7 +2,6 @@ import click
 import click_shell
 import os
 
-from drunc.controller.interface.context import ControllerContext
 from drunc.utils.utils import log_levels, validate_command_facility
 
 
@@ -25,7 +24,7 @@ def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     transitions = ctx.obj.get_driver('controller').describe_fsm(key="all-transitions").data
 
     from drunc.controller.interface.commands import (
-        describe, status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, fsm, include, exclude, wait
+        describe, status, connect, take_control, surrender_control, who_am_i, who_is_in_charge, include, exclude, wait
     )
 
     ctx.command.add_command(describe, 'describe')

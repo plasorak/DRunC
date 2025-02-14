@@ -104,7 +104,7 @@ class GRPCDriver:
         #         raise error
 
     def handle_response(self, response, command, outformat):
-        from druncschema.request_response_pb2 import ResponseFlag, Response
+        from druncschema.request_response_pb2 import ResponseFlag
         from drunc.utils.grpc_utils import unpack_any
         dr = DecodedResponse(
             name = response.name,
@@ -138,7 +138,7 @@ class GRPCDriver:
                 self._log.error(text("failed"))
 
             if not response.HasField("data"): return None
-            from druncschema.generic_pb2 import Stacktrace, PlainText, PlainTextVector
+            from druncschema.generic_pb2 import Stacktrace, PlainText
             from drunc.utils.grpc_utils import unpack_any
 
             error_txt = ''
@@ -157,7 +157,7 @@ class GRPCDriver:
 
             elif response.data.Is(PlainText.DESCRIPTOR):
                 txt = unpack_any(response.data, PlainText)
-                error_txt = txt.text
+                error_txt = txt.text  # noqa: F841  (might need to revisit this)
 
             # if rethrow:
             #     from drunc.exceptions import DruncServerSideError
@@ -239,7 +239,7 @@ class ShellContext:
     def __init__(self, *args, **kwargs):
         try:
             self.reset(*args, **kwargs)
-        except Exception as e:
+        except Exception:
             from drunc.utils.utils import print_traceback
             print_traceback()
             exit(1)
@@ -270,7 +270,7 @@ class ShellContext:
             if name:
                 return self._drivers[name]
             elif len(self._drivers)>1:
-                raise DruncShellException(f'More than one driver in this context')
+                raise DruncShellException('More than one driver in this context')
             return list(self._drivers.values())[0]
         except KeyError:
             self._log.error(f'Driver {name} commands are not available right now')
@@ -316,7 +316,6 @@ class ShellContext:
 
 
 def create_dummy_token_from_uname() -> Token:
-    from drunc.utils.shell_utils import create_dummy_token_from_uname
     import getpass
     user = getpass.getuser()
 

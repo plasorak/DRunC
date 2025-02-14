@@ -2,7 +2,6 @@ from druncschema.broadcast_pb2_grpc import BroadcastReceiverServicer
 from druncschema.broadcast_pb2 import BroadcastMessage, BroadcastType
 from druncschema.generic_pb2 import Empty
 import grpc
-from drunc.utils.configuration import ConfTypes
 from drunc.controller.configuration import ControllerConfHandler
 
 class gRPCStdoutBroadcastHandler(BroadcastReceiverServicer):

@@ -23,7 +23,6 @@ class ThreadPinning(FSMAction):
         session_dal = db.get_dal(class_name="Session", uid=session)
 
         from os import environ
-        env = environ.copy()
 
         apps = collect_apps(db, session_dal, session_dal.segment, environ)
 
@@ -46,6 +45,7 @@ class ThreadPinning(FSMAction):
         hosts = set()
         for app in apps:
             hosts.add(app["host"])
+
         my_ssh = Command('/usr/bin/ssh')
 
         failed_hosts = set()

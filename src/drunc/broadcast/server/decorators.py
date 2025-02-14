@@ -16,7 +16,6 @@ def broadcasted(cmd):
         # lets not
         log.debug('Entering')
         from druncschema.broadcast_pb2 import BroadcastType
-        from drunc.exceptions import DruncCommandException
 
         obj.broadcast(
             message = f'User \'{request.token.user_name}\' attempting to execute \'{cmd.__name__}\'',
@@ -69,7 +68,6 @@ def async_broadcasted(cmd):
         log = getLogger('async_broadcasted_decorator')
         log.debug('Entering')
         from druncschema.broadcast_pb2 import BroadcastType
-        from drunc.exceptions import DruncCommandException
 
         obj.broadcast(
             message = f'User \'{request.token.user_name}\' attempting to execute \'{cmd.__name__}\'',

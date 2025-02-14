@@ -1,8 +1,7 @@
-from druncschema.request_response_pb2 import Request, Response, Description
-from druncschema.generic_pb2 import PlainText, PlainTextVector
+from druncschema.request_response_pb2 import Description
+from druncschema.generic_pb2 import PlainText
 from druncschema.controller_pb2 import Status
 
-from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver, DecodedResponse
 
 
@@ -44,11 +43,9 @@ class ControllerDriver(GRPCDriver):
         return self.send_command('execute_fsm_command', data = arguments, outformat = FSMCommandResponse)
 
     def include(self, arguments) -> DecodedResponse:
-        from druncschema.controller_pb2 import FSMCommandResponse
         return self.send_command('include', data = arguments, outformat = PlainText)
 
     def exclude(self, arguments) -> DecodedResponse:
-        from druncschema.controller_pb2 import FSMCommandResponse
         return self.send_command('exclude', data = arguments, outformat = PlainText)
 
 

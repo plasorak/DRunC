@@ -2,25 +2,22 @@ from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
 from druncschema.controller_pb2_grpc import ControllerServicer
 from druncschema.controller_pb2 import Status, FSMCommand, FSMCommandResponse, FSMResponseFlag
-from druncschema.generic_pb2 import PlainText, PlainTextVector
-from druncschema.request_response_pb2 import Request, Response, ResponseFlag
+from druncschema.generic_pb2 import PlainText
+from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.token_pb2 import Token
 
 from drunc.authoriser.decorators import authentified_and_authorised
 from drunc.broadcast.server.broadcast_sender import BroadcastSender
 from drunc.broadcast.server.decorators import broadcasted
-from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.decorators import in_control
 import drunc.controller.exceptions as ctler_excpt
 from drunc.controller.stateful_node import StatefulNode
-from drunc.exceptions import DruncException
 from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.grpc_utils import unpack_request_data_to, pack_response
+from drunc.utils.grpc_utils import unpack_request_data_to
 from drunc.utils.grpc_utils import unpack_any
 
 
-import signal
-from typing import Optional, List
+from typing import Optional
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
@@ -127,7 +124,6 @@ class Controller(ControllerServicer):
         self.connectivity_service_thread = None
         self.uri = ''
         if self.configuration.session.connectivity_service:
-            import os
             connection_server = self.configuration.session.connectivity_service.host
             connection_port   = self.configuration.session.connectivity_service.service.port
             self.logger.info(f'Connectivity server {connection_server}:{connection_port} is enabled')
@@ -395,7 +391,7 @@ class Controller(ControllerServicer):
 
                 with response_lock:
                     from druncschema.request_response_pb2 import Response
-                    from druncschema.generic_pb2 import PlainText, Stacktrace
+                    from druncschema.generic_pb2 import Stacktrace
                     import traceback
                     stack = traceback.format_exc().split("\n")
                     response_children.append(
@@ -618,7 +614,6 @@ class Controller(ControllerServicer):
         children_fsm_command.CopyFrom(fsm_command)
         children_fsm_command.data = fsm_data
         children_fsm_command.ClearField("children_nodes") # we strip the children node, since when we feed them to the children they are meaningless
-        execute_on = fsm_command.children_nodes
 
         response_children = self.propagate_to_list(
             'execute_fsm_command',

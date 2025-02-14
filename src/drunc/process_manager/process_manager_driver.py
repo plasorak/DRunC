@@ -1,13 +1,10 @@
-import asyncio
 import tempfile
 
-from typing import Dict
 
-from druncschema.request_response_pb2 import Request, Response, Description
-from druncschema.process_manager_pb2 import BootRequest, ProcessUUID, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
+from druncschema.request_response_pb2 import Description
+from druncschema.process_manager_pb2 import BootRequest, ProcessQuery, ProcessInstance, ProcessInstanceList, ProcessMetadata, ProcessDescription, ProcessRestriction, LogRequest, LogLine
 
 from drunc.controller.utils import get_segment_lookup_timeout
-from drunc.utils.grpc_utils import unpack_any
 from drunc.utils.shell_utils import GRPCDriver
 from drunc.utils.utils import resolve_localhost_and_127_ip_to_network_ip, resolve_localhost_to_hostname
 
@@ -41,7 +38,6 @@ class ProcessManagerDriver(GRPCDriver):
         ) -> BootRequest:
 
         from drunc.process_manager.oks_parser import collect_apps, collect_infra_apps
-        from drunc.process_manager.oks_parser import collect_variables
 
         env = {
             'DUNEDAQ_SESSION': session_name,
@@ -96,7 +92,6 @@ class ProcessManagerDriver(GRPCDriver):
                 exec=exe,
                 args=args))
 
-            from drunc.utils.utils import now_str
             if app_log_path == './':
                 app_log_path = pwd
 
@@ -110,7 +105,7 @@ class ProcessManagerDriver(GRPCDriver):
                 session_log_path = session_log_path
             )
 
-            import os, socket
+            import os
             from drunc.utils.utils import host_is_local
             if host_is_local(host) and not os.path.exists(os.path.dirname(log_path)):
                 raise DruncShellException(f"Log path {log_path} does not exist.")
@@ -212,7 +207,7 @@ To debug it, close drunc and run the following command:
                         progress_bar = True,
                         title = f'Looking for [green]{top_controller_name}[/] on the connectivity service...',
                     )
-                except ApplicationLookupUnsuccessful as e:
+                except ApplicationLookupUnsuccessful:
                     import getpass
                     self._log.error(f'''
 Could not find \'{top_controller_name}\' on the connectivity service.

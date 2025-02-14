@@ -1,16 +1,13 @@
-from drunc.controller.children_interface.child_node import ChildNode
-from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
+from drunc.controller.children_interface.client_side_child import ClientSideChild
 from drunc.exceptions import DruncSetupException
 from drunc.utils.utils import ControlType
 from drunc.utils.grpc_utils import pack_to_any
-from druncschema.controller_pb2 import Status
-from druncschema.generic_pb2 import PlainText, Stacktrace
-from druncschema.request_response_pb2 import Response, ResponseFlag, Description
+from druncschema.generic_pb2 import PlainText
+from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
 from druncschema.token_pb2 import Token
 import threading
 from typing import NoReturn
-import os
 
 class ResponseDispatcher(threading.Thread):
 
@@ -23,7 +20,7 @@ class ResponseDispatcher(threading.Thread):
         self.log = getLogger('ResponseDispatcher')
 
     def run(self) -> NoReturn:
-        self.log.debug(f'ResponseDispatcher starting to run')
+        self.log.debug('ResponseDispatcher starting to run')
 
         while True:
             # self.log.debug(f'starting to iterating: {self.listener.queue.qsize()}')
@@ -36,7 +33,7 @@ class ResponseDispatcher(threading.Thread):
             #     continue
 
             if r == self.STOP:
-                self.log.debug(f'ResponseDispatcher STOP')
+                self.log.debug('ResponseDispatcher STOP')
                 break
             self.listener.notify(r)
 
@@ -60,8 +57,6 @@ class ResponseListener:
     @classmethod
     def get(cls):
         with cls._lock:
-            from logging import getLogger
-            log = getLogger('ResponseListener.get')
             if cls._instance is None:
                 cls._instance = cls.__new__(cls)
                 from drunc.utils.utils import get_new_port
@@ -224,11 +219,11 @@ class AppCommander:
         import socket, socks
 
         if not self.proxy_host and not self.proxy_port:
-            self.log.debug(f'NO proxy setup')
+            self.log.debug('NO proxy setup')
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(1)
         else:
-            self.log.debug(f'Proxy setup')
+            self.log.debug('Proxy setup')
             s = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
             s.set_proxy(socks.SOCKS5, self.proxy_host, self.proxy_port)
             s.settimeout(1)
@@ -286,7 +281,7 @@ class AppCommander:
                     'https': f'socks5h://{self.response_host}:{self.response_port}'
                 } if self.proxy_host else None
             )
-        except requests.ConnectionError as e:
+        except requests.ConnectionError:
             self.log.error(f'Connection error to {self.app_url}')
             raise CouldnotSendCommand(f'Connection error to {self.app_url}')
 
@@ -473,7 +468,6 @@ class RESTAPIChildNode(ClientSideChild):
     #         )
 
     def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
-        from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)

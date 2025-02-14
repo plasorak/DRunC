@@ -16,7 +16,6 @@ class FileRunRegistry(FSMAction):
         run_number = _input_data['run']
         run_configuration = find_configuration(_context.configuration.initial_data)
 
-
         dest = os.getcwd()+"/run_conf"+str(run_number)+".data.xml"
         consolidate_db(run_configuration, f"{dest}")
 

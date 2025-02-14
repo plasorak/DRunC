@@ -1,5 +1,3 @@
-from rich import print
-from druncschema.controller_pb2 import FSMCommandsDescription
 from druncschema.request_response_pb2 import Description
 from drunc.utils.shell_utils import DecodedResponse
 import logging
@@ -39,7 +37,7 @@ def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedRespon
         obj.print(f'Could not get the status of the controller, got a \'{data_type}\' instead')
         return
 
-    from drunc.controller.interface.shell_utils import format_bool, tree_prefix
+    from drunc.controller.interface.shell_utils import format_bool
     from rich.table import Table
 
     t = Table(title=f'[dark_green]{descriptions.data.session}[/dark_green] status')
@@ -74,7 +72,6 @@ def controller_cleanup_wrapper(ctx):
         import grpc
         who = ''
 
-        from drunc.utils.grpc_utils import unpack_any
         try:
             who = ctx.get_driver('controller').who_is_in_charge().data
 
@@ -168,7 +165,7 @@ def controller_setup(ctx, controller_address):
             log.debug('You are in control.')
             ctx.took_control = True
         else:
-            log.debug(f'You are NOT in control.')
+            log.debug('You are NOT in control.')
             ctx.took_control = False
 
 
@@ -180,7 +177,6 @@ def controller_setup(ctx, controller_address):
     return desc
 
 
-from drunc.controller.interface.context import ControllerContext
 from druncschema.controller_pb2 import FSMCommand
 def search_fsm_command(command_name:str, command_list:list[FSMCommand]):
     for command in command_list:
@@ -305,7 +301,6 @@ def tree_prefix(i, n):
     first_many = "├── "
     next = "├── "
     last = "└── "
-    first_column = ''
     if i==0 and n == 1:
         return first_one
     elif i==0:
@@ -345,8 +340,7 @@ def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
 
     if not result: return
 
-    from drunc.utils.grpc_utils import unpack_any
-    from druncschema.controller_pb2 import FSMResponseFlag, FSMCommandResponse
+    from druncschema.controller_pb2 import FSMResponseFlag
 
     from rich.table import Table
     t = Table(title=f'{transition_name} execution report')

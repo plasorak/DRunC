@@ -8,13 +8,10 @@ from drunc.authoriser.decorators import authentified_and_authorised, async_authe
 from drunc.broadcast.server.decorators import broadcasted, async_broadcasted
 from drunc.exceptions import DruncCommandException
 from drunc.process_manager.configuration import ProcessManagerConfHandler, ProcessManagerTypes
-from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.utils.grpc_utils import unpack_request_data_to, async_unpack_request_data_to,pack_to_any
-from drunc.utils.utils import setup_logger, pid_info_str
+from drunc.utils.utils import pid_info_str
 
 import abc
-import os
-import getpass
 import logging
 
 class BadQuery(DruncCommandException):
@@ -348,7 +345,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             try:
                 if not self.process_store[uuid].is_alive(): # OMG!! remove this implementation code
                     return_code = self.process_store[uuid].exit_code
-            except Exception as e:
+            except Exception:
                 pass
 
             if not self.process_store[uuid].is_alive():
@@ -418,7 +415,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @async_unpack_request_data_to(LogRequest) # 3rd step
     async def logs(self, lr:LogRequest) -> Response:
-        self.log.debug(f"Getting logs")
+        self.log.debug("Getting logs")
         try:
             async for r in self._logs_impl(lr):
                 yield Response(
@@ -439,9 +436,9 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def _ensure_one_process(self, uuids:[str], in_boot_request:bool=False) -> str:
         if uuids == []:
-            raise BadQuery(f'The process corresponding to the query doesn\'t exist')
+            raise BadQuery('The process corresponding to the query doesn\'t exist')
         elif len(uuids)>1:
-            raise BadQuery(f'There are more than 1 processes corresponding to the query')
+            raise BadQuery('There are more than 1 processes corresponding to the query')
 
         if in_boot_request:
             if not uuids[0] in self.boot_request:
@@ -491,11 +488,11 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
         log = getLogger("ProcessManager_get")
 
         if conf.data.type == ProcessManagerTypes.SSH:
-            log.info(f'Starting \'SSHProcessManager\'')
+            log.info('Starting \'SSHProcessManager\'')
             from drunc.process_manager.ssh_process_manager import SSHProcessManager
             return SSHProcessManager(conf, **kwargs)
         elif conf.data.type == ProcessManagerTypes.K8s:
-            log.info(f'Starting \'K8sProcessManager\'')
+            log.info('Starting \'K8sProcessManager\'')
             from drunc.process_manager.k8s_process_manager import K8sProcessManager
             return K8sProcessManager(conf, **kwargs)
         else:

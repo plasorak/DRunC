@@ -58,7 +58,7 @@ class ConnectivityServiceClient:
 
                 r.raise_for_status()
                 break
-            except (HTTPError, ConnectionError) as e:
+            except (HTTPError, ConnectionError):
                 from time import sleep
                 sleep(0.5)
                 continue
@@ -130,7 +130,7 @@ class ConnectivityServiceClient:
                     ignore_errors = True
                 ).raise_for_status()
                 break
-            except (HTTPError, ConnectionError, ReadTimeout) as e:
+            except (HTTPError, ConnectionError, ReadTimeout):
                 from time import sleep
                 sleep(0.2)
                 continue

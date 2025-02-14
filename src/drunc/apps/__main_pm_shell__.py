@@ -8,12 +8,12 @@ def main():
 
         process_manager_shell(obj = context)
 
-    except Exception as e:
+    except Exception:
         from rich import print as rprint
-        rprint(f'[red bold]:fire::fire: Exception thrown :fire::fire:')
+        rprint('[red bold]:fire::fire: Exception thrown :fire::fire:')
         from drunc.utils.utils import print_traceback
         print_traceback()
-        rprint(f'Exiting...')
+        rprint('Exiting...')
         exit(1)
 
 
