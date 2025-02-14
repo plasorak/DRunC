@@ -1,5 +1,7 @@
 import click
+import json
 from drunc.controller.interface.context import ControllerContext
+from druncschema.generic_pb2 import PlainText, Stacktrace
 
 @click.command('list-transitions')
 @click.option('--all', is_flag=True, help='List all transitions (available and unavailable)')
@@ -109,23 +111,45 @@ def exclude(obj:ControllerContext) -> None:
 
 
 @click.command('expert-command')
-@click.option('-f', '--file', is_flag=True, help='Read the command from a file, else you need to write the json data directly')
+@click.option('-s', '--string', is_flag=True, help='Read the command directly from the command line, else you need to write a file and provide its path')
 @click.argument('command', type=str)
 @click.pass_obj
-def expert_command(obj:ControllerContext, command:str, file:bool) -> None:
+def expert_command(obj:ControllerContext, command:str, string:bool) -> None:
+    data = dict()
+
     try:
-        if file:
+        if string:
+            data = json.loads(command)
+        else:
             with open(command, 'r') as f:
                 data = json.load(f)
-        else:
-            data = json.loads(command)
-    except Exception as e:
-        obj.print(f'Error: {e}')
-        return
-    json_string = json.dumps(data)
-    data = FSMCommand(
-        command_name = 'exclude',
-    )
 
-    result = obj.get_driver('controller').expert_command(arguments=data).data
-    obj.print(result.text)
+    except FileNotFoundError:
+        obj.print(f'File not found: {command}')
+        return
+
+    except json.JSONDecodeError as e:
+        obj.print(f'JSON decode error: {e}')
+        return
+
+    result = obj.get_driver('controller').expert_command(json_string=json.dumps(data))
+
+    def print_result(result, prefix=""):
+
+        if not hasattr(result, "data"):
+            obj.print(f'{prefix}[yellow]{result.name}[/yellow] [red]NO RESPONSE (no data)[/red]')
+        elif result.data.DESCRIPTOR.name == "PlainText":
+            obj.print(f'{prefix}[yellow]{result.name}[/yellow] [green]{result.data.text}[/green]')
+        elif result.data.DESCRIPTOR.name == "Stacktrace":
+            for i in reversed(range(len(result.data.text))):
+                error = result.data.text[i]
+                if error != '':
+                    break
+            obj.print(f'{prefix}[yellow]{result.name}[/yellow] [red]ERROR: {error}[/red]')
+        else:
+            obj.print(f'{prefix}[yellow]{result.name}[/yellow] [red]NO RESPONSE (data format not understood: {result.data.DESCRIPTOR.name})[/red]')
+
+        for child in result.children:
+            print_result(child, prefix + "    ")
+
+    print_result(result)
