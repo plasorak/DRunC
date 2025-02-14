@@ -106,7 +106,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
 @click.option('-l', '--log-level', type=click.Choice(log_levels.keys(), case_sensitive=False), default='INFO', help='Set the log level')
 @click.option('-o/-no', '--override-logs/--no-override-logs', type=bool, default=True, help="Override logs, if --no-override-logs filenames have the timestamp of the run.")
 @click.option('-lp', '--log-path', type=str, default=None, help="Log path of process_manager logs.")
-def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str, user:str) -> None:
+def process_manager_cli(pm_conf:str, pm_port:int, log_level:str, override_logs:bool, log_path:str) -> None:
     setup_root_logger(log_level)
     pm_conf = get_process_manager_configuration(pm_conf)
     run_pm(

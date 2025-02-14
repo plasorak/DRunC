@@ -10,7 +10,6 @@ def main():
         log = get_logger("controller", rich_handler=True)
         log.error(f"[red bold]:fire::fire: Exception thrown :fire::fire:")
         log.exception(e)
-        log.error("Exiting")
         exit(1)
 
 if __name__ == '__main__':

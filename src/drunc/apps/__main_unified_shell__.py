@@ -14,7 +14,6 @@ def main():
         log = get_logger("unified_shell_app", rich_handler = True)
         log.error(f"[red bold]:fire::fire: Exception thrown :fire::fire:")
         log.exception(e)
-        log.error("Exiting")
         if context.pm_process and context.pm_process.is_alive():
             context.pm_process.kill() # We're in an exception handler, so we are not going to do it half-heartedly, send a good ol' SIGKILL
         exit(1)

@@ -67,6 +67,9 @@ class LoggingFormatter(logging.Formatter):
         component_width = 45
         name_colon = f"{record.name}:"
         record.name = name_colon.ljust(component_width)[:component_width]
+        component_width = 10
+        level_name = record.levelname
+        record.levelname = level_name.ljust(component_width)[:component_width]
         return super().format(record)
 
 def root_logger_is_setup(log_level:int) -> bool:
