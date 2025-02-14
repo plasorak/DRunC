@@ -7,7 +7,7 @@ from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
 class ConnectivityServiceClient:
     def __init__(self, session:str, address:str):
         self.session = session
-        self.log = get_logger('ConnectivityServiceClient')
+        self.log = get_logger('utils.ConnectivityServiceClient')
 
         if address.startswith('http://') or address.startswith('https://'):
             self.address = address

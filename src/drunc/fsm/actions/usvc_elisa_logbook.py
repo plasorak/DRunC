@@ -19,7 +19,7 @@ class ElisaLogbook(FSMAction):
         self.API_USER =  dotdrunc["elisa_configuration"]["user"]
         self.API_PASS =  dotdrunc["elisa_configuration"]["password"]
         self.timeout = 5
-        self.log = get_logger('microservice')
+        self.log = get_logger('controller.usvc_Elisa')
 
     def post_start(self, _input_data:dict, _context, elisa_post:str='', **kwargs):
         text = ""

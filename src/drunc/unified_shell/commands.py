@@ -1,6 +1,5 @@
 import click
 import getpass
-import logging
 
 from drunc.controller.interface.shell_utils import controller_setup
 from drunc.process_manager.interface.context import ProcessManagerContext

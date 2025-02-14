@@ -1,4 +1,3 @@
-from rich import print as rprint
 from typing import Mapping
 
 from drunc.broadcast.client.broadcast_handler import BroadcastHandler
@@ -6,7 +5,7 @@ from drunc.broadcast.client.configuration import BroadcastClientConfHandler
 from drunc.process_manager.process_manager_driver import ProcessManagerDriver
 from drunc.utils.configuration import ConfTypes
 from drunc.utils.shell_utils import ShellContext, GRPCDriver, create_dummy_token_from_uname
-from drunc.utils.utils import resolve_localhost_to_hostname
+from drunc.utils.utils import get_logger, resolve_localhost_to_hostname
 
 from druncschema.token_pb2 import Token
 
@@ -45,7 +44,7 @@ class ProcessManagerContext(ShellContext): # boilerplatefest
             type = ConfTypes.ProtobufAny,
         )
         self.status_receiver = BroadcastHandler(bcch)
-        rprint(f':ear: Listening to the Process Manager at {self.address}')
+        get_logger("process_manager.shell").info(f':ear: Listening to the Process Manager at {self.address}')
 
     def terminate(self):
         if self.status_receiver:

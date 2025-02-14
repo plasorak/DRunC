@@ -11,7 +11,7 @@ def authentified_and_authorised(action, system):
     def decor(cmd):
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         def check_token(obj, request):
-            log = get_logger('authentified_and_authorised_decorator')
+            log = get_logger('utils.authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
                 return Response(
@@ -42,7 +42,7 @@ def async_authentified_and_authorised(action, system):
     def decor(cmd):
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def check_token(obj, request):
-            log = get_logger('authentified_and_authorised_decorator')
+            log = get_logger('utils.authentified_and_authorised_decorator')
             log.debug('Entering')
             if not obj.authoriser.is_authorised(request.token, action, system, cmd.__name__):
                 yield Response(

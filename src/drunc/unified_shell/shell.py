@@ -23,7 +23,7 @@ from drunc.process_manager.interface.process_manager import run_pm
 from drunc.process_manager.utils import get_log_path, get_pm_conf_name_from_dir
 from drunc.unified_shell.commands import boot
 from drunc.utils.configuration import find_configuration, OKSKey, parse_conf_url
-from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, pid_info_str, setup_root_logger, validate_command_facility
+from drunc.utils.utils import get_logger, ignore_sigint_sighandler, log_levels, pid_info_str, setup_root_logger, setup_standard_loggers, validate_command_facility
 
 import conffwk
 
@@ -47,6 +47,7 @@ def unified_shell(
 ) -> None:
     # Set up the drunc and unified_shell loggers
     setup_root_logger(log_level)
+    setup_standard_loggers()
     unified_shell_log = get_logger(
         logger_name = 'unified_shell',
         rich_handler = True
@@ -81,7 +82,7 @@ def unified_shell(
         rich_handler = True
     )
     process_manager_log.debug(f"Set up [green]process_manager[/green] logger")
-    unified_shell_log.info(f"Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session {session_name}[/green] from [green]{boot_configuration}[/green]")
+    unified_shell_log.info(f'Setting up to use [green]process_manager[/green] with configuration [green]{process_manager}[/green] and [green]session "{session_name}"[/green] from [green]{boot_configuration}[/green]')
 
     if internal_pm: 
         unified_shell_log.debug(f"Spawning [green]process_manager[/green] with configuration {process_manager}")
@@ -183,9 +184,9 @@ def unified_shell(
         ),
     )
 
-    fsm_logger = get_logger("FSM") # RETURNTOME - this will be controller.FSM
+    fsm_logger = get_logger("controller.FSM")
     fsm_logger.setLevel("ERROR")
-    fsm_conf_logger = get_logger("FSMConfHandler")
+    fsm_conf_logger = get_logger("controller.FSMConfHandler")
     fsm_conf_logger.setLevel("ERROR")
 
     unified_shell_log.debug("Initializing the [green]FSM[/green]")

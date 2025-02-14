@@ -35,7 +35,7 @@ class PreOrPostTransitionSequence:
         self.prefix = pre_or_post
 
         self.sequence = []
-        self.log = get_logger("PreOrPostTransitionSequence")
+        self.log = get_logger("controller.PreOrPostTransitionSequence")
 
     def add_callback(self, action, mandatory=True):
         method = getattr(action, f'{self.prefix}_{self.transition.name}')
@@ -67,7 +67,7 @@ class PreOrPostTransitionSequence:
         for callback in self.sequence:
             try:
                 self.log.debug(f'data before callback: {input_data}')
-                self.log.info(f'executing the callback: {callback.method.__name__} from {callback.method.__module__}')
+                self.log.debug(f'executing the callback: {callback.method.__name__} from {callback.method.__module__}')
                 input_data = callback.method(_input_data=input_data, _context=ctx, **transition_args)
                 self.log.debug(f'data after callback: {input_data}')
                 try:
@@ -154,28 +154,23 @@ class PreOrPostTransitionSequence:
 
 class FSM:
     def __init__(self, conf):
-
+        self.log = get_logger('controller.FSM')
         self.configuration = conf
-
-        self.log = get_logger('FSM')
 
         self.initial_state = self.configuration.get_initial_state()
         self.states = self.configuration.get_states()
 
         self.transitions = self.configuration.get_transitions()
-
         self._enusure_unique_transition(self.transitions)
-
-
         self.pre_transition_sequences = self.configuration.get_pre_transitions_sequences()
         self.post_transition_sequences = self.configuration.get_post_transitions_sequences()
 
-        self.log.info(f'Initial state is "{self.initial_state}"')
-        self.log.info('Allowed transitions are:')
+        self.log.debug(f'Initial state is "{self.initial_state}"')
+        self.log.debug('Allowed transitions are:')
         for t in self.transitions:
-            self.log.info(str(t))
-            self.log.info(f'Pre transition: {self.pre_transition_sequences[t]}')
-            self.log.info(f'Post transition: {self.post_transition_sequences[t]}')
+            self.log.debug(str(t))
+            self.log.debug(f'Pre transition: {self.pre_transition_sequences[t]}')
+            self.log.debug(f'Post transition: {self.post_transition_sequences[t]}')
 
     def _enusure_unique_transition(self, transitions):
         a_set = set()

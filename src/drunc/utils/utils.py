@@ -96,14 +96,14 @@ def setup_root_logger(log_level:str) -> None:
 
     # And then manually tweak 'sh.command' logger. Sigh.
     sh_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    sh_command_logger = logging.getLogger("drunc." + sh.__name__)
+    sh_command_logger = logging.getLogger("drunc." + sh.__name__) # Not get_logger as the root logger is initially "UNSET" at context declaration
     sh_command_logger.setLevel(sh_command_level)
     for handler in sh_command_logger.handlers:
         handler.setLevel(sh_command_level)
 
     # And kafka
     kafka_command_level = log_level if log_level > logging.INFO else (log_level+10)
-    kafka_command_logger = get_logger("drunc." + kafka.__name__)
+    kafka_command_logger = logging.getLogger("drunc." + kafka.__name__) # Not get_logger as the root logger is initially "UNSET" at context declaration
     kafka_command_logger.setLevel(kafka_command_level)
     for handler in kafka_command_logger.handlers:
         handler.setLevel(kafka_command_level)
@@ -187,6 +187,12 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
     function_logger.debug(f"Finished setting up logger {logger_name}")
     return logger
 
+def setup_standard_loggers() -> None:
+    get_logger(
+        logger_name="utils",
+        rich_handler=True
+    )
+
 def get_random_string(length):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(length))
@@ -194,17 +200,12 @@ def get_random_string(length):
 def regex_match(regex, string):
     return re.match(regex, string) is not None
 
-def print_traceback(with_rich:bool=True): # RETURNTOME - rename to print_console_traceback
-    if with_rich:
-        c = Console()
-        try:
-            width = os.get_terminal_size()[0]
-        except:
-            width = 300
-        c.print_exception(width=width)
-    # else: # RETURNTOME
-    #     import sys
-    #     sys.traceback # FIX THISNOW
+def print_traceback(e): # RETURNTOME - rename to print_console_traceback
+    log = get_logger(
+        logger_name="utils.traceback",
+        rich_handler=True
+    )
+    log.exception(e)
 
 def get_new_port():
     with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:

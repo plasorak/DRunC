@@ -1,5 +1,4 @@
 import json
-import logging
 import os
 import requests
 import tarfile
@@ -8,7 +7,7 @@ import tempfile
 from drunc.fsm.core import FSMAction
 from drunc.fsm.exceptions import CannotGetSoftwareVersion, CannotInsertRunNumber, CannotUpdateStopTime
 from drunc.utils.configuration import find_configuration
-from drunc.utils.utils import expand_path
+from drunc.utils.utils import expand_path, get_logger
 
 from daqconf.consolidate import consolidate_db
 
@@ -25,7 +24,7 @@ class DBRunRegistry(FSMAction):
         self.API_PSWD = dotdrunc["run_registry_configuration"]["password"]
         self.timeout = 2
 
-        self.log = logging.getLogger('microservice-run-registry')
+        self.log = get_logger('controller.usvc_db_run_registry')
 
     def pre_start(self, _input_data:dict, _context, **kwargs):
         self.run_number = _input_data['run'] #Seems like run_number isn't in _input_data in post_drain_dataflow so need to initialise it here

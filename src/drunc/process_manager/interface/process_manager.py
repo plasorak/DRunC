@@ -6,7 +6,6 @@ import logging
 import os
 import signal
 import socket
-from rich.logging import RichHandler
 
 from drunc.exceptions import DruncSetupException
 from drunc.process_manager.configuration import get_process_manager_configuration, ProcessManagerConfHandler
@@ -31,12 +30,13 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
             override_logs = override_logs,
             app_log_path = log_path
         )
-    log = get_logger(
+    process_manager_logger = get_logger(
         logger_name = appName, 
         log_file_path = log_path,
         override_log_file = override_logs,
         rich_handler = True
     )
+    log = get_logger(appName + ".shell")
 
     log.debug("Running [green]run_pm[/green]")
     if signal_handler is not None:

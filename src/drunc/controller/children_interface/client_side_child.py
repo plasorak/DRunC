@@ -80,7 +80,7 @@ class ClientSideChild(ChildNode):
             node_type = node_type,
             configuration = configuration
         )
-        self.log = get_logger(f'{name}-client-side')
+        self.log = get_logger(f'controller.{name}-client-side')
         self.state = ClientSideState()
         self.fsm_configuration = fsm_configuration
         if fsm_configuration:

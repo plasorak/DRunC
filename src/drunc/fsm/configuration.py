@@ -1,11 +1,13 @@
 from drunc.fsm.action_factory import FSMActionFactory
 from drunc.fsm.core import PreOrPostTransitionSequence
 from drunc.fsm.transition import Transition
+from drunc.utils.utils import get_logger
 from drunc.utils.configuration import ConfHandler
 
 
 class FSMConfHandler(ConfHandler):
     def _fill_pre_post_transition_sequence_oks(self, prefix, transition, data):
+        self.log = get_logger("controller.FSMConfHandler")
         seq = PreOrPostTransitionSequence(
             transition,
             prefix,
@@ -33,7 +35,7 @@ class FSMConfHandler(ConfHandler):
         return seq
 
     def _post_process_oks(self):
-        self.log.info('_post_process_oks configuration')
+        self.log.debug('_post_process_oks configuration')
         self.pre_transitions  = {}
         self.post_transitions = {}
         self.actions = {}
@@ -43,7 +45,7 @@ class FSMConfHandler(ConfHandler):
 
 
         for action in self.data.actions:
-            self.log.info(f'Setting up action \'{action.id}\'')
+            self.log.debug(f'Setting up action \'{action.id}\'')
             self.actions[action.id] = FSMActionFactory.get().get_action(
                 action.id,
                 action

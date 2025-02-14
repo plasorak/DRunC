@@ -2,7 +2,6 @@ import click
 import click_shell
 import getpass
 import os
-import logging
 
 from drunc.controller.interface.context import ControllerContext
 from drunc.controller.interface.shell_utils import controller_cleanup_wrapper, controller_setup, generate_fsm_command
@@ -17,7 +16,7 @@ from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_ro
 def controller_shell(ctx, controller_address:str, log_level:str) -> None:
     setup_root_logger(log_level)
     controller_shell_log = get_logger(
-        logger_name = "controller_shell",
+        logger_name = "controller.shell",
         rich_handler = True
     )
 

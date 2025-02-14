@@ -28,7 +28,7 @@ class K8sProcessManager(ProcessManager):
             session = self.session,
             **kwargs
         )
-        self.log = get_logger('k8s-process-manager')
+        self.log = get_logger('process_manager.k8s-process-manager')
         config.load_kube_config()
 
         self._k8s_client = client

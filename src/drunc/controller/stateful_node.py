@@ -91,7 +91,7 @@ class StatefulNode(abc.ABC):
     def __init__(self, fsm_configuration, broadcaster:Optional[BroadcastSender]=None):
         self.broadcast = broadcaster
         self.__fsm = FSM(fsm_configuration)
-        self.log = get_logger('StatefulNode')
+        self.log = get_logger('controller.StatefulNode')
         self.__operational_state = OperationalState(
             broadcast_on_change = self.broadcast,
             broadcast_key = BroadcastType.FSM_STATUS_UPDATE,

@@ -20,7 +20,7 @@ class UsvcProvidedRunNumber(FSMAction):
         self.API_PSWD = dotdrunc["run_number_configuration"]["password"]
         self.timeout = 0.5
 
-        self.log = get_logger('microservice')
+        self.log = get_logger('controller.usvc_run_number')
 
     def pre_start(self, _input_data:dict, _context, run_type:str="TEST", disable_data_storage:bool=False, trigger_rate:float=0., **kwargs):
         run_type = validate_run_type(run_type.upper())

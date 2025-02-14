@@ -28,7 +28,7 @@ def test_print_traceback(capsys):
     try:
         raise ValueError("Test error")
     except ValueError as e:
-        print_traceback()
+        print_traceback(e)
     captured = capsys.readouterr()
     assert "ValueError" in captured.out
     assert "Test error" in captured.out

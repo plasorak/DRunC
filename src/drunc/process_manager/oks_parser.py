@@ -44,7 +44,7 @@ def collect_apps(db, session, segment, env:Dict[str,str], tree_prefix=[0,]) -> L
 
   """
 
-  log = get_logger('collect_apps')
+  log = get_logger('process_manager.collect_apps')
   # Get default environment from Session
   defenv = env.copy()
 
@@ -138,7 +138,7 @@ def collect_infra_apps(session, env:Dict[str, str], tree_prefix) -> List[Dict]:
   @return The list of dictionaries holding application attributs
 
   """
-  log = get_logger('collect_infra_apps')
+  log = get_logger('process_manager.collect_infra_apps')
 
   defenv = env
   DB_PATH = os.getenv("DUNEDAQ_DB_PATH")

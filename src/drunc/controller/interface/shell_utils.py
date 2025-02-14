@@ -19,8 +19,6 @@ from druncschema.generic_pb2 import bool_msg, float_msg, int_msg, string_msg
 from druncschema.request_response_pb2 import Description, ResponseFlag
 
 
-log = logging.getLogger('controller_shell_utils')
-
 class ArgumentException(DruncShellException):
     pass
 
@@ -93,9 +91,11 @@ def match_children(statuses:list, descriptions:list) -> list:
 
 def print_status_table(obj, statuses:DecodedResponse, descriptions:DecodedResponse):
     if not statuses: return
+    log = logging.getLogger('controller.shell_utils')
 
     if type(statuses.data) != Status:
         data_type = statuses.data.TypeName() if type(statuses.data) == Any else type(statuses.data)
+        log = logging.getLogger('controller.shell_utils')
         log.warning(f'Could not get the status of the controller, got a \'{data_type}\' instead')
         return
 
@@ -130,7 +130,7 @@ def controller_cleanup_wrapper(ctx):
         # remove the shell from the controller broadcast list
         dead = False
         who = ''
-
+        log = logging.getLogger('controller.shell_utils')
         try:
             who = ctx.get_driver('controller').who_is_in_charge().data
 
@@ -192,6 +192,7 @@ def controller_setup(ctx, controller_address):
     if stored_exception is not None:
         raise stored_exception
 
+    log = logging.getLogger('controller.shell_utils')
     log.info(f'{controller_address} is \'{desc.name}.{desc.session}\' (name.session), starting listening...')
     if desc.HasField('broadcast'):
         ctx.start_listening_controller(desc.broadcast)
@@ -285,6 +286,7 @@ def validate_and_format_fsm_arguments(arguments:dict, command_arguments:list[Arg
 
 
 def run_one_fsm_command(controller_name, transition_name, obj, **kwargs):
+    log = logging.getLogger('controller.shell_utils')
     log.info(f"Running transition \'{transition_name}\' on controller \'{controller_name}\'")
     fsm_description = obj.get_driver('controller').describe_fsm().data
     command_desc = search_fsm_command(transition_name, fsm_description.commands)

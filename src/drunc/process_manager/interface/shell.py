@@ -17,7 +17,7 @@ from drunc.utils.utils import CONTEXT_SETTINGS, get_logger, log_levels, setup_ro
 def process_manager_shell(ctx, process_manager_address:str, log_level:str) -> None:
     setup_root_logger(log_level)
     process_manager_shell_log = get_logger(
-        logger_name = "process_manager_shell",
+        logger_name = "process_manager.shell",
         rich_handler = True
     )
 

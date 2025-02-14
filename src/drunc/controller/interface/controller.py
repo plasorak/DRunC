@@ -1,7 +1,6 @@
 import click
 import concurrent
 import grpc
-import logging
 import os
 from rich.console import Console
 import signal
@@ -9,7 +8,7 @@ import signal
 from drunc.controller.controller import Controller
 from drunc.controller.configuration import ControllerConfHandler
 from drunc.utils.configuration import CLI_to_ConfTypes, find_configuration, OKSKey, parse_conf_url
-from drunc.utils.utils import get_logger, log_levels, print_traceback, resolve_localhost_and_127_ip_to_network_ip, setup_root_logger, validate_command_facility
+from drunc.utils.utils import get_logger, log_levels, resolve_localhost_and_127_ip_to_network_ip, setup_root_logger, validate_command_facility
 
 from druncschema.controller_pb2_grpc import add_ControllerServicer_to_server
 from druncschema.token_pb2 import Token
@@ -32,7 +31,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
     """
     console = Console()
     setup_root_logger(log_level)
-    log = get_logger(logger_name = 'controller.controller_cli')
+    log = get_logger('controller.controller_cli')
     token = Token(
         user_name = "controller_init_token",
         token = '',
@@ -72,7 +71,7 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         ctrlr.terminate()
 
     def kill_me(sig, frame):
-        l = get_logger("kill_me")
+        l = get_logger("controller.kill_me")
         l.info('Sending SIGKILL')
         pgrp = os.getpgid(os.getpid())
         os.killpg(pgrp, signal.SIGKILL)
@@ -81,8 +80,8 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         log.info('Shutting down gracefully')
         try:
             controller_shutdown()
-        except:
-            print_traceback()
+        except Exception as e:
+            log.exception(e)
             kill_me(sig, frame)
 
     signal.signal(signal.SIGHUP, kill_me)
@@ -97,6 +96,6 @@ def controller_cli(boot_configuration:str, command_facility:str, application_nam
         server.wait_for_termination(timeout=None)
 
     except Exception as e:
-        print_traceback()
+        log.exception(e)
 
 

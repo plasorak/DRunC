@@ -15,13 +15,13 @@ from typing import NoReturn
 from drunc.controller.children_interface.child_node import ChildNode
 from drunc.controller.children_interface.client_side_child import ClientSideChild, ClientSideState
 from drunc.controller.exceptions import ChildError
-from drunc.exceptions import DruncSetupException
+from drunc.exceptions import DruncException, DruncSetupException
 from drunc.fsm.core import FSM
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.utils.configuration import ConfHandler
 from drunc.utils.flask_manager import FlaskManager
 from drunc.utils.grpc_utils import pack_to_any
-from drunc.utils.utils import ControlType, get_logger, get_new_port, print_traceback
+from drunc.utils.utils import ControlType, get_logger, get_new_port
 
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag, Status
 from druncschema.generic_pb2 import PlainText, Stacktrace
@@ -45,8 +45,7 @@ class ResponseDispatcher(threading.Thread):
     def __init__(self,listener):
         threading.Thread.__init__(self)
         self.listener = listener
-        from drunc.utils.utils import get_logger
-        self.log = get_logger('ResponseDispatcher')
+        self.log = get_logger('controller.ResponseDispatcher')
 
     def run(self) -> NoReturn:
         self.log.debug(f'ResponseDispatcher starting to run')
@@ -81,7 +80,7 @@ class ResponseListener:
 
     @classmethod
     def get(cls):
-        log = get_logger('ResponseListener.get')
+        log = get_logger('controller.ResponseListener')
         if cls._instance is None:
             cls._instance = cls.__new__(cls)
             cls.port = get_new_port()
@@ -94,7 +93,7 @@ class ResponseListener:
             cls.dispatcher.start()
 
             def index():
-                log = get_logger('ResponseListener.index')
+                log = get_logger('controller.ResponseListener')
                 json = request.get_json(force=True)
                 log.debug(f'Received {json}')
                 # enqueue command reply
@@ -204,7 +203,7 @@ class AppCommander:
         self.proxy_port = proxy_port
 
         self.app = app_name
-        self.log = get_logger(f'{self.app}-commander')
+        self.log = get_logger(f'controller.{self.app}-commander')
         self.app_url = f"http://{self.app_host}:{self.app_port}/command"
 
         self.response_queue = queue.Queue()
@@ -343,7 +342,7 @@ class RESTAPIChildNode(ClientSideChild):
             fsm_configuration = fsm_configuration,
         )
 
-        self.log = get_logger(f'{name}-rest-api-child')
+        self.log = get_logger(f'controller.{name}_rest_api_child')
 
         self.response_listener = ResponseListener.get()
 
@@ -459,7 +458,6 @@ class RESTAPIChildNode(ClientSideChild):
     #         )
 
     def propagate_fsm_command(self, command:str, data, token:Token) -> Response:
-        from drunc.exceptions import DruncException
         entry_state = self.state.get_operational_state()
         transition = self.fsm.get_transition(data.command_name)
         exit_state = self.fsm.get_destination_state(entry_state, transition)
@@ -508,7 +506,7 @@ class RESTAPIChildNode(ClientSideChild):
         except Exception as e: # OK, we catch all exceptions here, but that's because REST-API are stateless, and we so we need to put the application in error.
             self.log.error(f'Got error from \'{data.command_name}\' to \'{self.name}\': {str(e)}')
             self.state.to_error()
-            print_traceback()
+            self.log.exception(e)
             raise e
 
         self.state.end_command_execution_mark()

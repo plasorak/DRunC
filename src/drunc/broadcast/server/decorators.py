@@ -31,7 +31,7 @@ def broadcasted(cmd):
 
         except Exception as e:
             from drunc.utils.utils import print_traceback
-            print_traceback()
+            log.exception(e)
 
             stack = traceback.format_exc().split("\n")
             from drunc.exceptions import DruncException
@@ -84,7 +84,7 @@ def async_broadcasted(cmd):
         except Exception as e:
             stack = traceback.format_exc().split("\n")
             from drunc.utils.utils import print_traceback
-            print_traceback()
+            log.exception(e)
             from drunc.exceptions import DruncException
             flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
 

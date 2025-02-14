@@ -30,7 +30,7 @@ class gRPCChildNode(ChildNode):
             configuration  = configuration
         )
 
-        self.log = get_logger(f'{self.name}-grpc-child')
+        self.log = get_logger(f'controller.{self.name}-grpc-child')
 
         host, port = uri.split(":")
         port = int(port)

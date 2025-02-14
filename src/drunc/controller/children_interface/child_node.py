@@ -1,5 +1,4 @@
 import abc
-import logging
 import os
 
 from drunc.connectivity_service.exceptions import ApplicationLookupUnsuccessful
@@ -22,7 +21,7 @@ class ChildNode(abc.ABC):
     def __init__(self, name:str, configuration, node_type:ControlType, **kwargs) -> None:
         super().__init__(**kwargs)
         self.node_type = node_type
-        self.log = get_logger(f"{name}-child-node")
+        self.log = get_logger(f"controller.{name}-child-node")
         self.name = name
         self.configuration = configuration
 
@@ -81,7 +80,7 @@ class ChildNode(abc.ABC):
 
     @staticmethod
     def get_child(name:str, cli, configuration, init_token=None, connectivity_service=None, timeout=60, **kwargs):
-        log = get_logger("ChildNode.get_child")
+        log = get_logger("controller.child_node")
         ctype = ControlType.Unknown
         uri = None
         node_in_error = False

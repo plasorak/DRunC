@@ -1,13 +1,13 @@
 from enum import Enum
 from importlib.resources import path
 import os
-from rich import print as rprint
 from urllib.parse import urlparse
 
-from drunc.broadcast.server.configuration import KafkaBroadcastSenderConfData
 from drunc.exceptions import DruncSetupException
+from drunc.broadcast.server.configuration import KafkaBroadcastSenderConfData
 from drunc.process_manager.exceptions import UnknownProcessManagerType
 from drunc.utils.configuration import ConfHandler
+from drunc.utils.utils import get_logger
 
 from appmodel import smart_daq_application_construct_commandline_parameters
 from confmodel import daq_application_construct_commandline_parameters, rc_application_construct_commandline_parameters
@@ -28,6 +28,7 @@ class ProcessManagerConfHandler(ConfHandler):
     def __init__(self, log_path:str, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.log_path = log_path
+        self.log = get_logger("process_manager.conf_handler")
 
     def _parse_dict(self, data):
         new_data = ProcessManagerConfData()
@@ -102,6 +103,6 @@ def get_process_manager_configuration(process_manager_conf_filename:str) -> str:
         if process_manager_conf_filename in packaged_configurations:
             process_manager_conf_filename = 'file://' + str(path('drunc.data.process_manager', '')) + '/' + process_manager_conf_filename
         else:
-            rprint(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{'[/green], [green]'.join(packaged_configurations)}[/green].")
+            log.error(f"Configuration [red]{process_manager_conf_filename}[/red] not found, check filename spelling or use a packaged configuration as one of [green]{'[/green], [green]'.join(packaged_configurations)}[/green].")
             exit()
     return process_manager_conf_filename

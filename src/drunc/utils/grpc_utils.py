@@ -80,7 +80,7 @@ def async_unpack_request_data_to(data_type=None, pass_token=False):
     def decor(cmd):
         @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
         async def unpack_request(obj, request):
-            log = get_logger('utils.unpack_request_data_to_decorator')
+            log = get_logger('utils.async_unpack_request_data_to_decorator')
             log.debug('Executing wrapped function')
             kwargs = {}
             if pass_token:
@@ -151,7 +151,7 @@ def async_pack_response(cmd, with_children_responses=False):
     raise DeprecationWarning('This function is deprecated, pack your responses yourself')
     @functools.wraps(cmd) # this nifty decorator of decorator (!) is nicely preserving the cmd.__name__ (i.e. signature)
     async def pack_response(obj, *arg, **kwargs):
-        log = get_logger('utils.pack_response_decorator')
+        log = get_logger('utils.async_pack_response_decorator')
         log.debug('Executing wrapped function')
         async for ret in cmd(obj, *arg, **kwargs):
             new_token = Token() # empty token

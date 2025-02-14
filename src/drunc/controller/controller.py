@@ -22,8 +22,8 @@ from drunc.controller.utils import get_detector_name, get_status_message
 from drunc.exceptions import DruncException
 from drunc.fsm.configuration import FSMConfHandler
 from drunc.fsm.utils import convert_fsm_transition
-from drunc.utils.grpc_utils import pack_response, pack_to_any, unpack_any, unpack_request_data_to
-from drunc.utils.utils import get_logger, print_traceback
+from drunc.utils.grpc_utils import pack_to_any, unpack_any, unpack_request_data_to
+from drunc.utils.utils import get_logger
 
 from druncschema.authoriser_pb2 import ActionType, SystemType
 from druncschema.broadcast_pb2 import BroadcastType
@@ -36,7 +36,7 @@ from druncschema.token_pb2 import Token
 
 class ControllerActor:
     def __init__(self, token:Optional[Token]=None):
-        self.log = get_logger("ControllerActor")
+        self.log = get_logger("controller.actor")
         self._token = Token(
             token="",
             user_name=""
@@ -89,7 +89,7 @@ class Controller(ControllerServicer):
         self.session = session
         self.broadcast_service = None
 
-        self.log = get_logger('Controller')
+        self.log = get_logger('controller')
         self.log.info(f'Initialising controller \'{name}\' with session \'{session}\'')
         self.configuration = configuration
 
@@ -380,7 +380,7 @@ class Controller(ControllerServicer):
 
             except Exception as e: # Catch all, we are in a thread and want to do something sensible when an exception is thrown
                 self.log.error(f"Something wrong happened while sending the command to {child.name}: Error raised: {str(e)}")
-                print_traceback()
+                self.log.exception(e)
                 flag = ResponseFlag.DRUNC_EXCEPTION_THROWN if isinstance(e, DruncException) else ResponseFlag.UNHANDLED_EXCEPTION_THROWN
 
                 with response_lock:

@@ -66,10 +66,7 @@ class DecodedResponse:
 
 class GRPCDriver:
     def __init__(self, name:str, address:str, token:Token, aio_channel=False):
-        self.log = get_logger(
-            logger_name = f"GRPCDriver",
-            rich_handler = True
-        )
+        self.log = get_logger("utils.GRPCDriver")
 
         if not address:
             raise DruncSetupException(f'You need to provide a valid IP address for the driver. Provided \'{address}\'')
@@ -242,7 +239,7 @@ class ShellContext:
         try:
             self.reset(*args, **kwargs)
         except Exception as e:
-            print_traceback()
+            print_traceback(e)
             exit(1)
 
     @abc.abstractmethod
@@ -287,7 +284,7 @@ class ShellContext:
         self._console.rule(*args, **kwargs)
 
     def print_status_summary(self) -> None:
-        log = get_logger("utils.shell_utils", rich_handler = True)
+        log = get_logger("utils.ShellContext")
         status = self.get_driver('controller').status().data
         if status.in_error:
             log.error(f"[red] FSM is in error ({status})[/red], not currently accepting new commands.")
