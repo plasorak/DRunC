@@ -24,7 +24,7 @@ class DummyAuthoriser:
         return []
 
 def main():
-    a = DummyAuthoriser()
+    DummyAuthoriser()
 
 if __name__ == '__main__':
     main()

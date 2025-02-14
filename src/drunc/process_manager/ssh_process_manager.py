@@ -114,7 +114,7 @@ class SSHProcessManager(ProcessManager):
             if not self.process_store[uuid].is_alive():
                 try:
                     return_code = self.process_store[uuid].exit_code
-                except Exception as e:
+                except Exception:
                     pass
 
             ret += [
@@ -248,7 +248,7 @@ class SSHProcessManager(ProcessManager):
                 env_var = boot_request.process_description.env
 
                 # Add EXIT trap and use it kill child processes on the ssh client side when the ssh connection is closed
-                cmd =f'echo "SSHPM: Starting process $$ on host $HOSTNAME as user $USER";'
+                cmd ='echo "SSHPM: Starting process $$ on host $HOSTNAME as user $USER";'
 
                 # Add exported environment variables
                 cmd_env = ';'.join([ f"export {n}=\"{v}\"" for n,v in env_var.items()])
@@ -290,7 +290,7 @@ class SSHProcessManager(ProcessManager):
             except Exception as e:
                 error += str(e)
                 print(f'Couldn\'t start on host {host}, reason:\n{str(e)}')
-                print(f'\nTrying on a different host')
+                print('\nTrying on a different host')
                 continue
         ## Saving the host to the metadata
         self.boot_request[uuid].process_description.metadata.hostname = hostname
@@ -320,7 +320,7 @@ class SSHProcessManager(ProcessManager):
                 return_code = self.process_store[uuid].exit_code
             else:
                 alive = True
-        except Exception as e:
+        except Exception:
             pass
 
         pi = ProcessInstance(
@@ -359,7 +359,7 @@ class SSHProcessManager(ProcessManager):
             if not self.process_store[uuid].is_alive():
                 try:
                     return_code = self.process_store[uuid].exit_code
-                except Exception as e:
+                except Exception:
                     pass
 
             pi = ProcessInstance(

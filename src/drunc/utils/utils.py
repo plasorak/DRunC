@@ -236,7 +236,7 @@ def run_coroutine(f):
 
         try:
             ret = loop.run_until_complete(main_task)
-        except asyncio.exceptions.CancelledError as e:
+        except asyncio.exceptions.CancelledError:
             print("Command cancelled")
         finally:
             for sig in wanna_catch_during_command:
@@ -262,13 +262,13 @@ def validate_command_facility(ctx, param, value):
         raise BadParameter(message=str(e), ctx=ctx, param=param)
 
     if parsed.path or parsed.params or parsed.query or parsed.fragment:
-        raise BadParameter(message=f'Command factory for drunc-controller is not understood', ctx=ctx, param=param)
+        raise BadParameter(message='Command factory for drunc-controller is not understood', ctx=ctx, param=param)
 
     match parsed.scheme:
         case 'grpc':
             return str(parsed.netloc)
         case _:
-            raise BadParameter(message=f'Command factory for drunc-controller only allows \'grpc\'', ctx=ctx, param=param)
+            raise BadParameter(message='Command factory for drunc-controller only allows \'grpc\'', ctx=ctx, param=param)
 
 
 def resolve_localhost_to_hostname(address):
@@ -466,7 +466,7 @@ def get_control_type_and_uri_from_connectivity_service(
                     else:
                         break
 
-                except ApplicationLookupUnsuccessful as e:
+                except ApplicationLookupUnsuccessful:
                     elapsed = time.time() - start
                     logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                     time.sleep(retry_wait)
@@ -482,7 +482,7 @@ def get_control_type_and_uri_from_connectivity_service(
                 else:
                     break
 
-            except ApplicationLookupUnsuccessful as e:
+            except ApplicationLookupUnsuccessful:
                 elapsed = time.time() - start
                 logger.debug(f"Could not resolve \'{name}_control\' elapsed {elapsed:.2f}s/{timeout}s")
                 time.sleep(retry_wait)

@@ -1,5 +1,5 @@
 
-from drunc.broadcast.types import BroadcastTypes, BroadcastTypeNotHandled
+from drunc.broadcast.types import BroadcastTypes
 from drunc.broadcast.client.configuration import BroadcastClientConfHandler
 
 class BroadcastHandler:

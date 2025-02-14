@@ -96,7 +96,6 @@ def test_get_new_port():
 
 def test_run_coroutine():
     from drunc.utils.utils import run_coroutine
-    import asyncio
 
     @run_coroutine
     async def test_this_coroutine(val):
@@ -120,10 +119,6 @@ def test_interrupt_run_coroutine(capsys):
         return val
 
     from threading import Thread
-    from multiprocessing import Process
-    import signal
-    import os
-    pid = os.getpid()
 
     process = Thread(target=test_this_coroutine, kwargs={"val":'abcdef'})
     # process = Process(target=test_this_coroutine, kwargs={"val":'abcdef'})
@@ -215,7 +210,7 @@ def generate_address(text):
 
 def test_resolve_localhost_to_hostname():
     from drunc.utils.utils import resolve_localhost_to_hostname
-    from socket import gethostbyname, gethostname
+    from socket import gethostname
     hostname = gethostname()
 
     resolved = resolve_localhost_to_hostname(generate_address("localhost"))
@@ -260,7 +255,7 @@ def test_host_is_local():
 
 def test_parent_death_pact():
     from drunc.utils.utils import parent_death_pact
-    from os import fork, getpid, kill, waitpid
+    from os import getpid
     from multiprocessing import Process
     from time import sleep
 
@@ -275,14 +270,15 @@ def test_parent_death_pact():
         # The purpose for this one is if someone ctrl+C the test, then this process should also die
         parent_pid = getpid()
         print(f'Parent PID: {parent_pid}')
-        child_process = Process(target=child_process, name="tester_child_process")
-        child_process.start()
+        child_process_ = Process(target=child_process, name="tester_child_process")
+        child_process_.start()
         sleep(10)
 
     process = Process(target=parent_process, name="tester_parent_process")
     process.start()
     sleep(0.1) # Let it run for a while...
     process.kill()
+    sleep(0.1) # Let it die for a while...
 
     # Check that the child process is dead
     assert process.is_alive() == False

@@ -599,7 +599,6 @@ class Controller(ControllerServicer):
         children_fsm_command.CopyFrom(fsm_command)
         children_fsm_command.data = fsm_data
         children_fsm_command.ClearField("children_nodes") # we strip the children node, since when we feed them to the children they are meaningless
-        execute_on = fsm_command.children_nodes
 
         response_children = self.propagate_to_list(
             'execute_fsm_command',

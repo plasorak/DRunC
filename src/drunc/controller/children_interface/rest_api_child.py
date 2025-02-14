@@ -48,7 +48,7 @@ class ResponseDispatcher(threading.Thread):
         self.log = get_logger('controller.ResponseDispatcher')
 
     def run(self) -> NoReturn:
-        self.log.debug(f'ResponseDispatcher starting to run')
+        self.log.debug('ResponseDispatcher starting to run')
 
         while True:
             # self.log.debug(f'starting to iterating: {self.listener.queue.qsize()}')
@@ -61,7 +61,7 @@ class ResponseDispatcher(threading.Thread):
             #     continue
 
             if r == self.STOP:
-                self.log.debug(f'ResponseDispatcher STOP')
+                self.log.debug('ResponseDispatcher STOP')
                 break
             self.listener.notify(r)
 
@@ -223,11 +223,11 @@ class AppCommander:
 
 
         if not self.proxy_host and not self.proxy_port:
-            self.log.debug(f'NO proxy setup')
+            self.log.debug('NO proxy setup')
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.settimeout(1)
         else:
-            self.log.debug(f'Proxy setup')
+            self.log.debug('Proxy setup')
             s = socks.socksocket(socket.AF_INET, socket.SOCK_STREAM)
             s.set_proxy(socks.SOCKS5, self.proxy_host, self.proxy_port)
             s.settimeout(1)
@@ -283,7 +283,7 @@ class AppCommander:
                     'https': f'socks5h://{self.response_host}:{self.response_port}'
                 } if self.proxy_host else None
             )
-        except requests.ConnectionError as e:
+        except requests.ConnectionError:
             self.log.error(f'Connection error to {self.app_url}')
             raise CouldnotSendCommand(f'Connection error to {self.app_url}')
 

@@ -11,7 +11,7 @@ from drunc.utils.utils import ControlType, get_logger
 from druncschema.controller_pb2 import Status
 from druncschema.request_response_pb2 import Response, ResponseFlag
 from druncschema.controller_pb2 import FSMCommandResponse, FSMResponseFlag
-from druncschema.generic_pb2 import PlainText, Stacktrace
+from druncschema.generic_pb2 import PlainText
 from druncschema.token_pb2 import Token
 
 

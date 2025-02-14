@@ -57,7 +57,7 @@ async def boot(
         controller_setup(obj, controller_address)
 
     else:
-        log.error(f'Could not understand where the controller is!')
+        log.error('Could not understand where the controller is!')
         return
 
     log.info("Booted successfully")

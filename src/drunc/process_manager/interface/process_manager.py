@@ -91,7 +91,7 @@ def run_pm(pm_conf:str, pm_address:str, log_level:str, override_logs:bool, log_p
         loop.run_until_complete(
             serve(pm_address)
         )
-    except Exception as e:
+    except Exception:
         log.error("Serving the ProcessManager received an Exception")
         log.exception(e)
     finally:

@@ -110,10 +110,10 @@ class ConfHandler:
             )
 
         except ImportError as e:
-           raise DruncSetupException(f'OKS is not setup in this python environment, cannot parse OKS configurations') from e
+           raise DruncSetupException('OKS is not setup in this python environment, cannot parse OKS configurations') from e
 
         except KeyError as e:
-           raise DruncSetupException(f'OKS params where not passed to this ConfigurationHandler, cannot parse OKS configurations') from e
+           raise DruncSetupException('OKS params where not passed to this ConfigurationHandler, cannot parse OKS configurations') from e
 
 
     def _post_process_oks(self):

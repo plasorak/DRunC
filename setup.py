@@ -18,6 +18,8 @@ setup(
     ],
     extras_require={"develop": [
         "ipdb",
-        "ipython"
+        "ipython",
+        "ruff",
+        "pre-commit"
     ]},
 )

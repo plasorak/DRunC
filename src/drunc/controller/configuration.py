@@ -74,7 +74,7 @@ class ControllerConfHandler(ConfHandler):
         try:
             session = self.db.get_dal(class_name="Session", uid=self.oks_key.session)
 
-        except ImportError as e:
+        except ImportError:
             if enabled_only:
                 self.log.error('OKS was not set up, so configuration does not know about include/exclude. All the children nodes will be returned')
                 enabled_only=True

@@ -168,7 +168,7 @@ class GRPCDriver:
 
             elif response.data.Is(PlainText.DESCRIPTOR):
                 txt = unpack_any(response.data, PlainText)
-                error_txt = txt.text
+                error_txt = txt.text  # noqa: F841  (might need to revisit this)
 
             # if rethrow:
             #     raise DruncServerSideError(error_txt, stack_txt)
@@ -268,7 +268,7 @@ class ShellContext:
             if name:
                 return self._drivers[name]
             elif len(self._drivers)>1:
-                raise DruncShellException(f'More than one driver in this context')
+                raise DruncShellException('More than one driver in this context')
             return list(self._drivers.values())[0]
         except KeyError:
             log = get_logger("utils.ShellContext")

@@ -347,7 +347,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
             try:
                 if not self.process_store[uuid].is_alive(): # OMG!! remove this implementation code
                     return_code = self.process_store[uuid].exit_code
-            except Exception as e:
+            except Exception:
                 pass
 
             if not self.process_store[uuid].is_alive():
@@ -416,7 +416,7 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
     ) # 2nd step
     @async_unpack_request_data_to(LogRequest) # 3rd step
     async def logs(self, lr:LogRequest) -> Response:
-        self.log.debug(f"Getting logs")
+        self.log.debug("Getting logs")
         try:
             async for r in self._logs_impl(lr):
                 yield Response(
@@ -437,9 +437,9 @@ class ProcessManager(abc.ABC, ProcessManagerServicer):
 
     def _ensure_one_process(self, uuids:[str], in_boot_request:bool=False) -> str:
         if uuids == []:
-            raise BadQuery(f'The process corresponding to the query doesn\'t exist')
+            raise BadQuery('The process corresponding to the query doesn\'t exist')
         elif len(uuids)>1:
-            raise BadQuery(f'There are more than 1 processes corresponding to the query')
+            raise BadQuery('There are more than 1 processes corresponding to the query')
 
         if in_boot_request:
             if not uuids[0] in self.boot_request:

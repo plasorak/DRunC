@@ -208,7 +208,7 @@ def controller_setup(ctx, controller_address):
             log.debug('You are in control.')
             ctx.took_control = True
         else:
-            log.debug(f'You are NOT in control.')
+            log.debug('You are NOT in control.')
             ctx.took_control = False
 
     except Exception as e:

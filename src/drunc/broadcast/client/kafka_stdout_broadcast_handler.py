@@ -27,7 +27,7 @@ class KafkaStdoutBroadcastHandler(BroadcastHandlerImplementation):
         self.message_format = message_format
 
         import logging
-        self._log = logging.getLogger(f'Broadcast')
+        self._log = logging.getLogger('Broadcast')
 
         from drunc.utils.utils import now_str, get_random_string
         import getpass
