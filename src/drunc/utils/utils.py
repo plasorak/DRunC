@@ -123,11 +123,6 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         raise DruncSetupException("Configuration error - a log_file_path must be provided if it is to be overwritten")
     if logger_name.count(".") > 2:
         raise DruncSetupException(f"Logger {logger_name} has a larger inheritance structure than allowed.")
-
-    if logger_name.count(".") == 2 and ("drunc." + logger_name.split(".")[0]) not in logger_dict:
-        function_logger.debug(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
-        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
-
     if logger_name == "process_manager" and 'drunc.process_manager' not in logger_dict:
         if not log_file_path:
             raise DruncSetupException("process_manager logger setup requires a log path.")
@@ -139,6 +134,10 @@ def get_logger(logger_name:str, log_file_path:str = None, override_log_file:bool
         function_logger.debug("This logger has already been set up, returning the original")
         logger = logging.getLogger("drunc." + logger_name)
         return logger
+    if logger_name.count(".") == 2 and ("drunc." + logger_name.split(".")[0]) not in logger_dict:
+        function_logger.debug(f"Parent of logger {logger_name} (drunc.{logger_name.split('.')[0]}) not set up yet, setting it up now")
+        get_logger(logger_name.split(".")[0], log_file_path, override_log_file, rich_handler)
+
     logger_level = logging.getLogger("drunc").level
     if not logger_level:
         raise DruncSetupException(f"Root logger level not set (found level {logging.getLevelName(logger_level)})")

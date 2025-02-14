@@ -14,7 +14,7 @@ import json
 import traceback
 from typing import Dict, List, Set, Tuple
 
-from drunc.exceptions import DruncSetupException
+from drunc.exceptions import DruncException, DruncSetupException
 from drunc.fsm.action_factory import FSMActionFactory
 import drunc.fsm.exceptions as fsme
 from drunc.fsm.transition import Transition

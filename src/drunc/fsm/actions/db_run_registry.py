@@ -6,7 +6,7 @@ import json
 
 from drunc.fsm.actions.utils import get_dotdrunc_json
 from drunc.fsm.core import FSMAction
-from drunc.fsm.exceptions import CannotGetSoftwareVersion, CannotInsertRunNumber, CannotUpdateStopTime
+from drunc.fsm.exceptions import CannotGetSoftwareVersion, CannotInsertRunNumber, CannotUpdateStopTime, DotDruncJsonIncorrectFormat
 from drunc.utils.configuration import find_configuration
 from drunc.utils.utils import expand_path, get_logger
 

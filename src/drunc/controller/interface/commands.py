@@ -83,7 +83,7 @@ def who_am_i(obj:ControllerContext) -> None:
 def who_is_in_charge(obj:ControllerContext) -> None:
     who = obj.get_driver('controller').who_is_in_charge().data
     if who:
-        log = get_logger(**logger_name)
+        log = get_logger(**logger_params)
         log.info(who.text)
 
 @click.command('include')
